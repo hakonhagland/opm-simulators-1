@@ -78,6 +78,7 @@ namespace Opm
         void displayWarning_(std::string warning);
         double getGasRateWithLimit_(std::vector<double> &potentials);
         double getOilRateWithLimit_(std::vector<double> &potentials);
+        void logSuccess_();
         bool runOptimizeLoop_(bool increase);
         void setAlqMaxRate_(const GasLiftOpt::Well &well);
         void setAlqMinRate_(const GasLiftOpt::Well &well);
@@ -94,7 +95,7 @@ namespace Opm
         StdWell &std_well_;
         const SummaryState &summary_state_;
         const WellState &well_state_;
-        const std::string *well_name_;
+        std::string well_name_;
 
         double alpha_w_;
         double alpha_g_;

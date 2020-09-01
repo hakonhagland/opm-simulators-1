@@ -54,7 +54,7 @@ GasLiftRuntime(
     const Opm::Schedule& schedule = this->ebos_simulator_.vanguard().schedule();
     const int report_step_idx = this->ebos_simulator_.episodeIndex();
     auto ecl_well = this->std_well_.wellEcl();
-    this->well_name_ = &(ecl_well.name());
+    this->well_name_ = ecl_well.name();
     const GasLiftOpt& glo = schedule.glo(report_step_idx);
     // NOTE: According the Eclipse manual: LIFTOPT, item 1, :
     //   "Increment size for lift gas injection rate. Lift gas is
@@ -73,7 +73,7 @@ GasLiftRuntime(
     //  the oil production is decreasing with increased liftgas
     //  injection (which seems strange)
     this->eco_grad_ = glo.min_eco_gradient();
-    auto& gl_well = glo.well(*(this->well_name_));
+    auto& gl_well = glo.well(this->well_name_);
 
     if(useFixedAlq_(gl_well)) {
         updateWellStateAlqFixedValue_(gl_well);
@@ -165,7 +165,7 @@ computeInitialWellRates_()
     // get the alq value used for this well for the previous time step, or
     //   if gas lift optimization has not been applied to this well yet, the
     //   default value is used.
-    this->orig_alq_ = this->well_state_.getALQ(*well_name_);
+    this->orig_alq_ = this->well_state_.getALQ(well_name_);
     // NOTE: compute initial rates with current ALQ
     this->std_well_.computeWellRatesWithThpAlqProd(
         this->ebos_simulator_, this->summary_state_, this->deferred_logger_,
@@ -189,7 +189,7 @@ Opm::GasLiftRuntime<TypeTag>::
 displayWarning_(std::string msg)
 {
     std::ostringstream ss;
-    ss << "GAS LIFT OPTIMIZATION, WELL: " << *(this->well_name_) << " : " << msg;
+    ss << "GAS LIFT OPTIMIZATION, WELL: " << this->well_name_ << " : " << msg;
     this->deferred_logger_.warning("WARNING", ss.str());
 }
 
@@ -243,6 +243,20 @@ getOilRateWithLimit_(std::vector<double> &potentials)
     return new_rate;
 }
 
+template<typename TypeTag>
+void
+Opm::GasLiftRuntime<TypeTag>::
+logSuccess_()
+{
+
+    std::ostringstream ss;
+    std::string dir;
+    dir = (this->new_alq_ > this->orig_alq_) ? "increased" : "decreased";
+    ss << "GLIFT, WELL " << this->well_name_ << " " << dir << " ALQ from "
+       << this->orig_alq_ << " to " << this->new_alq_;
+    this->deferred_logger_.info(ss.str());
+}
+
 /* - At this point we know that this is a production well, and that its current
  * control mode is THP.
  *
@@ -265,8 +279,6 @@ getOilRateWithLimit_(std::vector<double> &potentials)
  *     to become violated we should stop the lift gas optimization
  *     loop.. and then updateWellControls() will later (hopefully) switch the well's
  *     control mode from THP to the mode of the violated target.
- *
- *   TODO: Currently, we only check if the BHP and ORAT targets are exceeded.
  *
  * - Lift gas is added if it is economical viable depending on
  * the ratio of oil gained compared to the amount of liftgas added.
@@ -310,7 +322,8 @@ runOptimize()
                 return;
             }
         }
-        this->well_state_.setALQ(*(this->well_name_), this->new_alq_);
+        logSuccess_();
+        this->well_state_.setALQ(this->well_name_, this->new_alq_);
     }
     // NOTE: In addition to the new ALQ value, we also implicitly
     //    return this->potentials_
@@ -459,7 +472,7 @@ updateWellStateAlqFixedValue_(const GasLiftOpt::Well &well)
         // If item 2 is NO, then item 3 is regarded as the fixed
         // lift gas injection rate for the well.
         auto new_alq = *max_alq_optional;
-        well_state_.setALQ(*(this->well_name_), new_alq);
+        well_state_.setALQ(this->well_name_, new_alq);
     }
     // else {
     //    // If item 3 is defaulted, the lift gas rate remains
@@ -509,7 +522,7 @@ warnMaxIterationsExceeded_()
 {
     std::ostringstream ss;
     ss << "Max iterations (" << this->max_iterations_ << ") exceeded in "
-       << "gas lift optimization for well " << *(this->well_name_);
+       << "gas lift optimization for well " << this->well_name_;
     deferred_logger_.warning("MAX_ITERATIONS_EXCEEDED", ss.str());
 }
 
@@ -632,7 +645,7 @@ computeBhpAtThpLimit(double alq)
     if (!bhp_at_thp_limit) {
         std::ostringstream ss;
         ss << "Failed in getting converged bhp potential for well "
-           << *(this->parent.well_name_);
+           << this->parent.well_name_;
         this->parent.deferred_logger_.warning(
             "FAILURE_GETTING_CONVERGED_POTENTIAL", ss.str());
         return false;
@@ -675,4 +688,3 @@ getBhpWithLimit()
     }
     return bhp_update;
 }
-
