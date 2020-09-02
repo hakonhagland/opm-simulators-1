@@ -1136,15 +1136,15 @@ namespace Opm
 
         double getALQ( const std::string& name) const
         {
-            if (current_alq_.count(name) == 0) {
-                current_alq_[name] = default_alq_[name];
+            if (this->current_alq_.count(name) == 0) {
+                this->current_alq_[name] = this->default_alq_[name];
             }
-            return current_alq_[name];
+            return this->current_alq_[name];
         }
 
         void setALQ( const std::string& name, double value) const
         {
-            current_alq_[name] = value;
+            this->current_alq_[name] = value;
         }
 
 
@@ -1313,7 +1313,7 @@ namespace Opm
         // (THP controlled wells).
         //
         // NOTE: If a well is no longer used (e.g. it is shut down)
-        // it is still kept in the maps default_alq_ and current_alq_. Since the
+        // it is still kept in the maps "default_alq_" and "current_alq_". Since the
         // number of unused entries should be small (negligible memory
         // overhead) this is simpler than writing code to delete it.
         //
@@ -1326,16 +1326,16 @@ namespace Opm
                     const std::string &name = well.name();
                     // NOTE: This is the value set in item 12 of WCONPROD, or with WELTARG
                     auto alq = well.alq_value();
-                    if (default_alq_.count(name) != 0) {
-                        if (default_alq_[name] == alq) {
+                    if (this->default_alq_.count(name) != 0) {
+                        if (this->default_alq_[name] == alq) {
                             // If the previous value was the same, we leave current_alq_
                             // as it is.
                             continue;
                         }
                     }
-                    default_alq_[name] = alq;
+                    this->default_alq_[name] = alq;
                     // Reset current ALQ if a new value was given in WCONPROD
-                    current_alq_[name] = alq;
+                    this->current_alq_[name] = alq;
                 }
             }
         }

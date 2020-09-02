@@ -1,5 +1,5 @@
 /*
-  Copyright 2019 Equinor ASA.
+  Copyright 2020 Equinor ASA.
 
   This file is part of the Open Porous Media project (OPM).
 
@@ -165,7 +165,7 @@ computeInitialWellRates_()
     // get the alq value used for this well for the previous time step, or
     //   if gas lift optimization has not been applied to this well yet, the
     //   default value is used.
-    this->orig_alq_ = this->well_state_.getALQ(well_name_);
+    this->orig_alq_ = this->well_state_.getALQ(this->well_name_);
     // NOTE: compute initial rates with current ALQ
     this->std_well_.computeWellRatesWithThpAlqProd(
         this->ebos_simulator_, this->summary_state_, this->deferred_logger_,
@@ -472,7 +472,7 @@ updateWellStateAlqFixedValue_(const GasLiftOpt::Well &well)
         // If item 2 is NO, then item 3 is regarded as the fixed
         // lift gas injection rate for the well.
         auto new_alq = *max_alq_optional;
-        well_state_.setALQ(this->well_name_, new_alq);
+        this->well_state_.setALQ(this->well_name_, new_alq);
     }
     // else {
     //    // If item 3 is defaulted, the lift gas rate remains

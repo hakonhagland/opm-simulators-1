@@ -1,5 +1,5 @@
 /*
-  Copyright 2012 SINTEF ICT, Applied Mathematics.
+  Copyright 2020 Equinor ASA.
 
   This file is part of the Open Porous Media project (OPM).
 
