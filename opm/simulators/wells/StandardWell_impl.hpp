@@ -2577,7 +2577,7 @@ namespace Opm
         const Opm::Schedule& schedule = ebos_simulator.vanguard().schedule();
         const GasLiftOpt& glo = schedule.glo(report_step_idx);
         auto increment = glo.gaslift_increment();
-        // NOTE: According the Eclipse manual: LIFTOPT, item 1, :
+        // NOTE: According to the manual: LIFTOPT, item 1, :
         //   "Increment size for lift gas injection rate. Lift gas is
         //   allocated to individual wells in whole numbers of the increment
         //   size.  If gas lift optimization is no longer required, it can be

@@ -56,7 +56,7 @@ GasLiftRuntime(
     auto ecl_well = this->std_well_.wellEcl();
     this->well_name_ = ecl_well.name();
     const GasLiftOpt& glo = schedule.glo(report_step_idx);
-    // NOTE: According the Eclipse manual: LIFTOPT, item 1, :
+    // NOTE: According to LIFTOPT, item 1:
     //   "Increment size for lift gas injection rate. Lift gas is
     //   allocated to individual wells in whole numbers of the increment
     //   size. If gas lift optimization is no longer required, it can be
@@ -65,7 +65,7 @@ GasLiftRuntime(
     //   so it can be assumed that increment_ > 0
     this->increment_ = glo.gaslift_increment();
     assert( this->increment_ > 0);
-    // NOTE: The Eclipse manual (see LIFTOPT, item 2) does not mention
+    // NOTE: The manual (see LIFTOPT, item 2) does not mention
     //  any default value or restrictions on the economic gradient.
     // TODO: The value of the gradient would most likely be a positive
     //  number. Should we warn or fail on a negative value?
@@ -354,7 +354,6 @@ runOptimizeLoop_(bool increase)
         if (checkWellRatesViolated_(cur_potentials)) break;
         alq = state.addOrSubtractAlqIncrement(alq);
         if (state.checkAlqOutsideLimits(alq, oil_rate)) break;
-        //if (state.checkOilRateExceedsTarget(oil_rate)) break;
         if (!state.computeBhpAtThpLimit(alq)) break;
         // NOTE: if BHP is below limit, we set state.stop_iteration = true
         auto bhp = state.getBhpWithLimit();
@@ -420,9 +419,6 @@ setAlqMinRate_(const GasLiftOpt::Well &well)
     //
     //   So even if the well is producing gas, if the oil rate is zero
     //   we say that the "well is not flowing".
-    //   See also the Eclipse Technical description chapter on Gas Lift
-    //   Optimization, specifically the subsection named "Keeping wells alive
-    //   with a minimum lift gas rate".
     //
     //   Note that if WECON item 2 is set, the well can be shut off
     //   before the flow rate reaches zero. Also,
@@ -468,7 +464,7 @@ updateWellStateAlqFixedValue_(const GasLiftOpt::Well &well)
 {
     auto& max_alq_optional = well.max_rate();
     if (max_alq_optional) {
-        // According to Eclipse manual WLIFTOPT, item 3:
+        // According to WLIFTOPT, item 3:
         // If item 2 is NO, then item 3 is regarded as the fixed
         // lift gas injection rate for the well.
         auto new_alq = *max_alq_optional;
@@ -483,7 +479,7 @@ updateWellStateAlqFixedValue_(const GasLiftOpt::Well &well)
 
 // Determine if we should use a fixed ALQ value.
 //
-// From the Eclipse manual for WLIFTOPT, item 2:
+// From the manual for WLIFTOPT, item 2:
 //   Is the well's lift gas injection rate to be calculated by the
 //   optimization facility?
 // - YES : The well's lift gas injection rate is calculated by the
@@ -501,9 +497,9 @@ useFixedAlq_(const GasLiftOpt::Well &well)
         return false;
     }
     else {
-        //  auto& max_alq_optional = gl_well.max_rate();
+        //  auto& max_alq_optional = well.max_rate();
         //  if (max_alq_optional) {
-               // According to Eclipse manual WLIFTOPT, item 3:
+               // According to WLIFTOPT, item 3:
                // If item 2 is NO, then item 3 is regarded as the fixed
                // lift gas injection rate for the well.
         //  }
@@ -654,13 +650,11 @@ computeBhpAtThpLimit(double alq)
     return true;
 }
 
-// According to Chapter "Gas Lift Optimization" in the Eclipse
-//  Techincal Description, section "Optimizing gas lift to individual
-//  wells": ECLIPSE calculates what the well would produce if
+//  NOTE: When calculating the gradient, determine what the well would produce if
 //  the lift gas injection rate were increased by one increment. The
 //  production rates are adjusted if necessary to obey
 //  any rate or BHP limits that the well may be subject to. From this
-//  information, ECLIPSE calculates the well's "weighted incremental
+//  information, calculate the well's "weighted incremental
 //  gradient"
 //
 // TODO: What does it mean to "adjust the production rates" given a
