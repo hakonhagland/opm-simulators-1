@@ -362,8 +362,11 @@ runOptimizeLoop_(bool increase)
         auto new_gas_rate = getGasRateWithLimit_(cur_potentials);
         auto gradient = state.calcGradient(
             oil_rate, new_oil_rate, gas_rate, new_gas_rate);
-        if (gradient <= this->eco_grad_) {
-            state.stop_iteration = true;
+        if (increase) {
+            if (gradient <= this->eco_grad_) state.stop_iteration = true;
+        }
+        else {
+            if (gradient >= this->eco_grad_) state.stop_iteration = true;
         }
         cur_alq = alq;
         success = true;
