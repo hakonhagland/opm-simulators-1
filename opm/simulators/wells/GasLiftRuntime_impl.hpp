@@ -119,7 +119,6 @@ GasLiftRuntime(
  * Methods in alphabetical order
  ****************************************/
 
-
 template<typename TypeTag>
 bool
 Opm::GasLiftRuntime<TypeTag>::
@@ -362,12 +361,7 @@ runOptimizeLoop_(bool increase)
         auto new_gas_rate = getGasRateWithLimit_(cur_potentials);
         auto gradient = state.calcGradient(
             oil_rate, new_oil_rate, gas_rate, new_gas_rate);
-        if (increase) {
-            if (gradient <= this->eco_grad_) state.stop_iteration = true;
-        }
-        else {
-            if (gradient >= this->eco_grad_) state.stop_iteration = true;
-        }
+        if (state.checkGradient(gradient)) state.stop_iteration = true;
         cur_alq = alq;
         success = true;
         oil_rate = new_oil_rate;
@@ -630,6 +624,23 @@ checkAlqOutsideLimits(double alq, double oil_rate)
     }
 }
 
+template<typename TypeTag>
+bool
+Opm::GasLiftRuntime<TypeTag>::OptimizeState::
+checkGradient(double gradient)
+{
+    if (this->increase) {
+        if (gradient <= this->parent.eco_grad_) {
+            return true;
+        }
+    }
+    else {  // decreasing lift gas
+        if (gradient >= this->parent.eco_grad_) {
+            return true;
+        }
+    }
+    return false;
+}
 
 template<typename TypeTag>
 bool
