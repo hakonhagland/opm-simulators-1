@@ -1134,6 +1134,16 @@ namespace Opm
             return globalIsProductionGrup_[it->second] != 0;
         }
 
+        void updateALQ( const WellStateFullyImplicitBlackoil &copy ) const
+        {
+            this->current_alq_ = copy.getCurrentALQ();
+        }
+
+        std::map<std::string, double> getCurrentALQ() const
+        {
+            return current_alq_;
+        }
+
         double getALQ( const std::string& name) const
         {
             if (this->current_alq_.count(name) == 0) {
