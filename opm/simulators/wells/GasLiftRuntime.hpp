@@ -59,6 +59,7 @@ namespace Opm
         static const int Water = BlackoilPhases::Aqua;
         static const int Oil = BlackoilPhases::Liquid;
         static const int Gas = BlackoilPhases::Vapour;
+        struct OptimizeState;
     public:
         GasLiftRuntime(
             StdWell &std_well,
@@ -71,9 +72,11 @@ namespace Opm
         );
         void runOptimize();
     private:
-        bool checkWellRatesViolated_(std::vector<double> &potentials);
         void computeInitialWellRates_();
         void computeWellRates_(double bhp, std::vector<double> &potentials);
+        void debugShowIterationInfo_(OptimizeState &state, double alq);
+        void debugShowStartIteration_(double alq, bool increase);
+        void displayDebugMessage_(std::ostringstream &ss);
         void displayWarning_();
         void displayWarning_(std::string warning);
         double getGasRateWithLimit_(std::vector<double> &potentials);
@@ -96,6 +99,7 @@ namespace Opm
         const SummaryState &summary_state_;
         const WellState &well_state_;
         std::string well_name_;
+        bool debug;
 
         double alpha_w_;
         double alpha_g_;
@@ -133,6 +137,8 @@ namespace Opm
             bool checkAlqOutsideLimits(double alq, double oil_rate);
             bool checkEcoGradient(double gradient);
             bool checkOilRateExceedsTarget(double oil_rate);
+            bool checkRate(double rate, double limit, const std::string rate_str);
+            bool checkWellRatesViolated(std::vector<double> &potentials);
             bool computeBhpAtThpLimit(double alq);
             double getBhpWithLimit();
             void warn_(std::string msg) {parent.displayWarning_(msg);}

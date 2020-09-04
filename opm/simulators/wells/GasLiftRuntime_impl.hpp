@@ -45,7 +45,8 @@ GasLiftRuntime(
     potentials_{potentials},
     std_well_{std_well},
     summary_state_{summary_state},
-    well_state_{well_state}
+    well_state_{well_state},
+    debug{true}
 {
     int well_index = this->std_well_.indexOfWell();
     const Well::ProducerCMode& control_mode
@@ -120,43 +121,6 @@ GasLiftRuntime(
  ****************************************/
 
 template<typename TypeTag>
-bool
-Opm::GasLiftRuntime<TypeTag>::
-checkWellRatesViolated_(std::vector<double> &potentials)
-{
-    if (this->controls_.hasControl(Well::ProducerCMode::ORAT)) {
-        auto oil_rate = -potentials[this->oil_pos_];
-        if (this->controls_.oil_rate < oil_rate  ) {
-            return true;
-        }
-    }
-    if (this->controls_.hasControl(Well::ProducerCMode::WRAT)) {
-        auto water_rate = -potentials[this->water_pos_];
-        if (this->controls_.water_rate < water_rate  ) {
-            return true;
-        }
-    }
-    if (this->controls_.hasControl(Well::ProducerCMode::GRAT)) {
-        auto gas_rate = -potentials[this->gas_pos_];
-        if (this->controls_.gas_rate < gas_rate  ) {
-            return true;
-        }
-    }
-    if (this->controls_.hasControl(Well::ProducerCMode::LRAT)) {
-        auto oil_rate = -potentials[this->oil_pos_];
-        auto water_rate = -potentials[this->water_pos_];
-        if (this->controls_.liquid_rate < (oil_rate+water_rate)  ) {
-            return true;
-        }
-    }
-    // TODO: Also check RESV, see checkIndividualContraints() in
-    //   WellInterface_impl.hpp
-    // TODO: Check group contraints?
-
-    return false;
-}
-
-template<typename TypeTag>
 void
 Opm::GasLiftRuntime<TypeTag>::
 computeInitialWellRates_()
@@ -180,6 +144,40 @@ computeWellRates_(double bhp, std::vector<double> &potentials)
     this->std_well_.computeWellRatesWithBhp(
         this->ebos_simulator_, bhp, potentials, this->deferred_logger_);
 
+}
+
+template<typename TypeTag>
+void
+Opm::GasLiftRuntime<TypeTag>::
+debugShowIterationInfo_(OptimizeState &state, double alq)
+{
+    std::ostringstream ss;
+    ss << "iteration " << state.it << ", ALQ = " << alq;
+    this->displayDebugMessage_(ss);
+}
+
+template<typename TypeTag>
+void
+Opm::GasLiftRuntime<TypeTag>::
+debugShowStartIteration_(double alq, bool increase)
+{
+    std::ostringstream ss;
+    std::string dir = increase ? "increase" : "decrease";
+    ss << "starting " << dir << " iteration, ALQ = " << alq;
+    this->displayDebugMessage_(ss);
+}
+
+template<typename TypeTag>
+void
+Opm::GasLiftRuntime<TypeTag>::
+displayDebugMessage_(std::ostringstream &ss)
+{
+
+    std::string message = ss.str();
+    if (message.empty()) return;
+    std::ostringstream ss2;
+    ss2 << "  GLIFT (DEBUG) : Well " << this->well_name_ << " : " << message;
+    this->deferred_logger_.info(ss2.str());
 }
 
 template<typename TypeTag>
@@ -349,10 +347,12 @@ runOptimizeLoop_(bool increase)
     auto cur_alq = this->orig_alq_;
     auto alq = cur_alq;
     OptimizeState state {*this, increase};
+    if (this->debug) debugShowStartIteration_(alq, increase);
     while (!state.stop_iteration && (++state.it <= this->max_iterations_)) {
-        if (checkWellRatesViolated_(cur_potentials)) break;
-        alq = state.addOrSubtractAlqIncrement(alq);
+        if (state.checkWellRatesViolated(cur_potentials)) break;
         if (state.checkAlqOutsideLimits(alq, oil_rate)) break;
+        alq = state.addOrSubtractAlqIncrement(alq);
+        if(this->debug) debugShowIterationInfo_(state, alq);
         if (!state.computeBhpAtThpLimit(alq)) break;
         // NOTE: if BHP is below limit, we set state.stop_iteration = true
         auto bhp = state.getBhpWithLimit();
@@ -579,15 +579,20 @@ bool
 Opm::GasLiftRuntime<TypeTag>::OptimizeState::
 checkAlqOutsideLimits(double alq, double oil_rate)
 {
+    std::ostringstream ss;
+    bool result = false;
+
     if (this->increase) {
         if (alq >= this->parent.max_alq_) {
-            return true;
+            ss << "ALQ >= " << this->parent.max_alq_ << " (max limit), "
+               << "stopping iteration";
+            result = true;
         }
         else {
             // NOTE: A negative min_alq_ means: allocate at least enough lift gas
             //  to enable the well to flow, see WCONPROD item 5.
             if (this->parent.min_alq_ < 0) {
-                return false;
+                result = false;
             }
             else {
                 // NOTE: checking for a lower limit should not be necessary
@@ -596,10 +601,10 @@ checkAlqOutsideLimits(double alq, double oil_rate)
                 if (alq < this->parent.min_alq_ ) {
                     warn_("unexpected: alq below lower limit when trying to "
                         "increase lift gas. aborting iteration.");
-                    return true;
+                    result = true;
                 }
                 else {
-                    return false;
+                    result = false;
                 }
             }
         }
@@ -608,27 +613,41 @@ checkAlqOutsideLimits(double alq, double oil_rate)
         // NOTE: A negative min_alq_ means: allocate at least enough lift gas
         //  to enable the well to flow, see WCONPROD item 5.
         if (this->parent.min_alq_ < 0) {
-            return (oil_rate <= 0) ? true : false;
+            // If the oil rate is already zero or negative (non-flowing well)
+            // we assume we will not be able to increase it by decreasing the lift gas
+            if ( oil_rate <= 0 ) {
+                ss << "Oil rate ( " << oil_rate << " ) <= 0 when decreasing lift gas. "
+                   << "We will not be able to make this well flowing by decreasing "
+                   << "lift gas, stopping iteration.";
+                result = true;
+            }
+            else {
+                result = false;
+            }
         }
         else {
             if (alq <= this->parent.min_alq_ ) {
-                return true;
+                ss << "ALQ <= " << this->parent.min_alq_ << " (min limit), "
+                   << "stopping iteration";
+                result = true;
             }
             else {
-                // NOTE: checking for an upper limit should in not be necessary
+                // NOTE: checking for an upper limit should not be necessary
                 // when decreasing alq.. so this is just to catch an
                 // illegal state at an early point.
                 if (alq >= this->parent.max_alq_) {
                     warn_( "unexpected: alq above upper limit when trying to "
                         "decrease lift gas. aborting iteration.");
-                    return true;
+                    result = true;
                 }
                 else {
-                    return false;
+                    result = false;
                 }
             }
         }
     }
+    if (this->parent.debug) this->parent.displayDebugMessage_(ss);
+    return result;
 }
 
 template<typename TypeTag>
@@ -636,18 +655,90 @@ bool
 Opm::GasLiftRuntime<TypeTag>::OptimizeState::
 checkEcoGradient(double gradient)
 {
+    std::ostringstream ss;
+    bool result = false;
+
+    if (this->parent.debug) {
+        ss << "checking gradient: " << gradient;
+    }
     if (this->increase) {
+        if (this->parent.debug) ss << " <= " << this->parent.eco_grad_ << " --> ";
         if (gradient <= this->parent.eco_grad_) {
-            return true;
+            if (this->parent.debug) ss << "true";
+            result = true;
+        }
+        else {
+            if (this->parent.debug) ss << "false";
         }
     }
     else {  // decreasing lift gas
+        if (this->parent.debug) ss << " >= " << this->parent.eco_grad_ << " --> ";
         if (gradient >= this->parent.eco_grad_) {
-            return true;
+            if (this->parent.debug) ss << "true";
+            result = true;
         }
+        else {
+            if (this->parent.debug) ss << "false";
+        }
+    }
+    if (this->parent.debug) this->parent.displayDebugMessage_(ss);
+    return result;
+}
+
+template<typename TypeTag>
+bool
+Opm::GasLiftRuntime<TypeTag>::OptimizeState::
+checkRate(double rate, double limit, const std::string rate_str)
+{
+
+    if (limit < rate ) {
+        if (this->parent.debug) {
+            std::ostringstream ss;
+            ss << "iteration " << this->it << " : " << rate_str << " rate "
+               << rate << " exceeds target rate "
+               << limit << ". Stopping iteration";
+            this->parent.displayDebugMessage_(ss);
+        }
+        return true;
     }
     return false;
 }
+
+template<typename TypeTag>
+bool
+Opm::GasLiftRuntime<TypeTag>::OptimizeState::
+checkWellRatesViolated(std::vector<double> &potentials)
+{
+    if (this->parent.controls_.hasControl(Well::ProducerCMode::ORAT)) {
+        auto oil_rate = -potentials[this->parent.oil_pos_];
+        if (this->checkRate(oil_rate, this->parent.controls_.oil_rate, "oil"))
+            return true;
+    }
+    if (this->parent.controls_.hasControl(Well::ProducerCMode::WRAT)) {
+        auto water_rate = -potentials[this->parent.water_pos_];
+        if (this->checkRate(water_rate, this->parent.controls_.water_rate, "water"))
+            return true;
+    }
+    if (this->parent.controls_.hasControl(Well::ProducerCMode::GRAT)) {
+        auto gas_rate = -potentials[this->parent.gas_pos_];
+        if (this->checkRate(gas_rate, this->parent.controls_.gas_rate, "gas"))
+            return true;
+    }
+    if (this->parent.controls_.hasControl(Well::ProducerCMode::LRAT)) {
+        auto oil_rate = -potentials[this->parent.oil_pos_];
+        auto water_rate = -potentials[this->parent.water_pos_];
+        auto liq_rate = oil_rate + water_rate;
+        if (this->checkRate(liq_rate, this->parent.controls_.liquid_rate, "liquid"))
+            return true;
+    }
+    // TODO: Also check RESV, see checkIndividualContraints() in
+    //   WellInterface_impl.hpp
+    // TODO: Check group contraints?
+
+    return false;
+}
+
+
 
 template<typename TypeTag>
 bool
