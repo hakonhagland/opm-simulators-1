@@ -361,7 +361,14 @@ runOptimizeLoop_(bool increase)
         auto new_gas_rate = getGasRateWithLimit_(cur_potentials);
         auto gradient = state.calcGradient(
             oil_rate, new_oil_rate, gas_rate, new_gas_rate);
-        if (state.checkGradient(gradient)) state.stop_iteration = true;
+        if (state.checkEcoGradient(gradient)) {
+            if (state.it == 1) {
+                break;
+            }
+            else {
+                state.stop_iteration = true;
+            }
+        }
         cur_alq = alq;
         success = true;
         oil_rate = new_oil_rate;
@@ -627,7 +634,7 @@ checkAlqOutsideLimits(double alq, double oil_rate)
 template<typename TypeTag>
 bool
 Opm::GasLiftRuntime<TypeTag>::OptimizeState::
-checkGradient(double gradient)
+checkEcoGradient(double gradient)
 {
     if (this->increase) {
         if (gradient <= this->parent.eco_grad_) {

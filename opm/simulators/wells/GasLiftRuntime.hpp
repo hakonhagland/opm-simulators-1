@@ -131,7 +131,7 @@ namespace Opm
             double calcGradient(double oil_rate, double new_oil_rate,
                 double gas_rate, double new_gas_rate);
             bool checkAlqOutsideLimits(double alq, double oil_rate);
-            bool checkGradient(double gradient);
+            bool checkEcoGradient(double gradient);
             bool checkOilRateExceedsTarget(double oil_rate);
             bool computeBhpAtThpLimit(double alq);
             double getBhpWithLimit();
