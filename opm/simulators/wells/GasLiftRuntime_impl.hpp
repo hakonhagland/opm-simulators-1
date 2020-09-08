@@ -46,7 +46,8 @@ GasLiftRuntime(
     std_well_{std_well},
     summary_state_{summary_state},
     well_state_{well_state},
-    debug{true}
+    debug{true},  // extra debugging output
+    debug_disable{false} // act as glift optimization is disabled
 {
     int well_index = this->std_well_.indexOfWell();
     const Well::ProducerCMode& control_mode
@@ -76,7 +77,10 @@ GasLiftRuntime(
     this->eco_grad_ = glo.min_eco_gradient();
     auto& gl_well = glo.well(this->well_name_);
 
-    if(useFixedAlq_(gl_well)) {
+    if (this->debug_disable) {
+        this->optimize_ = false;
+    }
+    else if(useFixedAlq_(gl_well)) {
         updateWellStateAlqFixedValue_(gl_well);
         this->optimize_ = false; // lift gas supply is fixed
     }

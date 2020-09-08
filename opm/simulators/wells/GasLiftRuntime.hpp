@@ -99,7 +99,8 @@ namespace Opm
         const SummaryState &summary_state_;
         const WellState &well_state_;
         std::string well_name_;
-        bool debug;
+        bool debug;  // extra debug output
+        bool debug_disable; // act as glift optimization is disabled
 
         double alpha_w_;
         double alpha_g_;
