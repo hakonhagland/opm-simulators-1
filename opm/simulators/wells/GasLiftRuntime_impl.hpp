@@ -31,7 +31,7 @@
 template<typename TypeTag>
 Opm::GasLiftRuntime<TypeTag>::
 GasLiftRuntime(
-    StdWell &std_well,
+    const StdWell &std_well,
     const Simulator &ebos_simulator,
     const SummaryState &summary_state,
     DeferredLogger &deferred_logger,
@@ -166,8 +166,10 @@ Opm::GasLiftRuntime<TypeTag>::
 debugShowStartIteration_(double alq, bool increase)
 {
     std::ostringstream ss;
+    auto oil_rate = -this->potentials_[this->oil_pos_];
     std::string dir = increase ? "increase" : "decrease";
-    ss << "starting " << dir << " iteration, ALQ = " << alq;
+    ss << "starting " << dir << " iteration, ALQ = " << alq
+       << ", oilrate = " << oil_rate;
     this->displayDebugMessage_(ss);
 }
 
@@ -345,8 +347,8 @@ Opm::GasLiftRuntime<TypeTag>::
 runOptimizeLoop_(bool increase)
 {
     auto cur_potentials = this->potentials_;  // make copy, since we may fail..
-    auto oil_rate = -cur_potentials[oil_pos_];
-    auto gas_rate = -cur_potentials[gas_pos_];
+    auto oil_rate = -cur_potentials[this->oil_pos_];
+    auto gas_rate = -cur_potentials[this->gas_pos_];
     bool success = false;  // did we succeed to increase alq?
     auto cur_alq = this->orig_alq_;
     auto alq = cur_alq;

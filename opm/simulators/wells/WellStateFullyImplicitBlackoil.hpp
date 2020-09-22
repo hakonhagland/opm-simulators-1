@@ -298,6 +298,7 @@ namespace Opm
                 seg_pressdrop_acceleration_.assign(nw, 0.);
             }
             updateWellsDefaultALQ(wells_ecl);
+            do_glift_optimization_ = true;
         }
 
 
@@ -366,7 +367,7 @@ namespace Opm
 
             return it->second;
         }
-        
+
         void setCurrentWellRates(const std::string& wellName, const std::vector<double>& rates ) {
             well_rates[wellName] = rates;
         }
@@ -400,7 +401,7 @@ namespace Opm
         bool hasProductionGroupRates(const std::string& groupName) const {
             return this->production_group_rates.find(groupName) != this->production_group_rates.end();
         }
-        
+
         void setCurrentProductionGroupReductionRates(const std::string& groupName, const std::vector<double>& target ) {
             production_group_reduction_rates[groupName] = target;
         }
@@ -1157,6 +1158,17 @@ namespace Opm
             this->current_alq_[name] = value;
         }
 
+        bool gliftOptimizationEnabled() const {
+            return do_glift_optimization_;
+        }
+
+        void disableGliftOptimization() const {
+            do_glift_optimization_ = false;
+        }
+
+        void enableGliftOptimization() const {
+            do_glift_optimization_ = true;
+        }
 
     private:
         std::vector<double> perfphaserates_;
@@ -1187,6 +1199,7 @@ namespace Opm
         std::map<std::string, double> group_grat_target_from_sales;
         mutable std::map<std::string, double> current_alq_;
         mutable std::map<std::string, double> default_alq_;
+        mutable bool do_glift_optimization_;
 
         std::vector<double> perfRateSolvent_;
 

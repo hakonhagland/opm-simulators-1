@@ -62,7 +62,7 @@ namespace Opm
         struct OptimizeState;
     public:
         GasLiftRuntime(
-            StdWell &std_well,
+            const StdWell &std_well,
             const Simulator &ebos_simulator,
             const SummaryState &summary_state,
             DeferredLogger &deferred_logger,
@@ -95,7 +95,7 @@ namespace Opm
         DeferredLogger &deferred_logger_;
         const Simulator &ebos_simulator_;
         std::vector<double> &potentials_;
-        StdWell &std_well_;
+        const StdWell &std_well_;
         const SummaryState &summary_state_;
         const WellState &well_state_;
         std::string well_name_;

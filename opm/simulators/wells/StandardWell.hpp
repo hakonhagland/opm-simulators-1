@@ -236,7 +236,29 @@ namespace Opm
         }
 
         bool doGasLiftOptimize(
-            const WellState& well_state, const Simulator& ebosSimulator);
+            const WellState& well_state,
+            const Simulator& ebosSimulator,
+            DeferredLogger& deferred_logger
+        ) const;
+
+        virtual void maybeDoGasLiftOptimization (
+            const WellState& well_state,
+            const Simulator& ebosSimulator,
+            DeferredLogger& deferred_logger
+        ) const;
+
+        bool checkGliftNewtonIterationIdxOk(
+            const Simulator& ebosSimulator,
+            DeferredLogger& deferred_logger
+        ) const;
+
+        void gliftDebug(
+            const std::string &msg,
+            Opm::DeferredLogger& deferred_logger) const;
+
+        void gliftDebug(
+            std::ostringstream &ss,
+            Opm::DeferredLogger& deferred_logger) const;
 
         void gasLiftOptimizeProduction(
             const Simulator& ebosSimulator,
@@ -250,14 +272,14 @@ namespace Opm
                                const SummaryState &summary_state,
                                DeferredLogger &deferred_logger,
                                std::vector<double> &potentials,
-                               double alq);
+                               double alq) const;
 
         void computeWellRatesWithThpAlqProd(
             const Simulator &ebos_simulator,
             const SummaryState &summary_state,
             DeferredLogger &deferred_logger,
             std::vector<double> &potentials,
-            double alq);
+            double alq) const;
 
         // NOTE: Cannot be protected since it is used by GasLiftRuntime
         std::optional<double> computeBhpAtThpLimitProdWithAlq(
@@ -355,6 +377,8 @@ namespace Opm
         mutable std::vector<double> ipr_b_;
 
         bool changed_to_stopped_this_step_ = false;
+        // Enable GLIFT debug mode. This will enable output of logging messages.
+        bool glift_debug = true;
 
         const EvalWell& getBhp() const;
 
@@ -431,7 +455,7 @@ namespace Opm
         std::vector<double> computeWellPotentialWithTHP(
             const Simulator& ebosSimulator,
             Opm::DeferredLogger& deferred_logger,
-            const WellState &well_state);
+            const WellState &well_state) const;
 
         template <class ValueType>
         ValueType calculateBhpFromThp(const WellState& well_state, const std::vector<ValueType>& rates, const Well& well, const SummaryState& summaryState, Opm::DeferredLogger& deferred_logger) const;

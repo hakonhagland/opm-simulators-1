@@ -356,6 +356,13 @@ namespace Opm
                     Opm::DeferredLogger& deferred_logger) const
     {
 
+        if (this->glift_debug) {
+            std::ostringstream ss;
+            if (this->name() == "B-1H") {
+                ss << "computePerfRate() with BHP = " << bhp.value();
+                //displayGliftDebugMessage_(ss, deferred_logger);
+            }
+        }
         const auto& fs = intQuants.fluidState();
         const EvalWell pressure = extendEval(getPerfCellPressure(fs));
         const EvalWell rs = extendEval(fs.Rs());
@@ -1442,6 +1449,9 @@ namespace Opm
             case Well::ProducerCMode::THP:
             {
                 well_state.thp()[well_index] = controls.thp_limit;
+                gliftDebug(
+                    "computing BHP from THP to update well state",
+                    deferred_logger);
                 auto bhp = computeBhpAtThpLimitProd(well_state, ebos_simulator, summaryState, deferred_logger);
                 if (bhp) {
                     well_state.bhp()[well_index] = *bhp;
@@ -2508,7 +2518,7 @@ namespace Opm
     StandardWell<TypeTag>::
     computeWellPotentialWithTHP(const Simulator& ebos_simulator,
                                Opm::DeferredLogger& deferred_logger,
-                               const WellState &well_state)
+                               const WellState &well_state) const
     {
         std::vector<double> potentials(number_of_phases_, 0.0);
         const auto& summary_state = ebos_simulator.vanguard().summaryState();
@@ -2528,19 +2538,10 @@ namespace Opm
                 computeWellRatesWithBhp(ebos_simulator, bhp, potentials, deferred_logger);
             }
         } else {
-            const auto& controls = well_ecl_.productionControls(summary_state);
-            if (doGasLiftOptimize(well_state, ebos_simulator)) {
-                GasLiftHandler glift {
-                    *this, ebos_simulator, summary_state,
-                    deferred_logger, potentials, well_state, controls };
-                glift.runOptimize();
-            }
-            else {
-                computeWellRatesWithThpAlqProd(
-                        ebos_simulator, summary_state,
-                        deferred_logger, potentials, getALQ(well_state)
-                );
-            }
+            computeWellRatesWithThpAlqProd(
+                ebos_simulator, summary_state,
+                deferred_logger, potentials, getALQ(well_state)
+            );
         }
 
         return potentials;
@@ -2565,12 +2566,23 @@ namespace Opm
     template<typename TypeTag>
     bool
     StandardWell<TypeTag>::
-    doGasLiftOptimize(const WellState &well_state, const Simulator &ebos_simulator)
+    doGasLiftOptimize(const WellState &well_state, const Simulator &ebos_simulator,
+                      Opm::DeferredLogger& deferred_logger) const
     {
-        const int well_index = index_of_well_;
+
+        gliftDebug("checking if GLIFT should be done..", deferred_logger);
+        if (!well_state.gliftOptimizationEnabled()) {
+            gliftDebug("Optimization disabled in WellState", deferred_logger);
+            return false;
+        }
+ const int well_index = index_of_well_;
         const Well::ProducerCMode& control_mode
             = well_state.currentProductionControls()[well_index];
         if (control_mode != Well::ProducerCMode::THP ) {
+            gliftDebug("Not THP control", deferred_logger);
+            return false;
+        }
+        if (!checkGliftNewtonIterationIdxOk(ebos_simulator, deferred_logger)) {
             return false;
         }
         const int report_step_idx = ebos_simulator.episodeIndex();
@@ -2583,11 +2595,75 @@ namespace Opm
         //   size.  If gas lift optimization is no longer required, it can be
         //   turned off by entering a zero or negative number."
         if (increment <= 0) {
+            if (this->glift_debug) {
+                std::ostringstream ss;
+                ss << "Gas Lift switched off in LIFTOPT item 1 due to non-positive "
+                   << "value: " << increment;
+                gliftDebug(ss, deferred_logger);
+            }
             return false;
         }
         else {
             return true;
         }
+    }
+
+    template<typename TypeTag>
+    bool
+    StandardWell<TypeTag>::
+    checkGliftNewtonIterationIdxOk(
+            const Simulator& ebos_simulator,
+            DeferredLogger& deferred_logger ) const
+    {
+        const int report_step_idx = ebos_simulator.episodeIndex();
+        const Opm::Schedule& schedule = ebos_simulator.vanguard().schedule();
+        const GasLiftOpt& glo = schedule.glo(report_step_idx);
+        const int iteration_idx = ebos_simulator.model().newtonMethod().numIterations();
+        if (glo.all_newton()) {
+            const int nupcol = schedule.getNupcol(report_step_idx);
+            if (this->glift_debug) {
+                std::ostringstream ss;
+                ss << "LIFTOPT item4 == YES, it = " << iteration_idx
+                   << ", nupcol = " << nupcol << " -> " << " --> GLIFT optimize = "
+                   << ((iteration_idx <= nupcol) ? "TRUE" : "FALSE");
+                gliftDebug(ss, deferred_logger);
+            }
+            return iteration_idx <= nupcol;
+        }
+        else {
+            if (this->glift_debug) {
+                std::ostringstream ss;
+                ss << "LIFTOPT item4 == NO, it = " << iteration_idx
+                   << " --> GLIFT optimize = "
+                   << ((iteration_idx == 1) ? "TRUE" : "FALSE");
+                gliftDebug(ss, deferred_logger);
+            }
+            return iteration_idx == 1;
+        }
+    }
+
+    template<typename TypeTag>
+    void
+    StandardWell<TypeTag>::
+    gliftDebug(
+        const std::string &msg, DeferredLogger& deferred_logger) const
+    {
+        std::ostringstream ss;
+        ss << msg;
+        gliftDebug(ss, deferred_logger);
+    }
+
+    template<typename TypeTag>
+    void
+    StandardWell<TypeTag>::
+    gliftDebug(
+        std::ostringstream &ss, DeferredLogger& deferred_logger) const
+    {
+        std::string message = ss.str();
+        if (message.empty()) return;
+        std::ostringstream ss2;
+        ss2 << "  GLIFT (DEBUG) : Well " << this->name() << " : " << message;
+        deferred_logger.info(ss2.str());
     }
 
     template<typename TypeTag>
@@ -2597,7 +2673,7 @@ namespace Opm
                                const SummaryState &summary_state,
                                DeferredLogger &deferred_logger,
                                std::vector<double> &potentials,
-                               double alq)
+                               double alq) const
     {
         double bhp;
         auto bhp_at_thp_limit = computeBhpAtThpLimitProdWithAlq(
@@ -2625,7 +2701,7 @@ namespace Opm
                                const SummaryState &summary_state,
                                DeferredLogger &deferred_logger,
                                std::vector<double> &potentials,
-                               double alq)
+                               double alq) const
     {
         /*double bhp =*/ computeWellRatesAndBhpWithThpAlqProd(
                         ebos_simulator, summary_state,
@@ -2633,6 +2709,33 @@ namespace Opm
                 );
     }
 
+
+    template<typename TypeTag>
+    void
+    StandardWell<TypeTag>::
+    maybeDoGasLiftOptimization(
+                          const WellState& well_state,
+                          const Simulator& ebos_simulator,
+                          Opm::DeferredLogger& deferred_logger) const
+    {
+        const auto& well = well_ecl_;
+        if (well.isProducer()) {
+            const auto& summary_state = ebos_simulator.vanguard().summaryState();
+            const Well::ProducerCMode& current_control
+                = well_state.currentProductionControls()[this->index_of_well_];
+            if ( this->Base::wellHasTHPConstraints(summary_state)
+                && current_control != Well::ProducerCMode::BHP ) {
+                std::vector<double> potentials = well_state.wellPotentials();
+                if (doGasLiftOptimize(well_state, ebos_simulator, deferred_logger)) {
+                    const auto& controls = well.productionControls(summary_state);
+                    GasLiftHandler glift {
+                        *this, ebos_simulator, summary_state,
+                        deferred_logger, potentials, well_state, controls };
+                    glift.runOptimize();
+                }
+            }
+        }
+    }
 
     template<typename TypeTag>
     void

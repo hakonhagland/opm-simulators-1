@@ -330,7 +330,7 @@ namespace Opm {
         Opm::DeferredLogger local_deferredLogger;
 
         well_state_ = previous_well_state_;
-
+        well_state_.disableGliftOptimization();
         const int reportStepIdx = ebosSimulator_.episodeIndex();
         const double simulationTime = ebosSimulator_.time();
 
@@ -393,8 +393,34 @@ namespace Opm {
         //compute well guideRates
         const auto& comm = ebosSimulator_.vanguard().grid().comm();
         WellGroupHelpers::updateGuideRatesForWells(schedule(), phase_usage_, reportStepIdx, simulationTime, well_state_, comm, guideRate_.get());
+        logAndCheckForExceptionsAndThrow(local_deferredLogger,
+            exception_thrown, "beginTimeStep() failed.", terminal_output_);
+
     }
 
+    template<typename TypeTag>
+    void
+    BlackoilWellModel<TypeTag>::gliftDebug(
+        const std::string &msg, Opm::DeferredLogger &deferred_logger) const
+    {
+        std::ostringstream ss;
+        ss << msg;
+        gliftDebug(ss, deferred_logger);
+    }
+
+    template<typename TypeTag>
+    void
+    BlackoilWellModel<TypeTag>::gliftDebug(
+        std::ostringstream &ss, Opm::DeferredLogger &deferred_logger) const
+    {
+        if (this->glift_debug) {
+            std::string message = ss.str();
+            if (message.empty()) return;
+            std::ostringstream ss2;
+            ss2 << "  GLIFT (DEBUG) : BlackoilWellModel : " << message;
+            deferred_logger.info(ss2.str());
+        }
+    }
 
     template<typename TypeTag>
     void
@@ -469,7 +495,8 @@ namespace Opm {
         // calculate the well potentials
         try {
             std::vector<double> well_potentials;
-
+            gliftDebug("timeStepSucceeded() : computing well potentials..",
+                local_deferredLogger);
             computeWellPotentials(well_potentials, reportStepIdx, local_deferredLogger);
         } catch ( std::runtime_error& e ) {
             const std::string msg = "A zero well potential is returned for output purposes. ";
@@ -813,6 +840,12 @@ namespace Opm {
              const double dt)
     {
 
+        Opm::DeferredLogger local_deferredLogger;
+        if (this->glift_debug) {
+            std::ostringstream os;
+            os << "assemble() : iteration = " << iterationIdx;
+            gliftDebug(os, local_deferredLogger);
+        }
         last_report_ = SimulatorReportSingle();
         Dune::Timer perfTimer;
         perfTimer.start();
@@ -821,7 +854,6 @@ namespace Opm {
             return;
         }
 
-        Opm::DeferredLogger local_deferredLogger;
 
         updatePerforationIntensiveQuantities();
 
@@ -855,8 +887,10 @@ namespace Opm {
                 // basically, this is a more updated state from the solveWellEq based on fixed
                 // reservoir state, will tihs be a better place to inialize the explict information?
             }
-
+            gliftDebug("assemble() : running assembleWellEq()..", local_deferredLogger);
+            well_state_.enableGliftOptimization();
             assembleWellEq(B_avg, dt, local_deferredLogger);
+            well_state_.disableGliftOptimization();
 
         } catch (std::exception& e) {
             exception_thrown = 1;
@@ -873,6 +907,8 @@ namespace Opm {
     assembleWellEq(const std::vector<Scalar>& B_avg, const double dt, Opm::DeferredLogger& deferred_logger)
     {
         for (auto& well : well_container_) {
+            well->maybeDoGasLiftOptimization(
+                 well_state_, ebosSimulator_, deferred_logger);
             well->assembleWellEq(ebosSimulator_, B_avg, dt, well_state_, deferred_logger);
         }
     }
