@@ -356,13 +356,6 @@ namespace Opm
                     Opm::DeferredLogger& deferred_logger) const
     {
 
-        if (this->glift_debug) {
-            std::ostringstream ss;
-            if (this->name() == "B-1H") {
-                ss << "computePerfRate() with BHP = " << bhp.value();
-                //displayGliftDebugMessage_(ss, deferred_logger);
-            }
-        }
         const auto& fs = intQuants.fluidState();
         const EvalWell pressure = extendEval(getPerfCellPressure(fs));
         const EvalWell rs = extendEval(fs.Rs());
