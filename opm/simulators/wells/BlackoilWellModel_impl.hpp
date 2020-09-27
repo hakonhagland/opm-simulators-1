@@ -495,6 +495,7 @@ namespace Opm {
         // calculate the well potentials
         try {
             std::vector<double> well_potentials;
+
             computeWellPotentials(well_potentials, reportStepIdx, local_deferredLogger);
         } catch ( std::runtime_error& e ) {
             const std::string msg = "A zero well potential is returned for output purposes. ";

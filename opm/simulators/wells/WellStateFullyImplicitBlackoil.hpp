@@ -588,6 +588,13 @@ namespace Opm
                     well.rates.set( rt::brine, brineWellRate(w) );
                 }
 
+                if ( well.current_control.isProducer ) {
+                    well.rates.set( rt::alq, getALQ(/*wellName=*/wt.first) );
+                }
+                else {
+                    well.rates.set( rt::alq, 0.0 );
+                }
+
                 well.rates.set( rt::dissolved_gas, this->well_dissolved_gas_rates_[w] );
                 well.rates.set( rt::vaporized_oil, this->well_vaporized_oil_rates_[w] );
 
