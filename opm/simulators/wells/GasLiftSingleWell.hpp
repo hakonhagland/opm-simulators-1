@@ -17,8 +17,8 @@
   along with OPM.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef OPM_GASLIFT_RUNTIME_HEADER_INCLUDED
-#define OPM_GASLIFT_RUNTIME_HEADER_INCLUDED
+#ifndef OPM_GASLIFT_SINGLE_WELL_HEADER_INCLUDED
+#define OPM_GASLIFT_SINGLE_WELL_HEADER_INCLUDED
 
 #include <opm/models/utils/propertysystem.hh>
 #include <opm/models/utils/parametersystem.hh>
@@ -28,7 +28,7 @@
 #include <opm/parser/eclipse/EclipseState/Schedule/Well/Well.hpp>
 #include <opm/simulators/utils/DeferredLogger.hpp>
 #include <opm/parser/eclipse/EclipseState/Schedule/GasLiftOpt.hpp>
-// NOTE: StandardWell.hpp includes ourself (GasLiftRuntime.hpp), so we need
+// NOTE: StandardWell.hpp includes ourself (GasLiftSingleWell.hpp), so we need
 //   to forward declare StandardWell for it to be defined in this file.
 namespace Opm {
     template<typename TypeTag> class StandardWell;
@@ -50,7 +50,7 @@ namespace Opm {
 namespace Opm
 {
     template<class TypeTag>
-    class GasLiftRuntime {
+    class GasLiftSingleWell {
         using Simulator = GetPropType<TypeTag, Properties::Simulator>;
         using WellState = WellStateFullyImplicitBlackoil;
         using StdWell = Opm::StandardWell<TypeTag>;
@@ -62,7 +62,7 @@ namespace Opm
         static const int Gas = BlackoilPhases::Vapour;
         struct OptimizeState;
     public:
-        GasLiftRuntime(
+        GasLiftSingleWell(
             const StdWell &std_well,
             const Simulator &ebos_simulator,
             const SummaryState &summary_state,
@@ -79,8 +79,10 @@ namespace Opm
         void displayDebugMessage_(const std::string &msg);
         void displayWarning_();
         void displayWarning_(std::string warning);
-        bool getGasRateWithLimit_(double& new_rate, const std::vector<double> &potentials);
-        bool getOilRateWithLimit_(double& new_rate, const std::vector<double> &potentials);
+        bool getGasRateWithLimit_(
+            double& new_rate, const std::vector<double> &potentials);
+        bool getOilRateWithLimit_(
+            double& new_rate, const std::vector<double> &potentials);
         void logSuccess_();
         bool runOptimizeLoop_(bool increase);
         void setAlqMaxRate_(const GasLiftOpt::Well &well);
@@ -117,7 +119,7 @@ namespace Opm
         int water_pos_;
 
         struct OptimizeState {
-            OptimizeState( GasLiftRuntime &parent_, bool increase_ ) :
+            OptimizeState( GasLiftSingleWell &parent_, bool increase_ ) :
                 parent(parent_),
                 increase(increase_),
                 it(0),
@@ -125,7 +127,7 @@ namespace Opm
                 bhp(-1)
             {}
 
-            GasLiftRuntime &parent;
+            GasLiftSingleWell &parent;
             bool increase;
             int it;
             bool stop_iteration;
@@ -148,6 +150,6 @@ namespace Opm
 
 } // namespace Opm
 
-#include "GasLiftRuntime_impl.hpp"
+#include "GasLiftSingleWell_impl.hpp"
 
-#endif // OPM_GASLIFT_RUNTIME_HEADER_INCLUDED
+#endif // OPM_GASLIFT_SINGLE_WELL_HEADER_INCLUDED

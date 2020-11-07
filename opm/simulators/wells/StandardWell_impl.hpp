@@ -275,7 +275,7 @@ namespace Opm
                 return primary_variables_evaluation_[SFrac];
             }
         }
-        else if (FluidSystem::phaseIsActive(FluidSystem::waterPhaseIdx)) {             
+        else if (FluidSystem::phaseIsActive(FluidSystem::waterPhaseIdx)) {
             if (FluidSystem::phaseIsActive(FluidSystem::gasPhaseIdx) && compIdx == Indices::canonicalToActiveComponentIndex(FluidSystem::gasCompIdx)) {
                 return primary_variables_evaluation_[GFrac];
             }
@@ -300,7 +300,7 @@ namespace Opm
 
                 well_fraction -= primary_variables_evaluation_[GFrac];
         }
-        
+
         return well_fraction;
     }
 
@@ -1116,7 +1116,7 @@ namespace Opm
 
         if (FluidSystem::phaseIsActive(FluidSystem::oilPhaseIdx)) {
             F[pu.phase_pos[Oil]] = 1.0;
-              
+
             if (FluidSystem::phaseIsActive(FluidSystem::waterPhaseIdx)) {
                 F[pu.phase_pos[Water]] = primary_variables_[WFrac];
                 F[pu.phase_pos[Oil]] -= F[pu.phase_pos[Water]];
@@ -1214,7 +1214,7 @@ namespace Opm
         std::vector<double> F(number_of_phases_, 0.0);
         double F_solvent = 0.0;
         if ( FluidSystem::phaseIsActive(FluidSystem::oilPhaseIdx) ) {
-            const int oil_pos = pu.phase_pos[Oil];            
+            const int oil_pos = pu.phase_pos[Oil];
             F[oil_pos] = 1.0;
 
             if ( FluidSystem::phaseIsActive(FluidSystem::waterPhaseIdx) ) {
@@ -1235,7 +1235,7 @@ namespace Opm
             }
         }
         else if ( FluidSystem::phaseIsActive(FluidSystem::waterPhaseIdx) ) {
-            const int water_pos = pu.phase_pos[Water];            
+            const int water_pos = pu.phase_pos[Water];
             F[water_pos] = 1.0;
 
             if ( FluidSystem::phaseIsActive(FluidSystem::gasPhaseIdx) ) {
@@ -1245,7 +1245,7 @@ namespace Opm
             }
         }
         else if ( FluidSystem::phaseIsActive(FluidSystem::gasPhaseIdx) ) {
-            const int gas_pos = pu.phase_pos[Gas];            
+            const int gas_pos = pu.phase_pos[Gas];
             F[gas_pos] = 1.0;
         }
 
@@ -2821,14 +2821,17 @@ namespace Opm
                 );
     }
 
-
     template<typename TypeTag>
     void
     StandardWell<TypeTag>::
-    maybeDoGasLiftOptimization(
-                          WellState& well_state,
-                          const Simulator& ebos_simulator,
-                          Opm::DeferredLogger& deferred_logger) const
+    gasLiftOptimizationStage1(
+                       WellState& well_state,
+                       const Simulator& ebos_simulator,
+                       Opm::DeferredLogger& deferred_logger,
+                       GLiftProdWells &prod_wells,
+                       GLiftOptWells &glift_wells
+                       //std::map<std::string, WellInterface *> &prod_wells
+    ) const
     {
         const auto& well = well_ecl_;
         if (well.isProducer()) {
@@ -2838,13 +2841,16 @@ namespace Opm
             if ( this->Base::wellHasTHPConstraints(summary_state)
                 && current_control != Well::ProducerCMode::BHP ) {
                 if (doGasLiftOptimize(well_state, ebos_simulator, deferred_logger)) {
-                    const auto& controls = well.productionControls(summary_state);
-                    GasLiftHandler glift {
-                        *this, ebos_simulator, summary_state,
-                        deferred_logger, well_state, controls };
-                    glift.runOptimize();
+                    std::unique_ptr<GasLiftSingleWell> glift
+                        = std::make_unique<GasLiftSingleWell>(
+                             *this, ebos_simulator, summary_state,
+                             deferred_logger, well_state);
+                    glift->runOptimize();
+                    glift_wells.insert({this->name(), std::move(glift)});
+                    return;
                 }
             }
+            prod_wells.insert({this->name(), this});
         }
     }
 

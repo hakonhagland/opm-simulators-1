@@ -45,6 +45,9 @@ namespace Opm
         using typename Base::RateConverterType;
         using typename Base::SparseMatrixAdapter;
         using typename Base::FluidState;
+        using typename Base::GasLiftSingleWell;
+        using typename Base::GLiftProdWells;
+        using typename Base::GLiftOptWells;
 
         /// the number of reservior equations
         using Base::numEq;
@@ -120,10 +123,12 @@ namespace Opm
 
         virtual void initPrimaryVariablesEvaluation() const override;
 
-        virtual void maybeDoGasLiftOptimization (
+        virtual void gasLiftOptimizationStage1 (
             WellState&,
             const Simulator&,
-            DeferredLogger&
+            DeferredLogger&,
+            GLiftProdWells &,
+            GLiftOptWells &
         ) const override {
             // Not implemented yet
         }

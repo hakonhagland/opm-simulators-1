@@ -29,8 +29,8 @@
 #include <string>
 
 template<typename TypeTag>
-Opm::GasLiftRuntime<TypeTag>::
-GasLiftRuntime(
+Opm::GasLiftSingleWell<TypeTag>::
+GasLiftSingleWell(
     const StdWell &std_well,
     const Simulator &ebos_simulator,
     const SummaryState &summary_state,
@@ -41,7 +41,7 @@ GasLiftRuntime(
     controls_{controls},
     deferred_logger_{deferred_logger},
     ebos_simulator_{ebos_simulator},
-    potentials_(well_state.numPhases(),0.0),
+    potentials_(well_state.numPhases(), 0.0),
     std_well_{std_well},
     summary_state_{summary_state},
     well_state_{well_state},
@@ -122,7 +122,7 @@ GasLiftRuntime(
 
 template<typename TypeTag>
 void
-Opm::GasLiftRuntime<TypeTag>::
+Opm::GasLiftSingleWell<TypeTag>::
 computeInitialWellRates_()
 {
     // get the alq value used for this well for the previous time step, or
@@ -138,7 +138,7 @@ computeInitialWellRates_()
 
 template<typename TypeTag>
 void
-Opm::GasLiftRuntime<TypeTag>::
+Opm::GasLiftSingleWell<TypeTag>::
 computeWellRates_(double bhp, std::vector<double> &potentials)
 {
     this->std_well_.computeWellRatesWithBhp(
@@ -148,7 +148,7 @@ computeWellRates_(double bhp, std::vector<double> &potentials)
 
 template<typename TypeTag>
 void
-Opm::GasLiftRuntime<TypeTag>::
+Opm::GasLiftSingleWell<TypeTag>::
 debugShowIterationInfo_(OptimizeState &state, double alq)
 {
     const std::string msg = fmt::format("iteration {}, ALQ = {}", state.it, alq);
@@ -157,7 +157,7 @@ debugShowIterationInfo_(OptimizeState &state, double alq)
 
 template<typename TypeTag>
 void
-Opm::GasLiftRuntime<TypeTag>::
+Opm::GasLiftSingleWell<TypeTag>::
 debugShowStartIteration_(double alq, bool increase)
 {
     const std::string msg =
@@ -170,7 +170,7 @@ debugShowStartIteration_(double alq, bool increase)
 
 template<typename TypeTag>
 void
-Opm::GasLiftRuntime<TypeTag>::
+Opm::GasLiftSingleWell<TypeTag>::
 displayDebugMessage_(const std::string &msg)
 {
 
@@ -181,7 +181,7 @@ displayDebugMessage_(const std::string &msg)
 
 template<typename TypeTag>
 void
-Opm::GasLiftRuntime<TypeTag>::
+Opm::GasLiftSingleWell<TypeTag>::
 displayWarning_(std::string msg)
 {
     const std::string message = fmt::format(
@@ -203,7 +203,7 @@ displayWarning_(std::string msg)
 //   smaller than it should be since the term appears in the denominator.
 template<typename TypeTag>
 bool
-Opm::GasLiftRuntime<TypeTag>::
+Opm::GasLiftSingleWell<TypeTag>::
 getGasRateWithLimit_(double& new_rate, const std::vector<double> &potentials)
 {
     new_rate = -potentials[this->gas_pos_];
@@ -230,7 +230,7 @@ getGasRateWithLimit_(double& new_rate, const std::vector<double> &potentials)
 //   some sort of iteration though..
 template<typename TypeTag>
 bool
-Opm::GasLiftRuntime<TypeTag>::
+Opm::GasLiftSingleWell<TypeTag>::
 getOilRateWithLimit_(double& new_rate, const std::vector<double> &potentials)
 {
     new_rate = -potentials[this->oil_pos_];
@@ -257,7 +257,7 @@ getOilRateWithLimit_(double& new_rate, const std::vector<double> &potentials)
 
 template<typename TypeTag>
 void
-Opm::GasLiftRuntime<TypeTag>::
+Opm::GasLiftSingleWell<TypeTag>::
 logSuccess_()
 {
 
@@ -322,7 +322,7 @@ logSuccess_()
  */
 template<typename TypeTag>
 void
-Opm::GasLiftRuntime<TypeTag>::
+Opm::GasLiftSingleWell<TypeTag>::
 runOptimize()
 {
     if (this->optimize_) {
@@ -349,7 +349,7 @@ runOptimize()
 // - new_alq_    : updated alq if success
 template<typename TypeTag>
 bool
-Opm::GasLiftRuntime<TypeTag>::
+Opm::GasLiftSingleWell<TypeTag>::
 runOptimizeLoop_(bool increase)
 {
     auto cur_potentials = this->potentials_;  // make copy, since we may fail..
@@ -407,7 +407,7 @@ runOptimizeLoop_(bool increase)
 
 template<typename TypeTag>
 void
-Opm::GasLiftRuntime<TypeTag>::
+Opm::GasLiftSingleWell<TypeTag>::
 setAlqMaxRate_(const GasLiftOpt::Well &well)
 {
     auto& max_alq_optional = well.max_rate();
@@ -431,7 +431,7 @@ setAlqMaxRate_(const GasLiftOpt::Well &well)
 
 template<typename TypeTag>
 void
-Opm::GasLiftRuntime<TypeTag>::
+Opm::GasLiftSingleWell<TypeTag>::
 setAlqMinRate_(const GasLiftOpt::Well &well)
 {
     // NOTE:  According to WLIFTOPT item 5 :
@@ -466,7 +466,7 @@ setAlqMinRate_(const GasLiftOpt::Well &well)
 
 template<typename TypeTag>
 bool
-Opm::GasLiftRuntime<TypeTag>::
+Opm::GasLiftSingleWell<TypeTag>::
 tryDecreaseLiftGas_()
 {
     return runOptimizeLoop_(/*increase=*/ false);
@@ -474,7 +474,7 @@ tryDecreaseLiftGas_()
 
 template<typename TypeTag>
 bool
-Opm::GasLiftRuntime<TypeTag>::
+Opm::GasLiftSingleWell<TypeTag>::
 tryIncreaseLiftGas_()
 {
     return runOptimizeLoop_(/*increase=*/ true);
@@ -484,7 +484,7 @@ tryIncreaseLiftGas_()
 // Called when we should use a fixed ALQ value
 template<typename TypeTag>
 void
-Opm::GasLiftRuntime<TypeTag>::
+Opm::GasLiftSingleWell<TypeTag>::
 updateWellStateAlqFixedValue_(const GasLiftOpt::Well &well)
 {
     auto& max_alq_optional = well.max_rate();
@@ -514,7 +514,7 @@ updateWellStateAlqFixedValue_(const GasLiftOpt::Well &well)
 //   Item 12 of keyword WCONPROD, or with keyword WELTARG.
 template<typename TypeTag>
 bool
-Opm::GasLiftRuntime<TypeTag>::
+Opm::GasLiftSingleWell<TypeTag>::
 useFixedAlq_(const GasLiftOpt::Well &well)
 {
     auto wliftopt_item2 = well.use_glo();
@@ -538,7 +538,7 @@ useFixedAlq_(const GasLiftOpt::Well &well)
 
 template<typename TypeTag>
 void
-Opm::GasLiftRuntime<TypeTag>::
+Opm::GasLiftSingleWell<TypeTag>::
 warnMaxIterationsExceeded_()
 {
     std::ostringstream ss;
@@ -553,14 +553,14 @@ warnMaxIterationsExceeded_()
 
 template<typename TypeTag>
 double
-Opm::GasLiftRuntime<TypeTag>::OptimizeState::
+Opm::GasLiftSingleWell<TypeTag>::OptimizeState::
 addOrSubtractAlqIncrement(double alq)
 {
     if (this->increase) {
         alq += this->parent.increment_;
         // NOTE: if max_alq_ was defaulted in WCONPROD, item 3, it has
         //   already been set to the largest value in the VFP table in
-        //   the contructor of GasLiftRuntime
+        //   the contructor of GasLiftSingleWell
         if (alq > this->parent.max_alq_) alq = this->parent.max_alq_;
     }
     else {
@@ -574,7 +574,7 @@ addOrSubtractAlqIncrement(double alq)
 
 template<typename TypeTag>
 double
-Opm::GasLiftRuntime<TypeTag>::OptimizeState::
+Opm::GasLiftSingleWell<TypeTag>::OptimizeState::
 calcGradient(double oil_rate, double new_oil_rate, double gas_rate, double new_gas_rate)
 {
     auto dqo = new_oil_rate - oil_rate;
@@ -592,12 +592,12 @@ calcGradient(double oil_rate, double new_oil_rate, double gas_rate, double new_g
 // NOTE:  According to WLIFTOPT item 5 :
 //   if min_rate() is negative, it means: allocate at least enough lift gas
 //   to enable the well to flow
-//  We will interpret this as (see discussion above GasLiftRuntime()
+//  We will interpret this as (see discussion above GasLiftSingleWell()
 //   in this file): Allocate at least the amount of lift gas needed to
 //   get a positive oil production rate.
 template<typename TypeTag>
 bool
-Opm::GasLiftRuntime<TypeTag>::OptimizeState::
+Opm::GasLiftSingleWell<TypeTag>::OptimizeState::
 checkAlqOutsideLimits(double alq, double oil_rate)
 {
     std::ostringstream ss;
@@ -673,7 +673,7 @@ checkAlqOutsideLimits(double alq, double oil_rate)
 
 template<typename TypeTag>
 bool
-Opm::GasLiftRuntime<TypeTag>::OptimizeState::
+Opm::GasLiftSingleWell<TypeTag>::OptimizeState::
 checkEcoGradient(double gradient)
 {
     std::ostringstream ss;
@@ -708,7 +708,7 @@ checkEcoGradient(double gradient)
 
 template<typename TypeTag>
 bool
-Opm::GasLiftRuntime<TypeTag>::OptimizeState::
+Opm::GasLiftSingleWell<TypeTag>::OptimizeState::
 checkRate(double rate, double limit, const std::string rate_str)
 {
 
@@ -726,7 +726,7 @@ checkRate(double rate, double limit, const std::string rate_str)
 
 template<typename TypeTag>
 bool
-Opm::GasLiftRuntime<TypeTag>::OptimizeState::
+Opm::GasLiftSingleWell<TypeTag>::OptimizeState::
 checkWellRatesViolated(std::vector<double> &potentials)
 {
     if (this->parent.controls_.hasControl(Well::ProducerCMode::ORAT)) {
@@ -762,7 +762,7 @@ checkWellRatesViolated(std::vector<double> &potentials)
 
 template<typename TypeTag>
 bool
-Opm::GasLiftRuntime<TypeTag>::OptimizeState::
+Opm::GasLiftSingleWell<TypeTag>::OptimizeState::
 computeBhpAtThpLimit(double alq)
 {
     auto bhp_at_thp_limit = this->parent.std_well_.computeBhpAtThpLimitProdWithAlq(
@@ -794,7 +794,7 @@ computeBhpAtThpLimit(double alq)
 //
 template<typename TypeTag>
 double
-Opm::GasLiftRuntime<TypeTag>::OptimizeState::
+Opm::GasLiftSingleWell<TypeTag>::OptimizeState::
 getBhpWithLimit()
 {
     auto bhp_update = this->bhp;

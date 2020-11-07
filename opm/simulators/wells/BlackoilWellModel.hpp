@@ -51,10 +51,11 @@
 #include <opm/parser/eclipse/EclipseState/Schedule/Group/GConSale.hpp>
 
 #include <opm/simulators/timestepping/SimulatorReport.hpp>
+#include <opm/simulators/flow/countGlobalCells.hpp>
+#include <opm/simulators/wells/GasLiftStage2.hpp>
 #include <opm/simulators/wells/PerforationData.hpp>
 #include <opm/simulators/wells/VFPInjProperties.hpp>
 #include <opm/simulators/wells/VFPProdProperties.hpp>
-#include <opm/simulators/flow/countGlobalCells.hpp>
 #include <opm/simulators/wells/WellStateFullyImplicitBlackoil.hpp>
 #include <opm/simulators/wells/RateConverter.hpp>
 #include <opm/simulators/wells/WellInterface.hpp>
@@ -103,6 +104,7 @@ namespace Opm {
             using SparseMatrixAdapter = GetPropType<TypeTag, Properties::SparseMatrixAdapter>;
 
             typedef typename Opm::BaseAuxiliaryModule<TypeTag>::NeighborSet NeighborSet;
+            using GasLiftStage2 = Opm::GasLiftStage2<TypeTag>;
 
             static const int numEq = Indices::numEq;
             static const int solventSaturationIdx = Indices::solventSaturationIdx;
@@ -247,6 +249,8 @@ namespace Opm {
 
             // return the internal well state
             const WellState& wellState() const;
+
+            const PhaseUsage& phaseUsage() const { return phase_usage_; }
 
             const SimulatorReportSingle& lastReport() const;
 
@@ -429,6 +433,9 @@ namespace Opm {
             int numPhases() const;
 
             void assembleWellEq(const std::vector<Scalar>& B_avg, const double dt, Opm::DeferredLogger& deferred_logger);
+
+            void maybeDoGasLiftOptimize(Opm::DeferredLogger& deferred_logger);
+            void gasLiftOptimizationStage2(Opm::DeferredLogger& deferred_logger);
 
             // some preparation work, mostly related to group control and RESV,
             // at the beginning of each time step (Not report step)
