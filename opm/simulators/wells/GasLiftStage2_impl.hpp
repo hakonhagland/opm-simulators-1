@@ -56,57 +56,45 @@ GasLiftStage2(
 template<typename TypeTag>
 void
 Opm::GasLiftStage2<TypeTag>::
-optimizeGroup(const Opm::Group &group)
+displayDebugMessage_(const std::string &msg, const std::string &group_name)
 {
-    this->deferred_logger_.info("  GLIFT2: dummy");
-    const GasLiftOpt& glo = this->schedule_.glo(this->report_step_idx_);
-    const auto &gl_group = glo.group(group.name());
-    //const auto &max_glift = gl_group.max_lift_gas();
-    /*
-    if (group.has_control(Group::ProductionCMode::ORAT) || max_glift) {
-        const std::string message = fmt::format(
-            "  GLIFT2 (DEBUG) : Group {} : optimizing", group.name());
-        //this->deferred_logger_.info(message);
-    }
-    else {
-        const std::string message = fmt::format(
-            "  GLIFT2 (DEBUG) : Group {} : skipping", group.name());
-        //this->deferred_logger_.info(message);
-        }*/
+    const std::string message = fmt::format(
+        "  GLIFT2 (DEBUG) : Group {} : {}", group_name, msg);
+    this->deferred_logger_.info(message);
 }
 
-/*
 template<typename TypeTag>
 void
 Opm::GasLiftStage2<TypeTag>::
-optimizeGroup(const Opm::Group &group)
+optimizeGroup_(const Opm::Group &group)
 {
     const GasLiftOpt& glo = this->schedule_.glo(this->report_step_idx_);
     for (const std::string& group_name : group.groups()) {
         const Group& sub_group = this->schedule_.getGroup(
             group_name, this->report_step_idx_);
-        //optimizeGroup(sub_group);
-        const auto &gl_group = glo.group(sub_group.name());
-        const auto &max_glift = gl_group.max_lift_gas();
-        if (sub_group.has_control(Group::ProductionCMode::ORAT) || max_glift) {
-            //const auto controls = sub_group.productionControls(this->summary_state_);
-            //const auto &rates = WellGroupHelpers::getProductionGroupRateVector(
-            //    this->well_state_, this->phase_usage_, group_name);
-            //if (controls.oil_target < rates.oil_rat  ) {
-            //
-            //}
-            const std::string message = fmt::format(
-                "  GLIFT2 (DEBUG) : Group {} : optimizing", sub_group.name());
-            this->deferred_logger_.info(message);
+        optimizeGroup_(sub_group);
+    }
+    try {
+        const auto &gl_group = glo.group(group.name());
+    }
+    catch (std::out_of_range &e) {
+        displayDebugMessage_("no gaslift info available", group.name());
+        return;
+    }
+    const auto &gl_group = glo.group(group.name());
+    const auto &max_glift = gl_group.max_lift_gas();
+    if (group.has_control(Group::ProductionCMode::ORAT) || max_glift) {
+        const auto controls = group.productionControls(this->summary_state_);
+        const auto &rates = WellGroupHelpers::getProductionGroupRateVector(
+            this->well_state_, this->phase_usage_, group.name());
+        if ((controls.oil_target < rates.oil_rat) || max_glift ) {
+            displayDebugMessage_("optimizing", group.name());
         }
         else {
-            const std::string message = fmt::format(
-                "  GLIFT2 (DEBUG) : Group {} : skipping", sub_group.name());
-            this->deferred_logger_.info(message);
+            displayDebugMessage_("skipping", group.name());
         }
     }
 }
-*/
 
 template<typename TypeTag>
 void
@@ -115,6 +103,6 @@ runOptimize()
 {
     const auto& group = this->schedule_.getGroup("FIELD", this->report_step_idx_);
 
-    optimizeGroup(group);
+    optimizeGroup_(group);
 
 }

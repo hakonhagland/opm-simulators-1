@@ -1017,6 +1017,7 @@ namespace Opm {
     BlackoilWellModel<TypeTag>::
     gasLiftOptimizationStage2(Opm::DeferredLogger& deferred_logger)
     {
+
         GasLiftStage2 glift {*this, ebosSimulator_, deferred_logger, well_state_ };
         glift.runOptimize();
     }

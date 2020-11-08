@@ -69,7 +69,8 @@ namespace Opm
         );
         void runOptimize();
     private:
-        void optimizeGroup(const Opm::Group &group);
+        void displayDebugMessage_(const std::string &msg, const std::string &group_name);
+        void optimizeGroup_(const Opm::Group &group);
 
         DeferredLogger &deferred_logger_;
         const Simulator &ebos_simulator_;
