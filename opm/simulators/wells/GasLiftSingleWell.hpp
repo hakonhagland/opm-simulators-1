@@ -71,13 +71,13 @@ namespace Opm
             const Well::ProductionControls &controls
         );
         void runOptimize();
+        const std::string& name() {return well_name_; }
     private:
         void computeInitialWellRates_();
         void computeWellRates_(double bhp, std::vector<double> &potentials);
         void debugShowIterationInfo_(OptimizeState &state, double alq);
         void debugShowStartIteration_(double alq, bool increase);
         void displayDebugMessage_(const std::string &msg);
-        void displayWarning_();
         void displayWarning_(std::string warning);
         bool getGasRateWithLimit_(
             double& new_rate, const std::vector<double> &potentials);

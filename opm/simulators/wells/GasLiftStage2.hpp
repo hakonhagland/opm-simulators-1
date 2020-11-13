@@ -30,6 +30,7 @@
 #include <opm/parser/eclipse/EclipseState/Schedule/Group/Group.hpp>
 #include <opm/parser/eclipse/EclipseState/Schedule/GasLiftOpt.hpp>
 #include <opm/simulators/wells/StandardWell.hpp>
+#include <opm/simulators/wells/GasLiftSingleWell.hpp>
 #include <opm/simulators/utils/DeferredLogger.hpp>
 #include <opm/simulators/wells/WellStateFullyImplicitBlackoil.hpp>
 // NOTE: BlackoilWellModel.hpp includes ourself (GasLiftStage2.hpp), so we need
@@ -57,6 +58,8 @@ namespace Opm
         using BlackoilWellModel = Opm::BlackoilWellModel<TypeTag>;
         using MPICommunicator = Dune::MPIHelper::MPICommunicator;
         using CollectiveCommunication = Dune::CollectiveCommunication<MPICommunicator>;
+        using GasLiftSingleWell = Opm::GasLiftSingleWell<TypeTag>;
+        using GasLiftWells = std::map<std::string,std::unique_ptr<GasLiftSingleWell>>;
         static const int Water = BlackoilPhases::Aqua;
         static const int Oil = BlackoilPhases::Liquid;
         static const int Gas = BlackoilPhases::Vapour;
@@ -65,17 +68,22 @@ namespace Opm
             const BlackoilWellModel &well_model,
             const Simulator &ebos_simulator,
             DeferredLogger &deferred_logger,
-            const WellState &well_state
+            const WellState &well_state,
+            GasLiftWells &glift_wells
         );
         void runOptimize();
     private:
         void displayDebugMessage_(const std::string &msg, const std::string &group_name);
+        std::vector<GasLiftSingleWell *> getGroupGliftWells_(const Opm::Group &group);
+        void getGroupGliftWellsRecursive_(
+            const Opm::Group &group, std::vector<GasLiftSingleWell *> &wells);
         void optimizeGroup_(const Opm::Group &group);
 
         DeferredLogger &deferred_logger_;
         const Simulator &ebos_simulator_;
         const BlackoilWellModel &well_model_;
         const WellState &well_state_;
+        GasLiftWells &stage1_wells_;
 
         int report_step_idx_;
         const SummaryState &summary_state_;

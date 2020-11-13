@@ -52,6 +52,7 @@
 
 #include <opm/simulators/timestepping/SimulatorReport.hpp>
 #include <opm/simulators/flow/countGlobalCells.hpp>
+#include <opm/simulators/wells/GasLiftSingleWell.hpp>
 #include <opm/simulators/wells/GasLiftStage2.hpp>
 #include <opm/simulators/wells/PerforationData.hpp>
 #include <opm/simulators/wells/VFPInjProperties.hpp>
@@ -104,7 +105,9 @@ namespace Opm {
             using SparseMatrixAdapter = GetPropType<TypeTag, Properties::SparseMatrixAdapter>;
 
             typedef typename Opm::BaseAuxiliaryModule<TypeTag>::NeighborSet NeighborSet;
+            using GasLiftSingleWell = Opm::GasLiftSingleWell<TypeTag>;
             using GasLiftStage2 = Opm::GasLiftStage2<TypeTag>;
+            using GasLiftWells = std::map<std::string,std::unique_ptr<GasLiftSingleWell>>;
 
             static const int numEq = Indices::numEq;
             static const int solventSaturationIdx = Indices::solventSaturationIdx;
@@ -435,7 +438,8 @@ namespace Opm {
             void assembleWellEq(const std::vector<Scalar>& B_avg, const double dt, Opm::DeferredLogger& deferred_logger);
 
             void maybeDoGasLiftOptimize(Opm::DeferredLogger& deferred_logger);
-            void gasLiftOptimizationStage2(Opm::DeferredLogger& deferred_logger);
+            void gasLiftOptimizationStage2(Opm::DeferredLogger& deferred_logger,
+                GasLiftWells &glift_wells);
 
             // some preparation work, mostly related to group control and RESV,
             // at the beginning of each time step (Not report step)

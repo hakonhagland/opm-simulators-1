@@ -996,12 +996,13 @@ namespace Opm {
     maybeDoGasLiftOptimize(Opm::DeferredLogger& deferred_logger)
     {
         well_state_.enableGliftOptimization();
+        GasLiftWells glift_wells;
         // Stage1: Optimize single wells not checking any group limits
         for (auto& well : well_container_) {
             well->gasLiftOptimizationStage1(
-                 well_state_, ebosSimulator_, deferred_logger);
+                well_state_, ebosSimulator_, deferred_logger, glift_wells);
         }
-        gasLiftOptimizationStage2(deferred_logger);
+        gasLiftOptimizationStage2(deferred_logger, glift_wells);
         well_state_.disableGliftOptimization();
     }
 
@@ -1015,10 +1016,12 @@ namespace Opm {
     template<typename TypeTag>
     void
     BlackoilWellModel<TypeTag>::
-    gasLiftOptimizationStage2(Opm::DeferredLogger& deferred_logger)
+    gasLiftOptimizationStage2(Opm::DeferredLogger& deferred_logger,
+           GasLiftWells &glift_wells)
     {
 
-        GasLiftStage2 glift {*this, ebosSimulator_, deferred_logger, well_state_ };
+        GasLiftStage2 glift {*this, ebosSimulator_, deferred_logger, well_state_,
+                             glift_wells};
         glift.runOptimize();
     }
 

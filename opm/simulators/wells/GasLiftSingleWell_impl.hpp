@@ -541,10 +541,9 @@ void
 Opm::GasLiftSingleWell<TypeTag>::
 warnMaxIterationsExceeded_()
 {
-    std::ostringstream ss;
-    ss << "Max iterations (" << this->max_iterations_ << ") exceeded in "
-       << "gas lift optimization for well " << this->well_name_;
-    deferred_logger_.warning("MAX_ITERATIONS_EXCEEDED", ss.str());
+    const std::string msg = fmt::format(
+        "Max iterations ({}) exceeded", this->max_iterations_);
+    displayWarning_(msg);
 }
 
 /****************************************
