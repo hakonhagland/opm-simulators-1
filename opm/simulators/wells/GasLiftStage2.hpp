@@ -59,7 +59,9 @@ namespace Opm
         using MPICommunicator = Dune::MPIHelper::MPICommunicator;
         using CollectiveCommunication = Dune::CollectiveCommunication<MPICommunicator>;
         using GasLiftSingleWell = Opm::GasLiftSingleWell<TypeTag>;
-        using GasLiftWells = std::map<std::string,std::unique_ptr<GasLiftSingleWell>>;
+        using GLiftOptWells = typename BlackoilWellModel::GLiftOptWells;
+        using GLiftProdWells = typename BlackoilWellModel::GLiftProdWells;
+        using GradPair = std::pair<std::string, double>;
         static const int Water = BlackoilPhases::Aqua;
         static const int Oil = BlackoilPhases::Liquid;
         static const int Gas = BlackoilPhases::Vapour;
@@ -69,31 +71,64 @@ namespace Opm
             const Simulator &ebos_simulator,
             DeferredLogger &deferred_logger,
             const WellState &well_state,
-            GasLiftWells &glift_wells
+            GLiftProdWells &prod_wells,
+            GLiftOptWells &glift_wells
         );
         void runOptimize();
     private:
+        std::optional<double> calcIncOrDecGrad_(
+            const std::string name, GasLiftSingleWell &gs_well, bool increase);
         void displayDebugMessage_(const std::string &msg, const std::string &group_name);
-        std::vector<GasLiftSingleWell *> getGroupGliftWells_(const Opm::Group &group);
+        std::vector<GasLiftSingleWell *> getGroupGliftWells_(
+            const Opm::Group &group);
         void getGroupGliftWellsRecursive_(
             const Opm::Group &group, std::vector<GasLiftSingleWell *> &wells);
         void optimizeGroup_(const Opm::Group &group);
+        void optimizeGroupsRecursive_(const Opm::Group &group);
 
         DeferredLogger &deferred_logger_;
         const Simulator &ebos_simulator_;
         const BlackoilWellModel &well_model_;
         const WellState &well_state_;
-        GasLiftWells &stage1_wells_;
+        GLiftProdWells &prod_wells_;
+        GLiftOptWells &stage1_wells_;
 
         int report_step_idx_;
         const SummaryState &summary_state_;
         const CollectiveCommunication &comm_;
         const Schedule &schedule_;
         const PhaseUsage &phase_usage_;
+        const GasLiftOpt& glo_;
+        std::map<std::string, std::optional<double>> inc_grads_;
+        std::map<std::string, std::optional<double>> dec_grads_;
+
+        struct OptimizeState {
+            OptimizeState( GasLiftStage2 &parent_, const Opm::Group &group_ ) :
+                parent{parent_},
+                group{group_},
+                it{0}
+            {}
+            GasLiftStage2 &parent;
+            const Opm::Group &group;
+            int it;
+
+            using GradPair = typename GasLiftStage2::GradPair;
+            std::pair<std::optional<GradPair>,std::optional<GradPair>>
+              calculateEcoGradients(
+                 std::vector<GasLiftSingleWell *> &wells);
+
+        private:
+            std::optional<double> calcIncOrDecGrad_(
+                const std::string well_name,
+                const GasLiftSingleWell &gs_well, bool increase);
+            void displayDebugMessage_(const std::string &msg);
+            void sortGradients_(std::vector<GradPair> &grads);
+
+        };
     };
 
-} // namespace Opm
-
 #include "GasLiftStage2_impl.hpp"
+
+} // namespace Opm
 
 #endif // OPM_GASLIFT_STAGE2_HEADER_INCLUDED

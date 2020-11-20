@@ -107,7 +107,10 @@ namespace Opm {
             typedef typename Opm::BaseAuxiliaryModule<TypeTag>::NeighborSet NeighborSet;
             using GasLiftSingleWell = Opm::GasLiftSingleWell<TypeTag>;
             using GasLiftStage2 = Opm::GasLiftStage2<TypeTag>;
-            using GasLiftWells = std::map<std::string,std::unique_ptr<GasLiftSingleWell>>;
+            using GLiftOptWells =
+                std::map<std::string,std::unique_ptr<GasLiftSingleWell>>;
+            using GLiftProdWells =
+                std::map<std::string,const WellInterface<TypeTag> *>;
 
             static const int numEq = Indices::numEq;
             static const int solventSaturationIdx = Indices::solventSaturationIdx;
@@ -439,7 +442,7 @@ namespace Opm {
 
             void maybeDoGasLiftOptimize(Opm::DeferredLogger& deferred_logger);
             void gasLiftOptimizationStage2(Opm::DeferredLogger& deferred_logger,
-                GasLiftWells &glift_wells);
+                GLiftProdWells &prod_wells, GLiftOptWells &glift_wells);
 
             // some preparation work, mostly related to group control and RESV,
             // at the beginning of each time step (Not report step)

@@ -31,24 +31,27 @@
 #include <fmt/format.h>
 
 template<typename TypeTag>
-Opm::GasLiftStage2<TypeTag>::
+GasLiftStage2<TypeTag>::
 GasLiftStage2(
     const BlackoilWellModel &well_model,
     const Simulator &ebos_simulator,
     DeferredLogger &deferred_logger,
     const WellState &well_state,
-    GasLiftWells &glift_wells
+    GLiftProdWells &prod_wells,
+    GLiftOptWells &glift_wells
 ) :
     deferred_logger_{deferred_logger},
     ebos_simulator_{ebos_simulator},
     well_model_{well_model},
     well_state_{well_state},
+    prod_wells_{prod_wells},
     stage1_wells_{glift_wells},
     report_step_idx_{ebos_simulator_.episodeIndex()},
     summary_state_{ebos_simulator_.vanguard().summaryState()},
     comm_{ebos_simulator_.vanguard().grid().comm()},
     schedule_{ebos_simulator.vanguard().schedule()},
-    phase_usage_{well_model_.phaseUsage()}
+    phase_usage_{well_model_.phaseUsage()},
+    glo_{schedule_.glo(report_step_idx_)}
 { }
 
 /****************************************
@@ -57,7 +60,7 @@ GasLiftStage2(
 
 template<typename TypeTag>
 void
-Opm::GasLiftStage2<TypeTag>::
+GasLiftStage2<TypeTag>::
 displayDebugMessage_(const std::string &msg, const std::string &group_name)
 {
     const std::string message = fmt::format(
@@ -71,21 +74,20 @@ displayDebugMessage_(const std::string &msg, const std::string &group_name)
 //   If it contains groups, we have to traverse those recursively to find the wells.
 //
 template<typename TypeTag>
-std::vector<Opm::GasLiftSingleWell<TypeTag> *>
-Opm::GasLiftStage2<TypeTag>::
+std::vector<GasLiftSingleWell<TypeTag> *>
+GasLiftStage2<TypeTag>::
 getGroupGliftWells_(const Opm::Group &group)
 {
     std::vector<GasLiftSingleWell *> wells;
     getGroupGliftWellsRecursive_(group, wells);
     return wells;
-
 }
 
 template<typename TypeTag>
 void
-Opm::GasLiftStage2<TypeTag>::
+GasLiftStage2<TypeTag>::
 getGroupGliftWellsRecursive_(const Opm::Group &group,
-         std::vector<GasLiftSingleWell*> &wells)
+         std::vector<GasLiftSingleWell *> &wells)
 {
     for (const std::string& group_name : group.groups()) {
         const Group& sub_group = this->schedule_.getGroup(
@@ -102,67 +104,150 @@ getGroupGliftWellsRecursive_(const Opm::Group &group,
 
 template<typename TypeTag>
 void
-Opm::GasLiftStage2<TypeTag>::
+GasLiftStage2<TypeTag>::
 optimizeGroup_(const Opm::Group &group)
 {
-    const GasLiftOpt& glo = this->schedule_.glo(this->report_step_idx_);
+    const auto &gl_group = this->glo_.group(group.name());
+    const auto &max_glift = gl_group.max_lift_gas();
+    if (group.has_control(Group::ProductionCMode::ORAT) || max_glift) {
+        displayDebugMessage_("optimizing", group.name());
+        auto wells = getGroupGliftWells_(group);
+        OptimizeState state {*this, group};
+        auto [minDecGrad, maxIncGrad] = state.calculateEcoGradients(wells);
+    }
+    else {
+        displayDebugMessage_("skipping", group.name());
+    }
+
+}
+
+template<typename TypeTag>
+void
+GasLiftStage2<TypeTag>::
+optimizeGroupsRecursive_(const Opm::Group &group)
+{
     for (const std::string& group_name : group.groups()) {
         const Group& sub_group = this->schedule_.getGroup(
             group_name, this->report_step_idx_);
-        optimizeGroup_(sub_group);
+        optimizeGroupsRecursive_(sub_group);
     }
     try {
-        /*const auto &gl_group =*/ glo.group(group.name());
+        /*const auto &gl_group =*/ this->glo_.group(group.name());
     }
     catch (std::out_of_range &e) {
         displayDebugMessage_("no gaslift info available", group.name());
         return;
     }
-    const auto &gl_group = glo.group(group.name());
-    const auto &max_glift = gl_group.max_lift_gas();
-    if (group.has_control(Group::ProductionCMode::ORAT) || max_glift) {
-        //const auto controls = group.productionControls(this->summary_state_);
-        //const auto &rates = WellGroupHelpers::getProductionGroupRateVector(
-        //    this->well_state_, this->phase_usage_, group.name());
-        //if ((controls.oil_target < rates.oil_rat) || max_glift ) {.. }
-        displayDebugMessage_("optimizing", group.name());
-        for (auto well : getGroupGliftWells_(group)) {
-            const std::string msg = fmt::format("well: {}", well->name());
-            displayDebugMessage_(msg, group.name());
-
-                /*
-                const auto& it = this->well_state_.wellMap().find(well_name);
-                if (it == end) continue;
-                int well_index = it->second[0];
-                const auto& well_ecl = this->schedule_.getWell(
-                    well_name, this->report_step_idx_);
-                //We don't have to check if the stage1_wells are producers
-                //  or if they have THP control..
-                if (this->stage1_wells.count(well_name)) {
-                if (well_ecl.isProducer()) {
-                }
-
-            if (wellEcl.getStatus() == Well::Status::SHUT)
-                continue;
-
-            double factor = wellEcl.getEfficiencyFactor();
-
-            }
-                */
-        }
-    }
-    else {
-        displayDebugMessage_("skipping", group.name());
-    }
+    optimizeGroup_(group);
 }
 
 template<typename TypeTag>
 void
-Opm::GasLiftStage2<TypeTag>::
+GasLiftStage2<TypeTag>::
 runOptimize()
 {
     const auto& group = this->schedule_.getGroup("FIELD", this->report_step_idx_);
 
-    optimizeGroup_(group);
+    optimizeGroupsRecursive_(group);
 
+}
+
+/****************************************
+ * Methods declared in OptimizeState
+ ****************************************/
+
+template<typename TypeTag>
+std::pair<std::optional<typename GasLiftStage2<TypeTag>::GradPair>,
+          std::optional<typename GasLiftStage2<TypeTag>::GradPair>>
+GasLiftStage2<TypeTag>::OptimizeState::
+calculateEcoGradients(std::vector<GasLiftSingleWell *> &wells)
+{
+    std::vector<GradPair> inc_grads;
+    std::vector<GradPair> dec_grads;
+    inc_grads.reserve(wells.size());
+    dec_grads.reserve(wells.size());
+    for (auto well_ptr : wells) {
+        const auto &gs_well = *well_ptr;  // gs = GasLiftSingleWell
+        const auto &name = gs_well.name();
+        auto inc_grad = calcIncOrDecGrad_(name, gs_well, /*increase=*/true);
+        if (inc_grad) inc_grads.emplace_back(std::make_pair(name, *inc_grad));
+        this->parent.inc_grads_.try_emplace(name, inc_grad);
+        auto dec_grad = calcIncOrDecGrad_(name, gs_well, /*increase=*/false);
+        if (dec_grad) dec_grads.emplace_back(std::make_pair(name, *dec_grad));
+        // NOTE: on using try_emplace() : https://stackoverflow.com/q/46046828/2173773
+        this->parent.dec_grads_.try_emplace(name, dec_grad);
+    }
+    if (inc_grads.size() > 0 && dec_grads.size() > 0) {
+        sortGradients_(inc_grads);
+        sortGradients_(dec_grads);
+        auto inc_grad = inc_grads.back();
+        std::optional<GradPair> inc_grad_opt;
+        std::optional<GradPair> dec_grad_opt;
+        for (auto &grad : dec_grads) {
+            if (grad.first == inc_grad.first) {
+                // Don't consider decremental gradients with the same well name
+                continue;
+            }
+            dec_grad_opt = grad;
+        }
+        if (dec_grad_opt) {
+            inc_grad_opt = inc_grad;
+            return { inc_grad_opt, dec_grad_opt };
+        }
+    }
+    return {std::nullopt, std::nullopt};
+}
+
+/****************************************
+ * Private methods
+ ****************************************/
+
+template<typename TypeTag>
+std::optional<double>
+GasLiftStage2<TypeTag>::OptimizeState::
+calcIncOrDecGrad_(
+    const std::string well_name, const GasLiftSingleWell &gs_well, bool increase)
+{
+    {
+        const std::string msg = fmt::format("well: {}", well_name);
+        displayDebugMessage_(msg);
+    }
+    auto grad = gs_well.calcIncOrDecGradient(increase);
+    if (grad) {
+        const std::string msg = fmt::format(
+            "well {} : adding {} gradient = {}",
+            well_name,
+            (increase ? "incremental" : "decremental"),
+            *grad
+        );
+        displayDebugMessage_(msg);
+    }
+    else {
+        const std::string msg = fmt::format(
+            "well {} : not able to obtain {} gradient",
+            well_name,
+            (increase ? "incremental" : "decremental")
+        );
+        displayDebugMessage_(msg);
+    }
+    return grad;
+}
+
+template<typename TypeTag>
+void
+GasLiftStage2<TypeTag>::OptimizeState::
+displayDebugMessage_(const std::string &msg)
+{
+    this->parent.displayDebugMessage_(msg, this->group.name());
+}
+
+template<typename TypeTag>
+void
+GasLiftStage2<TypeTag>::OptimizeState::
+sortGradients_(std::vector<GradPair> &grads)
+{
+    auto cmp = [](GradPair a, GradPair b) {
+         return a.second <  b.second;
+    };
+    std::sort(grads.begin(), grads.end(), cmp);
 }

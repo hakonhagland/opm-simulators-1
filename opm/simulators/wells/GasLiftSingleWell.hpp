@@ -39,12 +39,15 @@ namespace Opm {
 #include <opm/core/props/BlackoilPhases.hpp>
 
 #include <cassert>
+#include <functional>
 #include <iostream>
 #include <map>
 #include <memory>
 #include <optional>
 #include <string>
+#include <tuple>
 #include <vector>
+#include <utility>
 #include <fmt/format.h>
 
 namespace Opm
@@ -67,22 +70,31 @@ namespace Opm
             const Simulator &ebos_simulator,
             const SummaryState &summary_state,
             DeferredLogger &deferred_logger,
-            WellState &well_state,
-            const Well::ProductionControls &controls
+            WellState &well_state
         );
+        std::optional<double> calcIncOrDecGradient(bool increase) const;
         void runOptimize();
-        const std::string& name() {return well_name_; }
+        const std::string& name() const {return well_name_; }
     private:
+        std::pair<double, bool> addOrSubtractAlqIncrement_(
+            double alq, bool increase) const;
+        double calcEcoGradient_(double oil_rate, double new_oil_rate,
+            double gas_rate, double new_gas_rate) const;
+        bool checkWellRatesViolated_(
+            std::vector<double> &potentials,
+            const std::function<bool(double, double, const std::string &)> &callback);
+        std::optional<double> computeBhpAtThpLimit_(double alq) const;
         void computeInitialWellRates_();
-        void computeWellRates_(double bhp, std::vector<double> &potentials);
+        void computeWellRates_(double bhp, std::vector<double> &potentials) const;
         void debugShowIterationInfo_(OptimizeState &state, double alq);
         void debugShowStartIteration_(double alq, bool increase);
-        void displayDebugMessage_(const std::string &msg);
+        void displayDebugMessage_(const std::string &msg) const;
         void displayWarning_(std::string warning);
-        bool getGasRateWithLimit_(
-            double& new_rate, const std::vector<double> &potentials);
-        bool getOilRateWithLimit_(
-            double& new_rate, const std::vector<double> &potentials);
+        std::pair<double, bool> getBhpWithLimit_(double bhp) const;
+        std::pair<double, bool> getGasRateWithLimit_(
+            const std::vector<double> &potentials) const;
+        std::pair<double, bool> getOilRateWithLimit_(
+            const std::vector<double> &potentials) const;
         void logSuccess_();
         bool runOptimizeLoop_(bool increase);
         void setAlqMaxRate_(const GasLiftOpt::Well &well);
@@ -93,7 +105,6 @@ namespace Opm
         bool useFixedAlq_(const GasLiftOpt::Well &well);
         void warnMaxIterationsExceeded_();
 
-        const Well::ProductionControls &controls_;
         DeferredLogger &deferred_logger_;
         const Simulator &ebos_simulator_;
         std::vector<double> potentials_;
@@ -101,6 +112,8 @@ namespace Opm
         const SummaryState &summary_state_;
         WellState &well_state_;
         std::string well_name_;
+        const Well &ecl_well_;
+        const Well::ProductionControls controls_;
         bool debug;  // extra debug output
 
         double alpha_w_;
@@ -112,19 +125,24 @@ namespace Opm
         double max_alq_;
         int max_iterations_;
         double min_alq_;
-        double new_alq_;
+        double alq_;
         int oil_pos_;
         bool optimize_;
         double orig_alq_;
         int water_pos_;
+        bool gas_is_limited_ = false;
+        bool oil_is_limited_ = false;
+        double oil_rate_;
+        double gas_rate_;
+        bool increase_;
 
         struct OptimizeState {
             OptimizeState( GasLiftSingleWell &parent_, bool increase_ ) :
-                parent(parent_),
-                increase(increase_),
-                it(0),
-                stop_iteration(false),
-                bhp(-1)
+                parent{parent_},
+                increase{increase_},
+                it{0},
+                stop_iteration{false},
+                bhp{-1}
             {}
 
             GasLiftSingleWell &parent;
@@ -134,12 +152,10 @@ namespace Opm
             double bhp;
 
             double addOrSubtractAlqIncrement(double alq);
-            double calcGradient(double oil_rate, double new_oil_rate,
-                double gas_rate, double new_gas_rate);
             bool checkAlqOutsideLimits(double alq, double oil_rate);
             bool checkEcoGradient(double gradient);
             bool checkOilRateExceedsTarget(double oil_rate);
-            bool checkRate(double rate, double limit, const std::string rate_str);
+            bool checkRate(double rate, double limit, const std::string &rate_str) const;
             bool checkWellRatesViolated(std::vector<double> &potentials);
             bool computeBhpAtThpLimit(double alq);
             double getBhpWithLimit();
