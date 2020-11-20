@@ -175,7 +175,9 @@ calcIncOrDecGradient(bool increase) const
         computeWellRates_(new_bhp, potentials);
         auto [new_oil_rate, oil_is_limited] = getOilRateWithLimit_(potentials);
         auto [new_gas_rate, gas_is_limited] = getGasRateWithLimit_(potentials);
-        return calcEcoGradient_(oil_rate, new_oil_rate, gas_rate, new_gas_rate);
+        auto grad = calcEcoGradient_(oil_rate, new_oil_rate, gas_rate, new_gas_rate);
+        if (!increase) grad = -grad;
+        return grad;
     }
     else {
         return std::nullopt;
