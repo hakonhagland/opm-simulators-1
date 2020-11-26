@@ -29,7 +29,7 @@
 #include <string>
 
 template<typename TypeTag>
-Opm::GasLiftSingleWell<TypeTag>::
+GasLiftSingleWell<TypeTag>::
 GasLiftSingleWell(
     const StdWell &std_well,
     const Simulator &ebos_simulator,
@@ -52,7 +52,7 @@ GasLiftSingleWell(
         = well_state_.currentProductionControls()[well_index];
     if (control_mode != Well::ProducerCMode::THP)
         throw std::logic_error("Bug in flow - invalid control mode detected\n");
-    const Opm::Schedule& schedule = this->ebos_simulator_.vanguard().schedule();
+    const Schedule& schedule = this->ebos_simulator_.vanguard().schedule();
     const int report_step_idx = this->ebos_simulator_.episodeIndex();
     this->well_name_ = ecl_well_.name();
     const GasLiftOpt& glo = schedule.glo(report_step_idx);
@@ -108,7 +108,6 @@ GasLiftSingleWell(
         this->oil_pos_ = pu.phase_pos[Oil];
         this->gas_pos_ = pu.phase_pos[Gas];
         this->water_pos_ = pu.phase_pos[Water];
-        this->alq_ = this->orig_alq_;
         // TODO: adhoc value.. Should we keep max_iterations_ as a safety measure
         //   or does it not make sense to have it?
         this->max_iterations_ = 1000;
@@ -119,65 +118,52 @@ GasLiftSingleWell(
  * Public methods in alphabetical order
  ****************************************/
 
+// Called from GasLiftStage2
 template<typename TypeTag>
-std::pair<double, bool>
-Opm::GasLiftSingleWell<TypeTag>::
-addOrSubtractAlqIncrement_(double alq, bool increase) const
+void
+GasLiftSingleWell<TypeTag>::
+addOrSubtractAlqIncrement(const GradInfo &gi, bool increase)
 {
-    bool limited = false;
-    if (increase) {
-        alq += this->increment_;
-        // NOTE: if max_alq_ was defaulted in WCONPROD, item 3, it has
-        //   already been set to the largest value in the VFP table in
-        //   the contructor of GasLiftSingleWell
-        if (alq > this->max_alq_) {
-            alq = this->max_alq_;
-            limited = true;
-        }
-    }
-    else {
-        alq -= this->increment_;
-        if (this->min_alq_ > 0) {
-            if (alq < this->min_alq_) {
-                alq = this->min_alq_;
-                limited = true;
-            }
-        }
-    }
-    return {alq, limited};
+    this->stage2_state_->update(gi.new_oil_rate, gi.oil_is_limited,
+        gi.new_gas_rate, gi.gas_is_limited,
+        gi.alq, gi.alq_is_limited, increase);
+    this->well_state_.setALQ(this->well_name_, gi.alq);
 }
 
 // NOTE: Used from GasLiftStage2
 template<typename TypeTag>
-std::optional<double>
-Opm::GasLiftSingleWell<TypeTag>::
+std::optional<typename GasLiftSingleWell<TypeTag>::GradInfo>
+GasLiftSingleWell<TypeTag>::
 calcIncOrDecGradient(bool increase) const
 {
-    std::vector<double> potentials(this->well_state_.numPhases(), 0.0);
-    if (increase == this->increase_) {
-        if (this->gas_is_limited_ || this->oil_is_limited_) {
-            const std::string msg = fmt::format(
-                "stage2 : {} gradient, skipping since {} was limited on stage1",
-                (increase ? "incremental" : "decremental"),
-                (this->oil_is_limited_ ? "oil" : "gas"));
-            displayDebugMessage_(msg);
-            return std::nullopt;
-        }
+    if (!this->stage2_state_) {
+        displayDebugMessage_("stage2: skipping since optimization on stage1 failed");
+        return std::nullopt;
     }
-    auto oil_rate = this->oil_rate_;
-    auto gas_rate = this->gas_rate_;
+    if (stage2CheckRateAlreadyLimited_(increase)) {
+        return std::nullopt;
+    }
+
+    auto oil_rate = this->stage2_state_->oilRate();
+    auto gas_rate = this->stage2_state_->gasRate();
+    auto alq = this->stage2_state_->alq();
     // TODO: What to do if ALQ is limited?
-    auto [new_alq, alq_is_limited] = addOrSubtractAlqIncrement_(this->alq_, increase);
+    auto [new_alq, alq_is_limited] = addOrSubtractAlqIncrement_(alq, increase);
     if (auto bhp = computeBhpAtThpLimit_(new_alq)) {
         //std::tie(bhp, std::ignore /*=limited*/) = getBhpWithLimit_(bhp);
         auto [new_bhp, bhp_is_limited] = getBhpWithLimit_(*bhp);
         // TODO: What to do if BHP is limited?
+        std::vector<double> potentials(this->well_state_.numPhases(), 0.0);
         computeWellRates_(new_bhp, potentials);
         auto [new_oil_rate, oil_is_limited] = getOilRateWithLimit_(potentials);
         auto [new_gas_rate, gas_is_limited] = getGasRateWithLimit_(potentials);
         auto grad = calcEcoGradient_(oil_rate, new_oil_rate, gas_rate, new_gas_rate);
         if (!increase) grad = -grad;
-        return grad;
+        debugCheckNegativeGradient_(
+            grad, alq, new_alq, oil_rate, new_oil_rate,
+            gas_rate, new_gas_rate, increase);
+        return GradInfo(grad, new_oil_rate, oil_is_limited,
+            new_gas_rate, gas_is_limited, new_alq, alq_is_limited);
     }
     else {
         return std::nullopt;
@@ -236,20 +222,19 @@ calcIncOrDecGradient(bool increase) const
  */
 template<typename TypeTag>
 void
-Opm::GasLiftSingleWell<TypeTag>::
+GasLiftSingleWell<TypeTag>::
 runOptimize()
 {
+    std::optional<double> alq;
     if (this->optimize_) {
-        if (!tryIncreaseLiftGas_()) {
-            if (!tryDecreaseLiftGas_()) {
+        if (alq = tryIncreaseLiftGas_(); !alq) {
+            if (alq = tryDecreaseLiftGas_(); !alq) {
                 return;
             }
         }
-        logSuccess_();
-        this->well_state_.setALQ(this->well_name_, this->alq_);
+        logSuccess_(*alq);
+        this->well_state_.setALQ(this->well_name_, *alq);
     }
-    // NOTE: In addition to the new ALQ value, we also implicitly
-    //    return this->potentials_
 }
 
 
@@ -257,10 +242,37 @@ runOptimize()
  * Private methods in alphabetical order
  ****************************************/
 
+template<typename TypeTag>
+std::pair<double, bool>
+GasLiftSingleWell<TypeTag>::
+addOrSubtractAlqIncrement_(double alq, bool increase) const
+{
+    bool limited = false;
+    if (increase) {
+        alq += this->increment_;
+        // NOTE: if max_alq_ was defaulted in WCONPROD, item 3, it has
+        //   already been set to the largest value in the VFP table in
+        //   the contructor of GasLiftSingleWell
+        if (alq > this->max_alq_) {
+            alq = this->max_alq_;
+            limited = true;
+        }
+    }
+    else {
+        alq -= this->increment_;
+        if (this->min_alq_ > 0) {
+            if (alq < this->min_alq_) {
+                alq = this->min_alq_;
+                limited = true;
+            }
+        }
+    }
+    return {alq, limited};
+}
 
 template<typename TypeTag>
 double
-Opm::GasLiftSingleWell<TypeTag>::
+GasLiftSingleWell<TypeTag>::
 calcEcoGradient_(
     double oil_rate, double new_oil_rate, double gas_rate, double new_gas_rate) const
 {
@@ -278,7 +290,7 @@ calcEcoGradient_(
 
 template<typename TypeTag>
 bool
-Opm::GasLiftSingleWell<TypeTag>::
+GasLiftSingleWell<TypeTag>::
 checkWellRatesViolated_(
     std::vector<double> &potentials,
     const std::function<bool(double, double, const std::string &)> &callback)
@@ -315,7 +327,7 @@ checkWellRatesViolated_(
 
 template<typename TypeTag>
 std::optional<double>
-Opm::GasLiftSingleWell<TypeTag>::
+GasLiftSingleWell<TypeTag>::
 computeBhpAtThpLimit_(double alq) const
 {
     auto bhp_at_thp_limit = this->std_well_.computeBhpAtThpLimitProdWithAlq(
@@ -335,7 +347,7 @@ computeBhpAtThpLimit_(double alq) const
 
 template<typename TypeTag>
 void
-Opm::GasLiftSingleWell<TypeTag>::
+GasLiftSingleWell<TypeTag>::
 computeInitialWellRates_()
 {
     // get the alq value used for this well for the previous time step, or
@@ -351,7 +363,7 @@ computeInitialWellRates_()
 
 template<typename TypeTag>
 void
-Opm::GasLiftSingleWell<TypeTag>::
+GasLiftSingleWell<TypeTag>::
 computeWellRates_(double bhp, std::vector<double> &potentials) const
 {
     this->std_well_.computeWellRatesWithBhp(
@@ -361,7 +373,7 @@ computeWellRates_(double bhp, std::vector<double> &potentials) const
 
 template<typename TypeTag>
 void
-Opm::GasLiftSingleWell<TypeTag>::
+GasLiftSingleWell<TypeTag>::
 debugShowIterationInfo_(OptimizeState &state, double alq)
 {
     const std::string msg = fmt::format("iteration {}, ALQ = {}", state.it, alq);
@@ -370,7 +382,23 @@ debugShowIterationInfo_(OptimizeState &state, double alq)
 
 template<typename TypeTag>
 void
-Opm::GasLiftSingleWell<TypeTag>::
+GasLiftSingleWell<TypeTag>::
+debugCheckNegativeGradient_(double grad, double alq, double new_alq, double oil_rate,
+    double new_oil_rate, double gas_rate, double new_gas_rate, bool increase) const
+{
+    if (grad < 0 ) {
+        const std::string msg = fmt::format("negative {} gradient detected ({}) : "
+            "alq: {}, new_alq: {}, "
+            "oil_rate: {}, new_oil_rate: {}, gas_rate: {}, new_gas_rate: {}",
+            (increase ? "incremental" : "decremental"),
+            grad, alq, new_alq, oil_rate, new_oil_rate, gas_rate, new_gas_rate);
+        displayDebugMessage_(msg);
+    }
+}
+
+template<typename TypeTag>
+void
+GasLiftSingleWell<TypeTag>::
 debugShowStartIteration_(double alq, bool increase)
 {
     const std::string msg =
@@ -378,12 +406,12 @@ debugShowStartIteration_(double alq, bool increase)
             (increase ? "increase" : "decrease"),
             alq,
             -this->potentials_[this->oil_pos_]);
-    this->displayDebugMessage_(msg);
+    displayDebugMessage_(msg);
 }
 
 template<typename TypeTag>
 void
-Opm::GasLiftSingleWell<TypeTag>::
+GasLiftSingleWell<TypeTag>::
 displayDebugMessage_(const std::string &msg) const
 {
 
@@ -394,7 +422,7 @@ displayDebugMessage_(const std::string &msg) const
 
 template<typename TypeTag>
 void
-Opm::GasLiftSingleWell<TypeTag>::
+GasLiftSingleWell<TypeTag>::
 displayWarning_(std::string msg)
 {
     const std::string message = fmt::format(
@@ -404,7 +432,7 @@ displayWarning_(std::string msg)
 
 template<typename TypeTag>
 std::pair<double, bool>
-Opm::GasLiftSingleWell<TypeTag>::
+GasLiftSingleWell<TypeTag>::
 getBhpWithLimit_(double bhp) const
 {
     bool limited = false;
@@ -432,7 +460,7 @@ getBhpWithLimit_(double bhp) const
 //   smaller than it should be since the term appears in the denominator.
 template<typename TypeTag>
 std::pair<double, bool>
-Opm::GasLiftSingleWell<TypeTag>::
+GasLiftSingleWell<TypeTag>::
 getGasRateWithLimit_(const std::vector<double> &potentials) const
 {
     double new_rate = -potentials[this->gas_pos_];
@@ -459,7 +487,7 @@ getGasRateWithLimit_(const std::vector<double> &potentials) const
 //   some sort of iteration though..
 template<typename TypeTag>
 std::pair<double, bool>
-Opm::GasLiftSingleWell<TypeTag>::
+GasLiftSingleWell<TypeTag>::
 getOilRateWithLimit_(const std::vector<double> &potentials) const
 {
     double new_rate = -potentials[this->oil_pos_];
@@ -486,32 +514,32 @@ getOilRateWithLimit_(const std::vector<double> &potentials) const
 
 template<typename TypeTag>
 void
-Opm::GasLiftSingleWell<TypeTag>::
-logSuccess_()
+GasLiftSingleWell<TypeTag>::
+logSuccess_(double alq)
 {
 
     const std::string message = fmt::format(
          "GLIFT, WELL {} {} ALQ from {} to {}",
          this->well_name_,
-         ((this->alq_ > this->orig_alq_) ? "increased" : "decreased"),
-         this->orig_alq_,
-         this->alq_);
+         ((alq > this->orig_alq_) ? "increased" : "decreased"),
+         this->orig_alq_, alq);
     this->deferred_logger_.info(message);
 }
 
 
 // INPUT:
-// - increase (boolean) :
+//  - increase (boolean) :
 //   - true  : try increase the lift gas supply,
 //   - false : try decrease lift gas supply.
 //
 // OUTPUT:
-// - return value: success (true/false)
-// - potentials_ : updated well potentials if success
-// - alq_        : updated alq if success
+//
+//  - return value: alq if success, else std::nullopt
+//  - sets this->stage2_state_ on success
+//
 template<typename TypeTag>
-bool
-Opm::GasLiftSingleWell<TypeTag>::
+std::optional<double>
+GasLiftSingleWell<TypeTag>::
 runOptimizeLoop_(bool increase)
 {
     auto cur_potentials = this->potentials_;  // make copy, since we may fail..
@@ -525,25 +553,25 @@ runOptimizeLoop_(bool increase)
     auto temp_alq = cur_alq;
     OptimizeState state {*this, increase};
     if (this->debug) debugShowStartIteration_(temp_alq, increase);
+    bool alq_is_limited, oil_is_limited, gas_is_limited;
     while (!state.stop_iteration && (++state.it <= this->max_iterations_)) {
         if (state.checkWellRatesViolated(cur_potentials)) break;
         if (state.checkAlqOutsideLimits(temp_alq, oil_rate)) break;
-        temp_alq = state.addOrSubtractAlqIncrement(temp_alq);
+        std::tie(temp_alq, alq_is_limited)
+            = state.addOrSubtractAlqIncrement(temp_alq);
         if(this->debug) debugShowIterationInfo_(state, temp_alq);
         if (!state.computeBhpAtThpLimit(temp_alq)) break;
         // NOTE: if BHP is below limit, we set state.stop_iteration = true
         auto bhp = state.getBhpWithLimit();
         computeWellRates_(bhp, cur_potentials);
         double new_oil_rate, new_gas_rate;
-        std::tie(new_oil_rate, this->oil_is_limited_) =
-            getOilRateWithLimit_(cur_potentials);
-        if (this->oil_is_limited_ && !increase) {
+        std::tie(new_oil_rate, oil_is_limited) = getOilRateWithLimit_(cur_potentials);
+        if (oil_is_limited && !increase) {
             // if oil is limited we do not want to decrease
             break;
         }
-        std::tie(new_gas_rate, this->gas_is_limited_) =
-            getGasRateWithLimit_(cur_potentials);
-        if (this->gas_is_limited_ && increase) {
+        std::tie(new_gas_rate, gas_is_limited) = getGasRateWithLimit_(cur_potentials);
+        if (gas_is_limited && increase) {
             // if gas is limited we do not want to increase
             break;
         }
@@ -565,18 +593,18 @@ runOptimizeLoop_(bool increase)
         warnMaxIterationsExceeded_();
     }
     if (success) {
-        this->potentials_ = cur_potentials;
-        this->oil_rate_ = oil_rate;
-        this->gas_rate_ = gas_rate;
-        this->alq_ = cur_alq;
-        this->increase_ = increase;
+        stage2_state_.emplace(oil_rate, oil_is_limited, gas_rate, gas_is_limited,
+            cur_alq, alq_is_limited, increase);
+        return cur_alq;
     }
-    return success;
+    else {
+        return std::nullopt;
+    }
 }
 
 template<typename TypeTag>
 void
-Opm::GasLiftSingleWell<TypeTag>::
+GasLiftSingleWell<TypeTag>::
 setAlqMaxRate_(const GasLiftOpt::Well &well)
 {
     auto& max_alq_optional = well.max_rate();
@@ -600,7 +628,7 @@ setAlqMaxRate_(const GasLiftOpt::Well &well)
 
 template<typename TypeTag>
 void
-Opm::GasLiftSingleWell<TypeTag>::
+GasLiftSingleWell<TypeTag>::
 setAlqMinRate_(const GasLiftOpt::Well &well)
 {
     // NOTE:  According to WLIFTOPT item 5 :
@@ -632,18 +660,37 @@ setAlqMinRate_(const GasLiftOpt::Well &well)
         }
     }
 }
-
 template<typename TypeTag>
 bool
-Opm::GasLiftSingleWell<TypeTag>::
+GasLiftSingleWell<TypeTag>::
+stage2CheckRateAlreadyLimited_(bool increase) const
+{
+    auto state = this->stage2_state_;
+    if (increase == state->increase()) {
+        if (state->gasIsLimited() || state->oilIsLimited() || state->alqIsLimited()) {
+            const std::string msg = fmt::format(
+                "stage2 : {} gradient, skipping since {} was limited in previous step",
+                (increase ? "incremental" : "decremental"),
+                (state->oilIsLimited() ? "oil" :
+                    (state->gasIsLimited() ? "gas" : "alq")));
+            displayDebugMessage_(msg);
+            return true;
+        }
+    }
+    return false;
+}
+
+template<typename TypeTag>
+std::optional<double>
+GasLiftSingleWell<TypeTag>::
 tryDecreaseLiftGas_()
 {
     return runOptimizeLoop_(/*increase=*/ false);
 }
 
 template<typename TypeTag>
-bool
-Opm::GasLiftSingleWell<TypeTag>::
+std::optional<double>
+GasLiftSingleWell<TypeTag>::
 tryIncreaseLiftGas_()
 {
     return runOptimizeLoop_(/*increase=*/ true);
@@ -653,7 +700,7 @@ tryIncreaseLiftGas_()
 // Called when we should use a fixed ALQ value
 template<typename TypeTag>
 void
-Opm::GasLiftSingleWell<TypeTag>::
+GasLiftSingleWell<TypeTag>::
 updateWellStateAlqFixedValue_(const GasLiftOpt::Well &well)
 {
     auto& max_alq_optional = well.max_rate();
@@ -683,7 +730,7 @@ updateWellStateAlqFixedValue_(const GasLiftOpt::Well &well)
 //   Item 12 of keyword WCONPROD, or with keyword WELTARG.
 template<typename TypeTag>
 bool
-Opm::GasLiftSingleWell<TypeTag>::
+GasLiftSingleWell<TypeTag>::
 useFixedAlq_(const GasLiftOpt::Well &well)
 {
     auto wliftopt_item2 = well.use_glo();
@@ -707,7 +754,7 @@ useFixedAlq_(const GasLiftOpt::Well &well)
 
 template<typename TypeTag>
 void
-Opm::GasLiftSingleWell<TypeTag>::
+GasLiftSingleWell<TypeTag>::
 warnMaxIterationsExceeded_()
 {
     const std::string msg = fmt::format(
@@ -720,14 +767,11 @@ warnMaxIterationsExceeded_()
  ****************************************/
 
 template<typename TypeTag>
-double
-Opm::GasLiftSingleWell<TypeTag>::OptimizeState::
+std::pair<double, bool>
+GasLiftSingleWell<TypeTag>::OptimizeState::
 addOrSubtractAlqIncrement(double alq)
 {
-    double limited;
-    std::tie(alq, limited)
-        = this->parent.addOrSubtractAlqIncrement_(alq, this->increase);
-    return alq;
+    return this->parent.addOrSubtractAlqIncrement_(alq, this->increase);
 }
 
 // NOTE:  According to WLIFTOPT item 5 :
@@ -738,7 +782,7 @@ addOrSubtractAlqIncrement(double alq)
 //   get a positive oil production rate.
 template<typename TypeTag>
 bool
-Opm::GasLiftSingleWell<TypeTag>::OptimizeState::
+GasLiftSingleWell<TypeTag>::OptimizeState::
 checkAlqOutsideLimits(double alq, double oil_rate)
 {
     std::ostringstream ss;
@@ -814,7 +858,7 @@ checkAlqOutsideLimits(double alq, double oil_rate)
 
 template<typename TypeTag>
 bool
-Opm::GasLiftSingleWell<TypeTag>::OptimizeState::
+GasLiftSingleWell<TypeTag>::OptimizeState::
 checkEcoGradient(double gradient)
 {
     std::ostringstream ss;
@@ -849,13 +893,13 @@ checkEcoGradient(double gradient)
 
 template<typename TypeTag>
 bool
-Opm::GasLiftSingleWell<TypeTag>::OptimizeState::
+GasLiftSingleWell<TypeTag>::OptimizeState::
 checkRate(double rate, double limit, const std::string &rate_str) const
 {
     if (limit < rate) {
         if (this->parent.debug) {
             const std::string msg = fmt::format(
-                "iteration {} : {} rate exceeds target {}. Stopping iteration",
+                "iteration {} : {} rate {} exceeds target {}. Stopping iteration",
                 this->it, rate_str, rate, limit);
             this->parent.displayDebugMessage_(msg);
         }
@@ -866,7 +910,7 @@ checkRate(double rate, double limit, const std::string &rate_str) const
 
 template<typename TypeTag>
 bool
-Opm::GasLiftSingleWell<TypeTag>::OptimizeState::
+GasLiftSingleWell<TypeTag>::OptimizeState::
 checkWellRatesViolated(std::vector<double> &potentials)
 {
     auto callback = [*this](double rate, double limit, const std::string &rate_str)
@@ -877,7 +921,7 @@ checkWellRatesViolated(std::vector<double> &potentials)
 
 template<typename TypeTag>
 bool
-Opm::GasLiftSingleWell<TypeTag>::OptimizeState::
+GasLiftSingleWell<TypeTag>::OptimizeState::
 computeBhpAtThpLimit(double alq)
 {
     auto bhp_opt = this->parent.computeBhpAtThpLimit_(alq);
@@ -902,7 +946,7 @@ computeBhpAtThpLimit(double alq)
 //
 template<typename TypeTag>
 double
-Opm::GasLiftSingleWell<TypeTag>::OptimizeState::
+GasLiftSingleWell<TypeTag>::OptimizeState::
 getBhpWithLimit()
 {
     auto [new_bhp, limited] = this->parent.getBhpWithLimit_(this->bhp);

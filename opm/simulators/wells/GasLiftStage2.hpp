@@ -62,6 +62,8 @@ namespace Opm
         using GLiftOptWells = typename BlackoilWellModel::GLiftOptWells;
         using GLiftProdWells = typename BlackoilWellModel::GLiftProdWells;
         using GradPair = std::pair<std::string, double>;
+        using GradInfo = typename GasLiftSingleWell::GradInfo;
+        using GradMap = std::map<std::string, GradInfo>;
         static const int Water = BlackoilPhases::Aqua;
         static const int Oil = BlackoilPhases::Liquid;
         static const int Gas = BlackoilPhases::Vapour;
@@ -78,13 +80,18 @@ namespace Opm
     private:
         std::optional<double> calcIncOrDecGrad_(
             const std::string name, GasLiftSingleWell &gs_well, bool increase);
+        void displayDebugMessage_(const std::string &msg);
         void displayDebugMessage_(const std::string &msg, const std::string &group_name);
+        void displayWarning_(const std::string &msg, const std::string &group_name);
         std::vector<GasLiftSingleWell *> getGroupGliftWells_(
             const Opm::Group &group);
         void getGroupGliftWellsRecursive_(
             const Opm::Group &group, std::vector<GasLiftSingleWell *> &wells);
         void optimizeGroup_(const Opm::Group &group);
         void optimizeGroupsRecursive_(const Opm::Group &group);
+        void saveGrad_(GradMap &map, const std::string name, GradInfo &grad);
+        void saveDecGrad_(const std::string name, GradInfo &grad);
+        void saveIncGrad_(const std::string name, GradInfo &grad);
 
         DeferredLogger &deferred_logger_;
         const Simulator &ebos_simulator_;
@@ -99,8 +106,10 @@ namespace Opm
         const Schedule &schedule_;
         const PhaseUsage &phase_usage_;
         const GasLiftOpt& glo_;
-        std::map<std::string, std::optional<double>> inc_grads_;
-        std::map<std::string, std::optional<double>> dec_grads_;
+        GradMap inc_grads_;
+        GradMap dec_grads_;
+        bool debug_;
+        int max_iterations_ = 1000;
 
         struct OptimizeState {
             OptimizeState( GasLiftStage2 &parent_, const Opm::Group &group_ ) :
@@ -112,16 +121,25 @@ namespace Opm
             const Opm::Group &group;
             int it;
 
+            using GradInfo = typename GasLiftStage2::GradInfo;
             using GradPair = typename GasLiftStage2::GradPair;
+            using GradMap = typename GasLiftStage2::GradMap;
             std::pair<std::optional<GradPair>,std::optional<GradPair>>
               calculateEcoGradients(
                  std::vector<GasLiftSingleWell *> &wells);
+            bool checkAtLeastTwoWells(std::vector<GasLiftSingleWell *> &wells);
+            void debugShowIterationInfo();
+            void redistributeALQ( const std::string well1, double grad1,
+                const std::string well2, double grad2);
 
         private:
-            std::optional<double> calcIncOrDecGrad_(
+            void addOrRemoveALQincrement_(
+                GradMap &grad_map, const std::string well_name, bool add);
+            std::optional<GradInfo> calcIncOrDecGrad_(
                 const std::string well_name,
                 const GasLiftSingleWell &gs_well, bool increase);
             void displayDebugMessage_(const std::string &msg);
+            void displayWarning_(const std::string &msg);
             void sortGradients_(std::vector<GradPair> &grads);
 
         };

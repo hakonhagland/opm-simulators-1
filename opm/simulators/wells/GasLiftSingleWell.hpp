@@ -53,7 +53,8 @@ namespace Opm {
 namespace Opm
 {
     template<class TypeTag>
-    class GasLiftSingleWell {
+    class GasLiftSingleWell
+    {
         using Simulator = GetPropType<TypeTag, Properties::Simulator>;
         using WellState = WellStateFullyImplicitBlackoil;
         using StdWell = Opm::StandardWell<TypeTag>;
@@ -64,6 +65,7 @@ namespace Opm
         static const int Oil = BlackoilPhases::Liquid;
         static const int Gas = BlackoilPhases::Vapour;
         struct OptimizeState;
+        class Stage2State;
     public:
         GasLiftSingleWell(
             const StdWell &std_well,
@@ -72,9 +74,33 @@ namespace Opm
             DeferredLogger &deferred_logger,
             WellState &well_state
         );
-        std::optional<double> calcIncOrDecGradient(bool increase) const;
+        struct GradInfo;
+        void addOrSubtractAlqIncrement(const GradInfo &gi, bool increase);
+        std::optional<GradInfo> calcIncOrDecGradient(bool increase) const;
         void runOptimize();
         const std::string& name() const {return well_name_; }
+
+        struct GradInfo
+        {
+            GradInfo(double grad_, double new_oil_rate_, bool oil_is_limited_,
+                     double new_gas_rate_, bool gas_is_limited_,
+                     double alq_, bool alq_is_limited_) :
+                grad{grad_},
+                new_oil_rate{new_oil_rate_},
+                oil_is_limited{oil_is_limited_},
+                new_gas_rate{new_gas_rate_},
+                gas_is_limited{gas_is_limited_},
+                alq{alq_},
+                alq_is_limited{alq_is_limited_} {}
+            double grad;
+            double new_oil_rate;
+            bool oil_is_limited;
+            double new_gas_rate;
+            bool gas_is_limited;
+            double alq;
+            bool alq_is_limited;
+        };
+
     private:
         std::pair<double, bool> addOrSubtractAlqIncrement_(
             double alq, bool increase) const;
@@ -86,6 +112,9 @@ namespace Opm
         std::optional<double> computeBhpAtThpLimit_(double alq) const;
         void computeInitialWellRates_();
         void computeWellRates_(double bhp, std::vector<double> &potentials) const;
+        void debugCheckNegativeGradient_(double grad, double alq, double new_alq,
+            double oil_rate, double new_oil_rate, double gas_rate,
+            double new_gas_rate, bool increase) const;
         void debugShowIterationInfo_(OptimizeState &state, double alq);
         void debugShowStartIteration_(double alq, bool increase);
         void displayDebugMessage_(const std::string &msg) const;
@@ -95,12 +124,13 @@ namespace Opm
             const std::vector<double> &potentials) const;
         std::pair<double, bool> getOilRateWithLimit_(
             const std::vector<double> &potentials) const;
-        void logSuccess_();
-        bool runOptimizeLoop_(bool increase);
+        void logSuccess_(double alq);
+        std::optional<double> runOptimizeLoop_(bool increase);
         void setAlqMaxRate_(const GasLiftOpt::Well &well);
         void setAlqMinRate_(const GasLiftOpt::Well &well);
-        bool tryIncreaseLiftGas_();
-        bool tryDecreaseLiftGas_();
+        bool stage2CheckRateAlreadyLimited_(bool increase) const;
+        std::optional<double> tryIncreaseLiftGas_();
+        std::optional<double> tryDecreaseLiftGas_();
         void updateWellStateAlqFixedValue_(const GasLiftOpt::Well &well);
         bool useFixedAlq_(const GasLiftOpt::Well &well);
         void warnMaxIterationsExceeded_();
@@ -125,18 +155,14 @@ namespace Opm
         double max_alq_;
         int max_iterations_;
         double min_alq_;
-        double alq_;
         int oil_pos_;
         bool optimize_;
         double orig_alq_;
         int water_pos_;
-        bool gas_is_limited_ = false;
-        bool oil_is_limited_ = false;
-        double oil_rate_;
-        double gas_rate_;
-        bool increase_;
+        std::optional<Stage2State> stage2_state_;
 
-        struct OptimizeState {
+        struct OptimizeState
+        {
             OptimizeState( GasLiftSingleWell &parent_, bool increase_ ) :
                 parent{parent_},
                 increase{increase_},
@@ -151,7 +177,7 @@ namespace Opm
             bool stop_iteration;
             double bhp;
 
-            double addOrSubtractAlqIncrement(double alq);
+            std::pair<double,bool> addOrSubtractAlqIncrement(double alq);
             bool checkAlqOutsideLimits(double alq, double oil_rate);
             bool checkEcoGradient(double gradient);
             bool checkOilRateExceedsTarget(double oil_rate);
@@ -162,10 +188,54 @@ namespace Opm
             void warn_(std::string msg) {parent.displayWarning_(msg);}
         };
 
+        class Stage2State
+        {
+        public:
+            Stage2State(double oil_rate, bool oil_is_limited,
+                        double gas_rate, bool gas_is_limited,
+                        double alq, bool alq_is_limited,
+                        bool increase) :
+                oil_rate_{oil_rate},
+                oil_is_limited_{oil_is_limited},
+                gas_rate_{gas_rate},
+                gas_is_limited_{gas_is_limited},
+                alq_{alq},
+                alq_is_limited_{alq_is_limited},
+                increase_{increase} {}
+            double alq() const { return alq_; }
+            bool alqIsLimited() const { return alq_is_limited_; }
+            bool gasIsLimited() const { return gas_is_limited_; }
+            double gasRate() const { return gas_rate_; }
+            bool oilIsLimited() const { return oil_is_limited_; }
+            double oilRate() const { return oil_rate_; }
+            bool increase() const { return increase_; }
+            void update(double oil_rate, bool oil_is_limited,
+                        double gas_rate, bool gas_is_limited,
+                        double alq, bool alq_is_limited,
+                        bool increase)
+            {
+                oil_rate_ = oil_rate;
+                oil_is_limited_ = oil_is_limited;
+                gas_rate_ = gas_rate;
+                gas_is_limited_ = gas_is_limited;
+                alq_ = alq;
+                alq_is_limited_ = alq_is_limited;
+                increase_ = increase;
+            }
+        private:
+            double oil_rate_;
+            bool oil_is_limited_;
+            double gas_rate_;
+            bool gas_is_limited_;
+            double alq_;
+            bool alq_is_limited_;
+            bool increase_;
+        };
     };
+
+#include "GasLiftSingleWell_impl.hpp"
 
 } // namespace Opm
 
-#include "GasLiftSingleWell_impl.hpp"
 
 #endif // OPM_GASLIFT_SINGLE_WELL_HEADER_INCLUDED
