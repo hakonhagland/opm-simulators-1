@@ -27,7 +27,6 @@
 #include <opm/simulators/linalg/bda/WellContributions.hpp>
 #endif
 
-#include <opm/simulators/wells/GasLiftRuntime.hpp>
 #include <opm/simulators/wells/RateConverter.hpp>
 #include <opm/simulators/wells/VFPInjProperties.hpp>
 #include <opm/simulators/wells/VFPProdProperties.hpp>
