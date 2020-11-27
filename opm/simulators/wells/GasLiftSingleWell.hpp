@@ -82,6 +82,7 @@ namespace Opm
 
         struct GradInfo
         {
+            GradInfo() {}
             GradInfo(double grad_, double new_oil_rate_, bool oil_is_limited_,
                      double new_gas_rate_, bool gas_is_limited_,
                      double alq_, bool alq_is_limited_) :
