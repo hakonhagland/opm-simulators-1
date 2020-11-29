@@ -2711,6 +2711,11 @@ namespace Opm
         const int report_step_idx = ebos_simulator.episodeIndex();
         const Opm::Schedule& schedule = ebos_simulator.vanguard().schedule();
         const GasLiftOpt& glo = schedule.glo(report_step_idx);
+        if (!glo.has_well(name())) {
+            gliftDebug("Gas Lift not activated: WLIFTOPT is probably missing",
+                deferred_logger);
+            return false;
+        }
         auto increment = glo.gaslift_increment();
         // NOTE: According to the manual: LIFTOPT, item 1, :
         //   "Increment size for lift gas injection rate. Lift gas is

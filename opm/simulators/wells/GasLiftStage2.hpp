@@ -74,7 +74,7 @@ namespace Opm
             const BlackoilWellModel &well_model,
             const Simulator &ebos_simulator,
             DeferredLogger &deferred_logger,
-            const WellState &well_state,
+            WellState &well_state,
             GLiftProdWells &prod_wells,
             GLiftOptWells &glift_wells
         );

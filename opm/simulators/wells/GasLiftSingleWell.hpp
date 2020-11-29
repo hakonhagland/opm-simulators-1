@@ -82,7 +82,19 @@ namespace Opm
 
         struct GradInfo
         {
-            GradInfo() {}
+            // TODO: I do not know why this (default) constructor is required by
+            //    the compiler..
+            // If I comment it out, the error from the compiler is:
+            // /usr/include/c++/9/tuple:1674:70:
+            //    error: no matching function for call to
+            //   ‘Opm::GasLiftSingleWell<
+            //     Opm::Properties::TTag::EclFlowProblem>::GradInfo::GradInfo()’
+            //         second(std::forward<_Args2>(std::get<_Indexes2>(__tuple2))...)
+            //
+            // I also tried to set a breakpoint inside here, and it was never hit..
+            //  so it seems it is never called during a simulation.
+            GradInfo() { }
+
             GradInfo(double grad_, double new_oil_rate_, bool oil_is_limited_,
                      double new_gas_rate_, bool gas_is_limited_,
                      double alq_, bool alq_is_limited_) :

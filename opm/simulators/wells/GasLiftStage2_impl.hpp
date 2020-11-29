@@ -36,7 +36,7 @@ GasLiftStage2(
     const BlackoilWellModel &well_model,
     const Simulator &ebos_simulator,
     DeferredLogger &deferred_logger,
-    const WellState &well_state,
+    WellState &well_state,
     GLiftProdWells &prod_wells,
     GLiftOptWells &glift_wells
 ) :
@@ -141,6 +141,8 @@ getGroupGliftWellsRecursive_(const Opm::Group &group,
          std::vector<GasLiftSingleWell *> &wells)
 {
     for (const std::string& group_name : group.groups()) {
+        if(!this->schedule_.hasGroup(group_name))
+            continue;
         const Group& sub_group = this->schedule_.getGroup(
             group_name, this->report_step_idx_);
         getGroupGliftWellsRecursive_(sub_group, wells);
@@ -207,18 +209,15 @@ GasLiftStage2<TypeTag>::
 optimizeGroupsRecursive_(const Opm::Group &group)
 {
     for (const std::string& group_name : group.groups()) {
+        if(!this->schedule_.hasGroup(group_name))
+            continue;
         const Group& sub_group = this->schedule_.getGroup(
             group_name, this->report_step_idx_);
         optimizeGroupsRecursive_(sub_group);
     }
-    try {
-        /*const auto &gl_group =*/ this->glo_.group(group.name());
-    }
-    catch (std::out_of_range &e) {
-        //displayDebugMessage_("no gaslift info available", group.name());
-        return;
-    }
-    optimizeGroup_(group);
+    if (this->glo_.has_group(group.name()))
+        optimizeGroup_(group);
+
 }
 
 template<typename TypeTag>
@@ -348,9 +347,11 @@ getEcoGradients(std::vector<GradPair> &inc_grads, std::vector<GradPair> &dec_gra
     if (inc_grads.size() > 0 && dec_grads.size() > 0) {
         sortGradients_(inc_grads);
         sortGradients_(dec_grads);
+        // The largest incremental gradient is the last element
         auto inc_grad = std::prev(inc_grads.end());
         std::optional<GradPairItr> inc_grad_opt;
         std::optional<GradPairItr> dec_grad_opt;
+        // The smallest decremental gradient is at the beginning
         for (auto itr = dec_grads.begin(); itr != dec_grads.end(); itr++) {
             if (itr->first == inc_grad->first) {
                 // Don't consider decremental gradients with the same well name
@@ -503,4 +504,3 @@ sortGradients_(std::vector<GradPair> &grads)
     };
     std::sort(grads.begin(), grads.end(), cmp);
 }
-
