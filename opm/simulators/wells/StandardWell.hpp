@@ -407,7 +407,7 @@ namespace Opm
         std::vector<double> F0_;
 
         // Enable GLIFT debug mode. This will enable output of logging messages.
-        bool glift_debug = false;
+        bool glift_debug = true;
 
         const EvalWell& getBhp() const;
 

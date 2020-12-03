@@ -362,7 +362,7 @@ getEcoGradients(std::vector<GradPair> &inc_grads, std::vector<GradPair> &dec_gra
         }
         if (dec_grad_opt) {
             inc_grad_opt = inc_grad;
-            return { inc_grad_opt, dec_grad_opt };
+            return { dec_grad_opt, inc_grad_opt };
         }
     }
     return {std::nullopt, std::nullopt};

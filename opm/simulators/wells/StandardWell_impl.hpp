@@ -2778,7 +2778,7 @@ namespace Opm
     {
         if (this->glift_debug) {
             const std::string message = fmt::format(
-                "  GLIFT (DEBUG) : Well {} : {}", this->name(), msg);
+                "  GLIFT (DEBUG) : SW : Well {} : {}", this->name(), msg);
             deferred_logger.info(message);
         }
     }

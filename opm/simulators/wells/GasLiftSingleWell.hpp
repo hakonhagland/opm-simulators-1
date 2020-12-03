@@ -118,7 +118,7 @@ namespace Opm
         std::pair<double, bool> addOrSubtractAlqIncrement_(
             double alq, bool increase) const;
         double calcEcoGradient_(double oil_rate, double new_oil_rate,
-            double gas_rate, double new_gas_rate) const;
+            double gas_rate, double new_gas_rate, bool increase) const;
         bool checkWellRatesViolated_(
             std::vector<double> &potentials,
             const std::function<bool(double, double, const std::string &)> &callback);
@@ -128,7 +128,6 @@ namespace Opm
         void debugCheckNegativeGradient_(double grad, double alq, double new_alq,
             double oil_rate, double new_oil_rate, double gas_rate,
             double new_gas_rate, bool increase) const;
-        void debugShowIterationInfo_(OptimizeState &state, double alq);
         void debugShowStartIteration_(double alq, bool increase);
         void displayDebugMessage_(const std::string &msg) const;
         void displayWarning_(std::string warning);
@@ -191,12 +190,15 @@ namespace Opm
             double bhp;
 
             std::pair<double,bool> addOrSubtractAlqIncrement(double alq);
+            double calcEcoGradient(double oil_rate, double new_oil_rate,
+                double gas_rate, double new_gas_rate);
             bool checkAlqOutsideLimits(double alq, double oil_rate);
             bool checkEcoGradient(double gradient);
             bool checkOilRateExceedsTarget(double oil_rate);
             bool checkRate(double rate, double limit, const std::string &rate_str) const;
             bool checkWellRatesViolated(std::vector<double> &potentials);
             bool computeBhpAtThpLimit(double alq);
+            void debugShowIterationInfo(double alq);
             double getBhpWithLimit();
             void warn_(std::string msg) {parent.displayWarning_(msg);}
         };
