@@ -128,7 +128,9 @@ namespace Opm
         void debugCheckNegativeGradient_(double grad, double alq, double new_alq,
             double oil_rate, double new_oil_rate, double gas_rate,
             double new_gas_rate, bool increase) const;
+        void debugShowBhpAlqTable_();
         void debugShowStartIteration_(double alq, bool increase);
+        void debugShowTargets_();
         void displayDebugMessage_(const std::string &msg) const;
         void displayWarning_(std::string warning);
         std::pair<double, bool> getBhpWithLimit_(double bhp) const;
@@ -136,6 +138,7 @@ namespace Opm
             const std::vector<double> &potentials) const;
         std::pair<double, bool> getOilRateWithLimit_(
             const std::vector<double> &potentials) const;
+        std::pair<double,double> getRates_(const std::vector<double> &potentials);
         void logSuccess_(double alq);
         std::optional<double> runOptimizeLoop_(bool increase);
         void setAlqMaxRate_(const GasLiftOpt::Well &well);

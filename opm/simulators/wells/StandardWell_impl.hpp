@@ -2698,6 +2698,11 @@ namespace Opm
             gliftDebug("Optimization disabled in WellState", deferred_logger);
             return false;
         }
+        if (well_state.gliftCheckAlqOscillation(name())) {
+            gliftDebug("further optimization skipped due to oscillation in ALQ",
+                deferred_logger);
+            return false;
+        }
         const int well_index = index_of_well_;
         const Well::ProducerCMode& control_mode
             = well_state.currentProductionControls()[well_index];

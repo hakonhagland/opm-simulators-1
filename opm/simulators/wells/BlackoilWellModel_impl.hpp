@@ -325,7 +325,7 @@ namespace Opm {
         Opm::DeferredLogger local_deferredLogger;
 
         well_state_ = previous_well_state_;
-        well_state_.disableGliftOptimization();
+        well_state_.gliftTimeStepInit();
         const int reportStepIdx = ebosSimulator_.episodeIndex();
         const double simulationTime = ebosSimulator_.time();
 

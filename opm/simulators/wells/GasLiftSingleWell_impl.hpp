@@ -87,6 +87,11 @@ GasLiftSingleWell(
     this->oil_pos_ = pu.phase_pos[Oil];
     this->gas_pos_ = pu.phase_pos[Gas];
     this->water_pos_ = pu.phase_pos[Water];
+    // get the alq value used for this well for the previous iteration (a
+    //   nonlinear iteration in assemble() in BlackoilWellModel).
+    //   If gas lift optimization has not been applied to this well yet, the
+    //   default value is used.
+    this->orig_alq_ = this->well_state_.getALQ(this->well_name_);
     computeInitialWellRates_();
 
     if(this->optimize_) {
@@ -223,8 +228,24 @@ GasLiftSingleWell<TypeTag>::
 runOptimize()
 {
     std::optional<double> alq;
+    auto inc_count = this->well_state_.gliftGetAlqIncreaseCount(this->well_name_);
+    auto dec_count = this->well_state_.gliftGetAlqDecreaseCount(this->well_name_);
     if (this->optimize_) {
-        if (alq = tryIncreaseLiftGas_(); !alq) {
+        if (dec_count == 0 && inc_count == 0) {
+            if (alq = tryIncreaseLiftGas_(); !alq) {
+                if (alq = tryDecreaseLiftGas_(); !alq) {
+                    return;
+                }
+            }
+        }
+        else if (dec_count == 0) {
+            assert(inc_count > 0);
+            if (alq = tryIncreaseLiftGas_(); !alq) {
+                return;
+            }
+        }
+        else if (inc_count == 0) {
+            assert(dec_count > 0);
             if (alq = tryDecreaseLiftGas_(); !alq) {
                 return;
             }
@@ -283,6 +304,7 @@ calcEcoGradient_(
     // NOTE: The eclipse techincal description (chapter 25) says:
     //   "The gas rate term in the denominator is subject to the
     //   constraint alpha_g_ * dqg >= 0.0"
+
     if (!increase) gradient = -gradient;
     return gradient;
 }
@@ -349,10 +371,6 @@ void
 GasLiftSingleWell<TypeTag>::
 computeInitialWellRates_()
 {
-    // get the alq value used for this well for the previous time step, or
-    //   if gas lift optimization has not been applied to this well yet, the
-    //   default value is used.
-    this->orig_alq_ = this->well_state_.getALQ(this->well_name_);
     // NOTE: compute initial rates with current ALQ
     auto bhp = this->std_well_.computeWellRatesAndBhpWithThpAlqProd(
         this->ebos_simulator_, this->summary_state_, this->deferred_logger_,
@@ -369,7 +387,7 @@ computeInitialWellRates_()
     }
     {
         const std::string msg = fmt::format(
-            "computed initial well potentials given bhp"
+            "computed initial well potentials given bhp, "
             "oil: {}, gas: {}, water: {}",
             -this->potentials_[this->oil_pos_], -this->potentials_[this->gas_pos_],
             -this->potentials_[this->water_pos_]);
@@ -415,6 +433,30 @@ debugCheckNegativeGradient_(double grad, double alq, double new_alq, double oil_
 template<typename TypeTag>
 void
 GasLiftSingleWell<TypeTag>::
+debugShowBhpAlqTable_()
+{
+    double alq = 0.0;
+    std::vector<double> potentials(this->well_state_.numPhases(), 0.0);
+    const std::string fmt_fmt1 {"{:^12s} {:^12s} {:^12s} {:^12s}"};
+    const std::string fmt_fmt2 {"{:>12.5g} {:>12.5g} {:>12.5g} {:>12.5g}"};
+    const std::string header = fmt::format(fmt_fmt1, "ALQ", "BHP", "oil", "gas");
+    displayDebugMessage_(header);
+    while (alq <= (this->max_alq_+this->increment_)) {
+        auto bhp = this->std_well_.computeWellRatesAndBhpWithThpAlqProd(
+            this->ebos_simulator_, this->summary_state_, this->deferred_logger_,
+            potentials, alq);
+        auto oil_rate = -potentials[this->oil_pos_];
+        auto gas_rate = -potentials[this->gas_pos_];
+        const std::string msg = fmt::format(fmt_fmt2, alq, bhp, oil_rate, gas_rate);
+        displayDebugMessage_(msg);
+        alq += this->increment_;
+    }
+}
+
+
+template<typename TypeTag>
+void
+GasLiftSingleWell<TypeTag>::
 debugShowStartIteration_(double alq, bool increase)
 {
     const std::string msg =
@@ -423,6 +465,28 @@ debugShowStartIteration_(double alq, bool increase)
             alq,
             -this->potentials_[this->oil_pos_]);
     displayDebugMessage_(msg);
+}
+
+template<typename TypeTag>
+void
+GasLiftSingleWell<TypeTag>::
+debugShowTargets_()
+{
+    if (this->controls_.hasControl(Well::ProducerCMode::ORAT)) {
+        auto target = this->controls_.oil_rate;
+        const std::string msg = fmt::format("has ORAT control with target {}", target);
+        displayDebugMessage_(msg);
+    }
+    if (this->controls_.hasControl(Well::ProducerCMode::GRAT)) {
+        auto target = this->controls_.gas_rate;
+        const std::string msg = fmt::format("has GRAT control with target {}", target);
+        displayDebugMessage_(msg);
+    }
+    if (this->controls_.hasControl(Well::ProducerCMode::LRAT)) {
+        auto target = this->controls_.liquid_rate;
+        const std::string msg = fmt::format("has LRAT control with target {}", target);
+        displayDebugMessage_(msg);
+    }
 }
 
 template<typename TypeTag>
@@ -538,6 +602,29 @@ getOilRateWithLimit_(const std::vector<double> &potentials) const
 }
 
 template<typename TypeTag>
+std::pair<double,double>
+GasLiftSingleWell<TypeTag>::
+getRates_(const std::vector<double> &potentials)
+{
+    double oil_rate, gas_rate;
+    bool oil_is_limited, gas_is_limited;
+    std::tie(oil_rate, oil_is_limited) = getOilRateWithLimit_(potentials);
+    std::tie(gas_rate, gas_is_limited) = getGasRateWithLimit_(potentials);
+
+    if (oil_is_limited) {
+        const std::string msg = fmt::format(
+            "initial oil rate was limited to: {}", oil_rate);
+        displayDebugMessage_(msg);
+    }
+    if (gas_is_limited) {
+        const std::string msg = fmt::format(
+            "initial gas rate was limited to: {}", gas_rate);
+        displayDebugMessage_(msg);
+    }
+    return {oil_rate, gas_rate};
+}
+
+template<typename TypeTag>
 void
 GasLiftSingleWell<TypeTag>::
 logSuccess_(double alq)
@@ -567,14 +654,14 @@ std::optional<double>
 GasLiftSingleWell<TypeTag>::
 runOptimizeLoop_(bool increase)
 {
+    if (this->debug) debugShowBhpAlqTable_();
+    if (this->debug) debugShowTargets_();
     auto cur_potentials = this->potentials_;  // make copy, since we may fail..
-    auto oil_rate = -cur_potentials[this->oil_pos_];
-    auto gas_rate = -cur_potentials[this->gas_pos_];
+    auto [oil_rate, gas_rate] = getRates_(cur_potentials);
+    //auto oil_rate = -cur_potentials[this->oil_pos_];
+    //auto gas_rate = -cur_potentials[this->gas_pos_];
     bool success = false;  // did we succeed to increase alq?
     auto cur_alq = this->orig_alq_;
-    if (cur_alq <= 0 && !increase) // we don't decrease alq below zero
-        return false;
-
     auto temp_alq = cur_alq;
     OptimizeState state {*this, increase};
     if (this->debug) debugShowStartIteration_(temp_alq, increase);
@@ -628,6 +715,7 @@ runOptimizeLoop_(bool increase)
     if (success) {
         stage2_state_.emplace(oil_rate, oil_is_limited, gas_rate, gas_is_limited,
             cur_alq, alq_is_limited, increase);
+        this->well_state_.gliftUpdateAlqIncreaseCount(this->well_name_, increase);
         return cur_alq;
     }
     else {
@@ -849,6 +937,10 @@ checkAlqOutsideLimits(double alq, double oil_rate)
         }
     }
     else { // we are decreasing lift gas
+        if ( alq < 0 ) {
+            ss << "Negative ALQ: " << alq << ". Stopping iteration.";
+            return true;
+        }
         // NOTE: A negative min_alq_ means: allocate at least enough lift gas
         //  to enable the well to flow, see WCONPROD item 5.
         if (this->parent.min_alq_ < 0) {
