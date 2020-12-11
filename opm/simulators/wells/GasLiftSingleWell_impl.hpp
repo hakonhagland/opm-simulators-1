@@ -356,7 +356,10 @@ computeBhpAtThpLimit_(double alq) const
         this->summary_state_,
         this->deferred_logger_,
         alq);
-    if (!bhp_at_thp_limit) {
+    if (bhp_at_thp_limit) {
+        bhp_at_thp_limit = std::max(*bhp_at_thp_limit, this->controls_.bhp_limit);
+    }
+    else {
         const std::string msg = fmt::format(
           "Failed in getting converged bhp potential for well {}",
           this->well_name_);
@@ -442,6 +445,39 @@ debugShowBhpAlqTable_()
     const std::string header = fmt::format(fmt_fmt1, "ALQ", "BHP", "oil", "gas");
     displayDebugMessage_(header);
     while (alq <= (this->max_alq_+this->increment_)) {
+        auto bhp_at_thp_limit = this->std_well_.computeBhpAtThpLimitProdWithAlq(
+            this->ebos_simulator_, this->summary_state_, this->deferred_logger_, alq);
+        if (!bhp_at_thp_limit) {
+            const std::string msg = fmt::format("Failed to get converged potentials "
+                "for ALQ = {}. Skipping.", alq );
+            displayDebugMessage_(msg);
+        }
+        else {
+            auto bhp = std::max(*bhp_at_thp_limit, this->controls_.bhp_limit);
+            this->std_well_.computeWellRatesWithBhp(
+                this->ebos_simulator_, bhp, potentials, this->deferred_logger_);
+            auto oil_rate = -potentials[this->oil_pos_];
+            auto gas_rate = -potentials[this->gas_pos_];
+            const std::string msg = fmt::format(fmt_fmt2, alq, bhp, oil_rate, gas_rate);
+            displayDebugMessage_(msg);
+        }
+        alq += this->increment_;
+    }
+}
+
+/*
+template<typename TypeTag>
+void
+GasLiftSingleWell<TypeTag>::
+debugShowBhpAlqTable2_()
+{
+    double alq = 0.0;
+    std::vector<double> potentials(this->well_state_.numPhases(), 0.0);
+    const std::string fmt_fmt1 {"{:^12s} {:^12s} {:^12s} {:^12s}"};
+    const std::string fmt_fmt2 {"{:>12.5g} {:>12.5g} {:>12.5g} {:>12.5g}"};
+    const std::string header = fmt::format(fmt_fmt1, "ALQ", "BHP", "oil", "gas");
+    displayDebugMessage_(header);
+    while (alq <= (this->max_alq_+this->increment_)) {
         auto bhp = this->std_well_.computeWellRatesAndBhpWithThpAlqProd(
             this->ebos_simulator_, this->summary_state_, this->deferred_logger_,
             potentials, alq);
@@ -452,7 +488,7 @@ debugShowBhpAlqTable_()
         alq += this->increment_;
     }
 }
-
+*/
 
 template<typename TypeTag>
 void
