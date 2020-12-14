@@ -39,13 +39,14 @@ GasLiftSingleWell(
 ) :
     deferred_logger_{deferred_logger},
     ebos_simulator_{ebos_simulator},
-    potentials_(well_state.numPhases(), 0.0),
     std_well_{std_well},
     summary_state_{summary_state},
     well_state_{well_state},
     ecl_well_{std_well_.wellEcl()},
     controls_{ecl_well_.productionControls(summary_state_)},
-    debug{true}  // extra debugging output
+    num_phases_{well_state_.numPhases()},
+    debug{true},  // extra debugging output
+    debug_limit_increase_decrease_{false}
 {
     int well_index = this->std_well_.indexOfWell();
     const Well::ProducerCMode& control_mode
@@ -92,8 +93,6 @@ GasLiftSingleWell(
     //   If gas lift optimization has not been applied to this well yet, the
     //   default value is used.
     this->orig_alq_ = this->well_state_.getALQ(this->well_name_);
-    computeInitialWellRates_();
-
     if(this->optimize_) {
         setAlqMinRate_(gl_well);
         // NOTE: According to item 4 in WLIFTOPT, this value does not
@@ -158,7 +157,7 @@ calcIncOrDecGradient(bool increase) const
         //std::tie(bhp, std::ignore /*=limited*/) = getBhpWithLimit_(bhp);
         auto [new_bhp, bhp_is_limited] = getBhpWithLimit_(*bhp);
         // TODO: What to do if BHP is limited?
-        std::vector<double> potentials(this->well_state_.numPhases(), 0.0);
+        std::vector<double> potentials(this->num_phases_, 0.0);
         computeWellRates_(new_bhp, potentials);
         auto [new_oil_rate, oil_is_limited] = getOilRateWithLimit_(potentials);
         auto [new_gas_rate, gas_is_limited] = getGasRateWithLimit_(potentials);
@@ -227,32 +226,63 @@ void
 GasLiftSingleWell<TypeTag>::
 runOptimize()
 {
+    if (this->optimize_) {
+        std::optional<double> alq;
+        if (this->debug_limit_increase_decrease_) {
+            alq = runOptimize1_();
+        }
+        else {
+            alq = runOptimize2_();
+        }
+        if (alq) {
+            logSuccess_(*alq);
+            this->well_state_.setALQ(this->well_name_, *alq);
+        }
+    }
+}
+
+template<typename TypeTag>
+std::optional<double>
+GasLiftSingleWell<TypeTag>::
+runOptimize2_()
+{
+    std::optional<double> alq;
+    if (alq = tryIncreaseLiftGas_(); !alq) {
+        if (alq = tryDecreaseLiftGas_(); !alq) {
+            return std::nullopt;
+        }
+    }
+    return alq;
+}
+
+template<typename TypeTag>
+std::optional<double>
+GasLiftSingleWell<TypeTag>::
+runOptimize1_()
+{
     std::optional<double> alq;
     auto inc_count = this->well_state_.gliftGetAlqIncreaseCount(this->well_name_);
     auto dec_count = this->well_state_.gliftGetAlqDecreaseCount(this->well_name_);
-    if (this->optimize_) {
-        if (dec_count == 0 && inc_count == 0) {
-            if (alq = tryIncreaseLiftGas_(); !alq) {
-                if (alq = tryDecreaseLiftGas_(); !alq) {
-                    return;
-                }
-            }
-        }
-        else if (dec_count == 0) {
-            assert(inc_count > 0);
-            if (alq = tryIncreaseLiftGas_(); !alq) {
-                return;
-            }
-        }
-        else if (inc_count == 0) {
-            assert(dec_count > 0);
+    if (dec_count == 0 && inc_count == 0) {
+        if (alq = tryIncreaseLiftGas_(); !alq) {
             if (alq = tryDecreaseLiftGas_(); !alq) {
-                return;
+                return std::nullopt;
             }
         }
-        logSuccess_(*alq);
-        this->well_state_.setALQ(this->well_name_, *alq);
     }
+    else if (dec_count == 0) {
+        assert(inc_count > 0);
+        if (alq = tryIncreaseLiftGas_(); !alq) {
+            return std::nullopt;
+        }
+    }
+    else if (inc_count == 0) {
+        assert(dec_count > 0);
+        if (alq = tryDecreaseLiftGas_(); !alq) {
+            return std::nullopt;
+        }
+    }
+    return alq;
 }
 
 
@@ -357,59 +387,72 @@ computeBhpAtThpLimit_(double alq) const
         this->deferred_logger_,
         alq);
     if (bhp_at_thp_limit) {
-        bhp_at_thp_limit = std::max(*bhp_at_thp_limit, this->controls_.bhp_limit);
+        if (*bhp_at_thp_limit < this->controls_.bhp_limit) {
+            const std::string msg = fmt::format(
+                "Computed bhp ({}) from thp limit is below bhp limit ({}), (ALQ = {})."
+                " Using bhp limit instead",
+                *bhp_at_thp_limit, this->controls_.bhp_limit, alq);
+            displayDebugMessage_(msg);
+            bhp_at_thp_limit = this->controls_.bhp_limit;
+        }
+        //bhp_at_thp_limit = std::max(*bhp_at_thp_limit, this->controls_.bhp_limit);
     }
     else {
         const std::string msg = fmt::format(
-          "Failed in getting converged bhp potential for well {}",
-          this->well_name_);
-        this->deferred_logger_.warning(
-            "FAILURE_GETTING_CONVERGED_POTENTIAL", msg);
+            "Failed in getting converged bhp potential from thp limit (ALQ = {})", alq);
+        displayDebugMessage_(msg);
     }
     return bhp_at_thp_limit;
 }
 
 template<typename TypeTag>
-void
+bool
 GasLiftSingleWell<TypeTag>::
-computeInitialWellRates_()
+computeInitialWellRates_(std::vector<double> &potentials)
 {
-    // NOTE: compute initial rates with current ALQ
-    auto bhp = this->std_well_.computeWellRatesAndBhpWithThpAlqProd(
-        this->ebos_simulator_, this->summary_state_, this->deferred_logger_,
-        this->potentials_, this->orig_alq_);
-
-    //this->std_well_.computeWellRatesWithThpAlqProd(
-    //    this->ebos_simulator_, this->summary_state_, this->deferred_logger_,
-    //    this->potentials_, this->orig_alq_);
-    {
-        const std::string msg = fmt::format(
-            "computed initial bhp {} given thp limit and given alq {}",
-            bhp, this->orig_alq_);
-        displayDebugMessage_(msg);
+    if (auto bhp = computeBhpAtThpLimit_(this->orig_alq_); bhp) {
+        {
+            const std::string msg = fmt::format(
+                "computed initial bhp {} given thp limit and given alq {}",
+                *bhp, this->orig_alq_);
+            displayDebugMessage_(msg);
+        }
+        computeWellRates_(*bhp, potentials);
+        {
+            const std::string msg = fmt::format(
+                "computed initial well potentials given bhp, "
+                "oil: {}, gas: {}, water: {}",
+                -potentials[this->oil_pos_],
+                -potentials[this->gas_pos_],
+                -potentials[this->water_pos_]);
+            displayDebugMessage_(msg);
+        }
+        return true;
     }
-    {
-        const std::string msg = fmt::format(
-            "computed initial well potentials given bhp, "
-            "oil: {}, gas: {}, water: {}",
-            -this->potentials_[this->oil_pos_], -this->potentials_[this->gas_pos_],
-            -this->potentials_[this->water_pos_]);
-        displayDebugMessage_(msg);
+    else {
+        displayDebugMessage_("Aborting optimization.");
+        return false;
     }
 }
 
 template<typename TypeTag>
 void
 GasLiftSingleWell<TypeTag>::
-computeWellRates_(double bhp, std::vector<double> &potentials) const
+computeWellRates_(
+    double bhp, std::vector<double> &potentials, bool debug_output) const
 {
+    // NOTE: If we do not clear the potentials here, it will accumulate
+    //   the new potentials to the old values..
+    std::fill(potentials.begin(), potentials.end(), 0.0);
     this->std_well_.computeWellRatesWithBhp(
         this->ebos_simulator_, bhp, potentials, this->deferred_logger_);
-    const std::string msg = fmt::format("computed well potentials given bhp {}, "
-        "oil: {}, gas: {}, water: {}", bhp,
-        -potentials[this->oil_pos_], -potentials[this->gas_pos_],
-        -potentials[this->water_pos_]);
-    displayDebugMessage_(msg);
+    if (debug_output) {
+        const std::string msg = fmt::format("computed well potentials given bhp {}, "
+            "oil: {}, gas: {}, water: {}", bhp,
+            -potentials[this->oil_pos_], -potentials[this->gas_pos_],
+            -potentials[this->water_pos_]);
+        displayDebugMessage_(msg);
+    }
 }
 
 template<typename TypeTag>
@@ -439,67 +482,39 @@ GasLiftSingleWell<TypeTag>::
 debugShowBhpAlqTable_()
 {
     double alq = 0.0;
-    std::vector<double> potentials(this->well_state_.numPhases(), 0.0);
+    std::vector<double> potentials(this->num_phases_, 0.0);
     const std::string fmt_fmt1 {"{:^12s} {:^12s} {:^12s} {:^12s}"};
     const std::string fmt_fmt2 {"{:>12.5g} {:>12.5g} {:>12.5g} {:>12.5g}"};
     const std::string header = fmt::format(fmt_fmt1, "ALQ", "BHP", "oil", "gas");
     displayDebugMessage_(header);
     while (alq <= (this->max_alq_+this->increment_)) {
-        auto bhp_at_thp_limit = this->std_well_.computeBhpAtThpLimitProdWithAlq(
-            this->ebos_simulator_, this->summary_state_, this->deferred_logger_, alq);
+        auto bhp_at_thp_limit = computeBhpAtThpLimit_(alq);
         if (!bhp_at_thp_limit) {
             const std::string msg = fmt::format("Failed to get converged potentials "
                 "for ALQ = {}. Skipping.", alq );
             displayDebugMessage_(msg);
         }
         else {
-            auto bhp = std::max(*bhp_at_thp_limit, this->controls_.bhp_limit);
-            this->std_well_.computeWellRatesWithBhp(
-                this->ebos_simulator_, bhp, potentials, this->deferred_logger_);
+            computeWellRates_(*bhp_at_thp_limit, potentials, /*debug_out=*/false);
             auto oil_rate = -potentials[this->oil_pos_];
             auto gas_rate = -potentials[this->gas_pos_];
-            const std::string msg = fmt::format(fmt_fmt2, alq, bhp, oil_rate, gas_rate);
+            const std::string msg = fmt::format(
+                fmt_fmt2, alq, *bhp_at_thp_limit, oil_rate, gas_rate);
             displayDebugMessage_(msg);
         }
         alq += this->increment_;
     }
 }
 
-/*
 template<typename TypeTag>
 void
 GasLiftSingleWell<TypeTag>::
-debugShowBhpAlqTable2_()
-{
-    double alq = 0.0;
-    std::vector<double> potentials(this->well_state_.numPhases(), 0.0);
-    const std::string fmt_fmt1 {"{:^12s} {:^12s} {:^12s} {:^12s}"};
-    const std::string fmt_fmt2 {"{:>12.5g} {:>12.5g} {:>12.5g} {:>12.5g}"};
-    const std::string header = fmt::format(fmt_fmt1, "ALQ", "BHP", "oil", "gas");
-    displayDebugMessage_(header);
-    while (alq <= (this->max_alq_+this->increment_)) {
-        auto bhp = this->std_well_.computeWellRatesAndBhpWithThpAlqProd(
-            this->ebos_simulator_, this->summary_state_, this->deferred_logger_,
-            potentials, alq);
-        auto oil_rate = -potentials[this->oil_pos_];
-        auto gas_rate = -potentials[this->gas_pos_];
-        const std::string msg = fmt::format(fmt_fmt2, alq, bhp, oil_rate, gas_rate);
-        displayDebugMessage_(msg);
-        alq += this->increment_;
-    }
-}
-*/
-
-template<typename TypeTag>
-void
-GasLiftSingleWell<TypeTag>::
-debugShowStartIteration_(double alq, bool increase)
+debugShowStartIteration_(double alq, bool increase, double oil_rate)
 {
     const std::string msg =
         fmt::format("starting {} iteration, ALQ = {}, oilrate = {}",
             (increase ? "increase" : "decrease"),
-            alq,
-            -this->potentials_[this->oil_pos_]);
+            alq, oil_rate);
     displayDebugMessage_(msg);
 }
 
@@ -640,7 +655,7 @@ getOilRateWithLimit_(const std::vector<double> &potentials) const
 template<typename TypeTag>
 std::pair<double,double>
 GasLiftSingleWell<TypeTag>::
-getRates_(const std::vector<double> &potentials)
+getInitialRatesWithLimit_(const std::vector<double> &potentials)
 {
     double oil_rate, gas_rate;
     bool oil_is_limited, gas_is_limited;
@@ -665,9 +680,11 @@ void
 GasLiftSingleWell<TypeTag>::
 logSuccess_(double alq)
 {
-
+    const int iteration_idx =
+        this->ebos_simulator_.model().newtonMethod().numIterations();
     const std::string message = fmt::format(
-         "GLIFT, WELL {} {} ALQ from {} to {}",
+         "GLIFT, IT={}, WELL {} : {} ALQ from {} to {}",
+         iteration_idx,
          this->well_name_,
          ((alq > this->orig_alq_) ? "increased" : "decreased"),
          this->orig_alq_, alq);
@@ -690,20 +707,21 @@ std::optional<double>
 GasLiftSingleWell<TypeTag>::
 runOptimizeLoop_(bool increase)
 {
+    std::vector<double> potentials(this->num_phases_, 0.0);
+    if (!computeInitialWellRates_(potentials)) return std::nullopt;
+    auto [oil_rate, gas_rate] = getInitialRatesWithLimit_(potentials);
     if (this->debug) debugShowBhpAlqTable_();
     if (this->debug) debugShowTargets_();
-    auto cur_potentials = this->potentials_;  // make copy, since we may fail..
-    auto [oil_rate, gas_rate] = getRates_(cur_potentials);
     //auto oil_rate = -cur_potentials[this->oil_pos_];
     //auto gas_rate = -cur_potentials[this->gas_pos_];
     bool success = false;  // did we succeed to increase alq?
     auto cur_alq = this->orig_alq_;
     auto temp_alq = cur_alq;
     OptimizeState state {*this, increase};
-    if (this->debug) debugShowStartIteration_(temp_alq, increase);
+    if (this->debug) debugShowStartIteration_(temp_alq, increase, oil_rate);
     bool alq_is_limited, oil_is_limited, gas_is_limited;
     while (!state.stop_iteration && (++state.it <= this->max_iterations_)) {
-        if (state.checkWellRatesViolated(cur_potentials)) break;
+        if (state.checkWellRatesViolated(potentials)) break;
         if (state.checkAlqOutsideLimits(temp_alq, oil_rate)) break;
         std::tie(temp_alq, alq_is_limited)
             = state.addOrSubtractAlqIncrement(temp_alq);
@@ -711,21 +729,25 @@ runOptimizeLoop_(bool increase)
         if (!state.computeBhpAtThpLimit(temp_alq)) break;
         // NOTE: if BHP is below limit, we set state.stop_iteration = true
         auto bhp = state.getBhpWithLimit();
-        computeWellRates_(bhp, cur_potentials);
+        computeWellRates_(bhp, potentials);
         double new_oil_rate, new_gas_rate;
-        std::tie(new_oil_rate, oil_is_limited) = getOilRateWithLimit_(cur_potentials);
+        std::tie(new_oil_rate, oil_is_limited) = getOilRateWithLimit_(potentials);
         if (oil_is_limited && !increase) {
-            displayDebugMessage_(
-                "decreasing ALQ and oil is limited -> aborting iteration");
-            // if oil is limited we do not want to decrease
-            break;
+            if (this->debug_abort_if_decrease_and_oil_is_limited_) {
+                // if oil is limited we do not want to decrease
+                displayDebugMessage_(
+                    "decreasing ALQ and oil is limited -> aborting iteration");
+                break;
+            }
         }
-        std::tie(new_gas_rate, gas_is_limited) = getGasRateWithLimit_(cur_potentials);
+        std::tie(new_gas_rate, gas_is_limited) = getGasRateWithLimit_(potentials);
         if (gas_is_limited && increase) {
-            // if gas is limited we do not want to increase
-            displayDebugMessage_(
-                "increasing ALQ and gas is limited -> aborting iteration");
-            break;
+            if (this->debug_abort_if_increase_and_gas_is_limited_) {
+                // if gas is limited we do not want to increase
+                displayDebugMessage_(
+                    "increasing ALQ and gas is limited -> aborting iteration");
+                break;
+            }
         }
         auto gradient = state.calcEcoGradient(
             oil_rate, new_oil_rate, gas_rate, new_gas_rate);
@@ -1058,21 +1080,21 @@ checkEcoGradient(double gradient)
     if (this->increase) {
         if (this->parent.debug) ss << " <= " << this->parent.eco_grad_ << " --> ";
         if (gradient <= this->parent.eco_grad_) {
-            if (this->parent.debug) ss << "true";
+            if (this->parent.debug) ss << "yes, stopping";
             result = true;
         }
         else {
-            if (this->parent.debug) ss << "false";
+            if (this->parent.debug) ss << "no, continue";
         }
     }
     else {  // decreasing lift gas
         if (this->parent.debug) ss << " >= " << this->parent.eco_grad_ << " --> ";
         if (gradient >= this->parent.eco_grad_) {
-            if (this->parent.debug) ss << "true";
+            if (this->parent.debug) ss << "yes, stopping";
             result = true;
         }
         else {
-            if (this->parent.debug) ss << "false";
+            if (this->parent.debug) ss << "no, continue";
         }
     }
     if (this->parent.debug) this->parent.displayDebugMessage_(ss.str());

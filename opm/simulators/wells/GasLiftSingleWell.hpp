@@ -123,13 +123,14 @@ namespace Opm
             std::vector<double> &potentials,
             const std::function<bool(double, double, const std::string &)> &callback);
         std::optional<double> computeBhpAtThpLimit_(double alq) const;
-        void computeInitialWellRates_();
-        void computeWellRates_(double bhp, std::vector<double> &potentials) const;
+        bool computeInitialWellRates_(std::vector<double> &potentials);
+        void computeWellRates_(
+            double bhp, std::vector<double> &potentials, bool debug_output=true) const;
         void debugCheckNegativeGradient_(double grad, double alq, double new_alq,
             double oil_rate, double new_oil_rate, double gas_rate,
             double new_gas_rate, bool increase) const;
         void debugShowBhpAlqTable_();
-        void debugShowStartIteration_(double alq, bool increase);
+        void debugShowStartIteration_(double alq, bool increase, double oil_rate);
         void debugShowTargets_();
         void displayDebugMessage_(const std::string &msg) const;
         void displayWarning_(std::string warning);
@@ -138,8 +139,11 @@ namespace Opm
             const std::vector<double> &potentials) const;
         std::pair<double, bool> getOilRateWithLimit_(
             const std::vector<double> &potentials) const;
-        std::pair<double,double> getRates_(const std::vector<double> &potentials);
+        std::pair<double,double> getInitialRatesWithLimit_(
+            const std::vector<double> &potentials);
         void logSuccess_(double alq);
+        std::optional<double> runOptimize1_();
+        std::optional<double> runOptimize2_();
         std::optional<double> runOptimizeLoop_(bool increase);
         void setAlqMaxRate_(const GasLiftOpt::Well &well);
         void setAlqMinRate_(const GasLiftOpt::Well &well);
@@ -152,14 +156,17 @@ namespace Opm
 
         DeferredLogger &deferred_logger_;
         const Simulator &ebos_simulator_;
-        std::vector<double> potentials_;
         const StdWell &std_well_;
         const SummaryState &summary_state_;
         WellState &well_state_;
         std::string well_name_;
         const Well &ecl_well_;
         const Well::ProductionControls controls_;
+        int num_phases_;
         bool debug;  // extra debug output
+        bool debug_limit_increase_decrease_;
+        bool debug_abort_if_decrease_and_oil_is_limited_ = false;
+        bool debug_abort_if_increase_and_gas_is_limited_ = false;
 
         double alpha_w_;
         double alpha_g_;
