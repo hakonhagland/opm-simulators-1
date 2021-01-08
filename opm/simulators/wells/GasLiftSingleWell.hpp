@@ -38,6 +38,7 @@ namespace Opm {
 #include <opm/simulators/wells/WellStateFullyImplicitBlackoil.hpp>
 #include <opm/core/props/BlackoilPhases.hpp>
 
+#include <algorithm>
 #include <cassert>
 #include <functional>
 #include <iostream>
@@ -75,10 +76,13 @@ namespace Opm
             WellState &well_state
         );
         struct GradInfo;
-        void addOrSubtractAlqIncrement(const GradInfo &gi, bool increase);
         std::optional<GradInfo> calcIncOrDecGradient(bool increase) const;
+        std::pair<double, double> getStage2Rates();
+        const WellInterface<TypeTag> &getStdWell() const { return std_well_; }
+        bool hasStage2Rates();
         void runOptimize();
         const std::string& name() const {return well_name_; }
+        void updateStage2State(const GradInfo &gi, bool increase);
 
         struct GradInfo
         {
@@ -121,7 +125,9 @@ namespace Opm
             double gas_rate, double new_gas_rate, bool increase) const;
         bool checkWellRatesViolated_(
             std::vector<double> &potentials,
-            const std::function<bool(double, double, const std::string &)> &callback);
+            const std::function<bool(double, double, const std::string &)> &callback,
+            bool increase
+        );
         std::optional<double> computeBhpAtThpLimit_(double alq) const;
         bool computeInitialWellRates_(std::vector<double> &potentials);
         void computeWellRates_(
@@ -129,6 +135,7 @@ namespace Opm
         void debugCheckNegativeGradient_(double grad, double alq, double new_alq,
             double oil_rate, double new_oil_rate, double gas_rate,
             double new_gas_rate, bool increase) const;
+        void debugShowAlqIncreaseDecreaseCounts_();
         void debugShowBhpAlqTable_();
         void debugShowStartIteration_(double alq, bool increase, double oil_rate);
         void debugShowTargets_();
@@ -137,11 +144,21 @@ namespace Opm
         std::pair<double, bool> getBhpWithLimit_(double bhp) const;
         std::pair<double, bool> getGasRateWithLimit_(
             const std::vector<double> &potentials) const;
+        std::tuple<double,double,bool,bool> getInitialRatesWithLimit_(
+            const std::vector<double> &potentials);
         std::pair<double, bool> getOilRateWithLimit_(
             const std::vector<double> &potentials) const;
-        std::pair<double,double> getInitialRatesWithLimit_(
-            const std::vector<double> &potentials);
+        std::tuple<double,double,bool,bool,double>
+            increaseALQtoPositiveOilRate_(double alq, double oil_rate, double gas_rate,
+              bool oil_is_limited, bool gas_is_limited, std::vector<double> &potentials);
+        std::tuple<double,double,bool,bool,double>
+            increaseALQtoMinALQ_(double alq, double oil_rate, double gas_rate,
+              bool oil_is_limited, bool gas_is_limited, std::vector<double> &potentials);
         void logSuccess_(double alq);
+        std::tuple<double,double,bool,bool,double>
+        reduceALQtoOilTarget_(double alq, double oil_rate, double gas_rate,
+            bool oil_is_limited, bool gas_is_limited, std::vector<double> &potentials);
+
         std::optional<double> runOptimize1_();
         std::optional<double> runOptimize2_();
         std::optional<double> runOptimizeLoop_(bool increase);
@@ -185,7 +202,7 @@ namespace Opm
 
         struct OptimizeState
         {
-            OptimizeState( GasLiftSingleWell &parent_, bool increase_ ) :
+            OptimizeState( GasLiftSingleWell &parent_, bool increase_, double min_alq_ ) :
                 parent{parent_},
                 increase{increase_},
                 it{0},
@@ -199,7 +216,8 @@ namespace Opm
             bool stop_iteration;
             double bhp;
 
-            std::pair<double,bool> addOrSubtractAlqIncrement(double alq);
+            std::pair<double,bool> addOrSubtractAlqIncrement(
+                double alq, bool increase);
             double calcEcoGradient(double oil_rate, double new_oil_rate,
                 double gas_rate, double new_gas_rate);
             bool checkAlqOutsideLimits(double alq, double oil_rate);

@@ -339,6 +339,7 @@ namespace Opm
                                WellState& well_state,
                                Opm::DeferredLogger& deferred_logger);
 
+        const PhaseUsage& phaseUsage() const;
 
     protected:
 
@@ -449,8 +450,6 @@ namespace Opm
         mutable std::vector<double> ipr_b_;
 
         bool changed_to_stopped_this_step_ = false;
-
-        const PhaseUsage& phaseUsage() const;
 
         int flowPhaseToEbosCompIdx( const int phaseIdx ) const;
 
