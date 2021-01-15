@@ -2839,7 +2839,8 @@ namespace Opm
                        const Simulator& ebos_simulator,
                        Opm::DeferredLogger& deferred_logger,
                        GLiftProdWells &prod_wells,
-                       GLiftOptWells &glift_wells
+                       GLiftOptWells &glift_wells,
+                       GLiftWellStateMap &glift_state_map
                        //std::map<std::string, WellInterface *> &prod_wells
     ) const
     {
@@ -2855,9 +2856,12 @@ namespace Opm
                         = std::make_unique<GasLiftSingleWell>(
                              *this, ebos_simulator, summary_state,
                              deferred_logger, well_state);
-                    glift->runOptimize();
-                    glift_wells.insert({this->name(), std::move(glift)});
-                    return;
+                    auto state = glift->runOptimize();
+                    if (state) {
+                        glift_state_map.insert({this->name(), std::move(state)});
+                        glift_wells.insert({this->name(), std::move(glift)});
+                        return;
+                    }
                 }
             }
             prod_wells.insert({this->name(), this});

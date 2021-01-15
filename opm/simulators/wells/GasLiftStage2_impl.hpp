@@ -38,7 +38,8 @@ GasLiftStage2(
     DeferredLogger &deferred_logger,
     WellState &well_state,
     GLiftProdWells &prod_wells,
-    GLiftOptWells &glift_wells
+    GLiftOptWells &glift_wells,
+    GLiftWellStateMap &state_map
 ) :
     deferred_logger_{deferred_logger},
     ebos_simulator_{ebos_simulator},
@@ -46,6 +47,7 @@ GasLiftStage2(
     well_state_{well_state},
     prod_wells_{prod_wells},
     stage1_wells_{glift_wells},
+    well_state_map_{state_map},
     report_step_idx_{ebos_simulator_.episodeIndex()},
     summary_state_{ebos_simulator_.vanguard().summaryState()},
     schedule_{ebos_simulator.vanguard().schedule()},
@@ -84,15 +86,97 @@ addOrRemoveALQincrement_(GradMap &grad_map, const std::string well_name, bool ad
 {
     GasLiftSingleWell &gs_well = *(this->stage1_wells_.at(well_name).get());
     const GradInfo &gi = grad_map.at(well_name);
-    gs_well.updateStage2State(gi, add);
+    GLiftWellState &state = *(this->well_state_map_.at(well_name).get());
+    state.update(gi.new_oil_rate, gi.oil_is_limited,
+        gi.new_gas_rate, gi.gas_is_limited,
+        gi.alq, gi.alq_is_limited, add);
+    //gs_well.updateStage2State(gi, add);
     this->well_state_.setALQ(well_name, gi.alq);
 }
 
 template<typename TypeTag>
+std::optional<typename GasLiftStage2<TypeTag>::GradInfo>
+GasLiftStage2<TypeTag>::
+calcIncOrDecGrad_(
+    const std::string well_name, const GasLiftSingleWell &gs_well, bool increase)
+{
+    /*
+    {
+        const std::string msg = fmt::format("well: {}", well_name);
+        displayDebugMessage_(msg);
+    }
+    */
+    GLiftWellState &state = *(this->well_state_map_.at(well_name).get());
+    if (checkRateAlreadyLimited_(state, increase)) {
+        /*
+        const std::string msg = fmt::format(
+            "well {} : not able to obtain {} gradient",
+            well_name,
+            (increase ? "incremental" : "decremental")
+        );
+        displayDebugMessage_(msg);
+        */
+        return std::nullopt;
+    }
+    else {
+        auto [oil_rate, gas_rate] = state.getRates();
+        auto alq = state.alq();
+        auto grad = gs_well.calcIncOrDecGradient(oil_rate, gas_rate, alq, increase);
+        if (grad) {
+            const std::string msg = fmt::format(
+              "well {} : adding {} gradient = {}",
+              well_name,
+              (increase ? "incremental" : "decremental"),
+              grad->grad
+            );
+            displayDebugMessage_(msg);
+        }
+        return grad;
+    }
+}
+
+template<typename TypeTag>
+bool
+GasLiftStage2<TypeTag>::
+checkRateAlreadyLimited_(GLiftWellState &state, bool increase)
+{
+    auto current_increase = state.increase();
+    bool do_check = false;
+    if (current_increase) {
+        if (*current_increase == increase) do_check = true;
+    }
+    else {
+        // If current_increase is not defined, it means that stage1
+        //   was unable to either increase nor decrease the ALQ. If the
+        //   initial rates stored in "state" is limited, and if
+        //   "increase" is true, it is not likely that adding ALQ will
+        //   cause the new rates not to be limited. However, if
+        //   "increase" is false, subtracting ALQ can make the new rates
+        //   not limited.
+        if (increase) do_check = true;
+    }
+    if (do_check) {
+        if (state.gasIsLimited() || state.oilIsLimited() || state.alqIsLimited()) {
+            const std::string msg = fmt::format(
+                "{} gradient : skipping since {} was limited in previous step",
+                (increase ? "incremental" : "decremental"),
+                (state.oilIsLimited() ? "oil" :
+                    (state.gasIsLimited() ? "gas" : "alq")));
+            displayDebugMessage_(msg);
+            return true;
+        }
+    }
+    return false;
+}
+
+
+
+template<typename TypeTag>
 typename GasLiftStage2<TypeTag>::GradInfo
 GasLiftStage2<TypeTag>::
-deleteGrad_(GradMap &map, const std::string &name)
+deleteGrad_(const std::string &name, bool increase)
 {
+    GradMap &map = increase ? this->inc_grads_ : this->dec_grads_;
     auto value = map.at(name);
     map.erase(name);
     return value;
@@ -103,7 +187,7 @@ typename GasLiftStage2<TypeTag>::GradInfo
 GasLiftStage2<TypeTag>::
 deleteDecGradItem_(const std::string &name)
 {
-    return deleteGrad_(this->dec_grads_, name);
+    return deleteGrad_(name, /*increase=*/false);
 }
 
 template<typename TypeTag>
@@ -111,7 +195,7 @@ typename GasLiftStage2<TypeTag>::GradInfo
 GasLiftStage2<TypeTag>::
 deleteIncGradItem_(const std::string &name)
 {
-    return deleteGrad_(this->inc_grads_, name);
+    return deleteGrad_(name, /*increase=*/true);
 }
 
 template<typename TypeTag>
@@ -212,22 +296,15 @@ getCurrentWellRates_(const std::string &well_name, const std::string &group_name
         GasLiftSingleWell &gs_well = *(this->stage1_wells_.at(well_name).get());
         const WellInterface<TypeTag> &well = gs_well.getStdWell();
         well_ptr = &well;
-        if (gs_well.hasStage2Rates()) {
-            std::tie(oil_rate, gas_rate) = gs_well.getStage2Rates();
-            success = true;
-            if (this->debug_) debug_info = "(A)";
-        }
-        else {
-            std::tie(oil_rate, gas_rate) = getStdWellRates_(well);
-            success = true;
-            if (this->debug_) debug_info = "(B)";
-        }
+        GLiftWellState &state = *(this->well_state_map_.at(well_name).get());
+        std::tie(oil_rate, gas_rate) = state.getRates();
+        if ( this->debug_) debug_info = "(A)";
     }
     if (this->prod_wells_.count(well_name) == 1) {
         well_ptr = this->prod_wells_.at(well_name);
         std::tie(oil_rate, gas_rate) = getStdWellRates_(*well_ptr);
         success = true;
-        if ( this->debug_) debug_info = "(C)";
+        if ( this->debug_) debug_info = "(B)";
     }
     if (success) {
         assert(well_ptr);
@@ -358,7 +435,7 @@ optimizeGroup_(const Opm::Group &group)
         std::vector<GradPair> inc_grads;
         std::vector<GradPair> dec_grads;
         redistributeALQ_(wells, group, inc_grads, dec_grads);
-        removeSurplusALQ_(wells, group, dec_grads);
+        removeSurplusALQ_(wells, group, inc_grads, dec_grads);
     }
     else {
         displayDebugMessage_("skipping", group.name());
@@ -387,6 +464,32 @@ optimizeGroupsRecursive_(const Opm::Group &group)
     if (this->glo_.has_group(group.name())) // only optimize if GLIFTOPT is given
         optimizeGroup_(group);
 
+}
+
+template<typename TypeTag>
+void
+GasLiftStage2<TypeTag>::
+recalculateGradientAndUpdateData_(
+    GradPairItr &grad_itr, bool increase,
+    std::vector<GradPair> &grads, std::vector<GradPair> &other_grads)
+{
+    const std::string &name = grad_itr->first;
+    GasLiftSingleWell &gs_well = *(this->stage1_wells_.at(name).get());
+    auto grad = calcIncOrDecGrad_(name, gs_well, increase);
+    GradInfo old_grad;
+    if (grad) {
+        grad_itr->second = grad->grad;
+        old_grad = updateGrad_(name, *grad, increase);
+    }
+    else {
+        grads.erase(grad_itr); // NOTE: this invalidates grad_itr
+        old_grad = deleteGrad_(name, increase);
+    }
+    // NOTE: Either creates a new item or reassigns
+    // The old incremental gradient becomes the new decremental gradient
+    //   or the old decremental gradient becomes the new incremental gradient
+    updateGrad_(name, old_grad, !increase);
+    updateGradVector_(name, other_grads, old_grad.grad);
 }
 
 // TODO: maybe the redistribution can be simplified by only doing it for the
@@ -467,7 +570,7 @@ template<typename TypeTag>
 void
 GasLiftStage2<TypeTag>::
 removeSurplusALQ_(std::vector<GasLiftSingleWell *> &wells,  const Opm::Group &group,
-    std::vector<GradPair> &dec_grads)
+    std::vector<GradPair> &inc_grads, std::vector<GradPair> &dec_grads)
 {
     if (dec_grads.size() == 0) {
         displayDebugMessage_("remove surplus ALQ: no wells to remove from");
@@ -481,52 +584,42 @@ removeSurplusALQ_(std::vector<GasLiftSingleWell *> &wells,  const Opm::Group &gr
     auto [oil_rate, gas_rate, alq] = getCurrentGroupRates_(group);
     auto min_eco_grad = this->glo_.min_eco_gradient();
     bool stop_iteration = false;
+    SurplusState state {*this, group, oil_rate, gas_rate, alq};
     while (!stop_iteration) {
-            if (dec_grads.size() >= 2) {
-                sortGradients_(dec_grads);
-            }
-            bool remove = false;  // remove ALQ in this iteration?
-            auto dec_grad_itr = dec_grads.begin();
-            if (dec_grad_itr->second < min_eco_grad) {
+        ++state.it;
+        if (dec_grads.size() >= 2) {
+            sortGradients_(dec_grads);
+        }
+        bool remove = false;  // remove ALQ in this iteration?
+        auto dec_grad_itr = dec_grads.begin();
+        if (dec_grad_itr->second < min_eco_grad) {
+            remove = true;
+        }
+        else if (group.has_control(Group::ProductionCMode::ORAT)) {
+            if (controls.oil_target < state.oil_rate  ) {
                 remove = true;
             }
-            else if (group.has_control(Group::ProductionCMode::ORAT)) {
-                if (controls.oil_target < oil_rate  ) {
-                    remove = true;
-                }
+        }
+        else if (group.has_control(Group::ProductionCMode::GRAT)) {
+            if (controls.gas_target < state.gas_rate  ) {
+                remove = true;
             }
-            else if (group.has_control(Group::ProductionCMode::GRAT)) {
-                if (controls.gas_target < gas_rate  ) {
-                    remove = true;
-                }
+        }
+        else if (max_glift) {
+            if (*max_glift < state.alq) {
+                remove = true;
             }
-            else if (max_glift) {
-                if (*max_glift < alq) {
-                    remove = true;
-                }
-            }
-            if (remove) {
-                const auto &name = dec_grad_itr->first;
-                addOrRemoveALQincrement_( this->dec_grads_, name, /*add=*/false);
-                GasLiftSingleWell &gs_well = *(this->stage1_wells_.at(name).get());
-                auto grad = gs_well.calcIncOrDecGradient(/*increase=*/false);
-                // NOTE: We only update the decremental gradient, we
-                //   do not need to update the incremental gradient,
-                //   since it will no longer be used for anything..
-                if (grad) {
-                    dec_grad_itr->second = grad->grad;
-                    updateDecGrad_(name, *grad);
-                }
-                else {
-                    // NOTE: this invalidates min_dec_grad_itr
-                    dec_grads.erase(dec_grad_itr);
-                    auto old_grad = this->parent.deleteDecGradItem_(name);
-                    if (dec_grads.size() == 0) stop_iteration = true;
-                }
-            }
-            else {
-                stop_iteration = true;
-            }
+        }
+        if (remove) {
+            const auto &name = dec_grad_itr->first;
+            state.updateRates(name);
+            addOrRemoveALQincrement_( this->dec_grads_, name, /*add=*/false);
+            recalculateGradientAndUpdateData_(
+                dec_grad_itr, /*increase=*/false, dec_grads, inc_grads);
+            if (dec_grads.size() == 0) stop_iteration = true;
+        }
+        else {
+            stop_iteration = true;
         }
     }
     //std::vector<GradPair> dec_grads;
@@ -578,19 +671,37 @@ sortGradients_(std::vector<GradPair> &grads)
 template<typename TypeTag>
 typename GasLiftStage2<TypeTag>::GradInfo
 GasLiftStage2<TypeTag>::
-updateGrad_(GradMap &map, const std::string &name, GradInfo &grad)
+updateGrad_(const std::string &name, GradInfo &grad, bool increase)
 {
+    GradMap &map = increase ? this->inc_grads_ : this->dec_grads_;
     auto old_value = map.at(name);
     map[name] = grad;
     return old_value;
 }
 
 template<typename TypeTag>
+void
+GasLiftStage2<TypeTag>::
+updateGradVector_(const std::string &name, std::vector<GradPair> &grads, double grad)
+{
+    for (auto itr = grads.begin(); itr != grads.end(); itr++) {
+        if (itr->first == name) {
+            itr->second = grad;
+            return;
+        }
+    }
+    grads.push_back({name, grad});
+    // NOTE: the gradient vector is no longer sorted, but sorting will be done
+    //   later in getEcoGradients()
+}
+
+
+template<typename TypeTag>
 typename GasLiftStage2<TypeTag>::GradInfo
 GasLiftStage2<TypeTag>::
 updateDecGrad_(const std::string &name, GradInfo &grad)
 {
-    return updateGrad_(this->dec_grads_, name, grad);
+    return updateGrad_(name, grad, /*increase=*/false);
 }
 
 template<typename TypeTag>
@@ -598,7 +709,7 @@ typename GasLiftStage2<TypeTag>::GradInfo
 GasLiftStage2<TypeTag>::
 updateIncGrad_(const std::string &name, GradInfo &grad)
 {
-    return updateGrad_(this->inc_grads_, name, grad);
+    return updateGrad_(name, grad, /*increase=*/true);
 }
 
 /***********************************************
@@ -615,12 +726,12 @@ calculateEcoGradients(std::vector<GasLiftSingleWell *> &wells,
     for (auto well_ptr : wells) {
         const auto &gs_well = *well_ptr;  // gs = GasLiftSingleWell
         const auto &name = gs_well.name();
-        auto inc_grad = calcIncOrDecGrad_(name, gs_well, /*increase=*/true);
+        auto inc_grad = this->parent.calcIncOrDecGrad_(name, gs_well, /*increase=*/true);
         if (inc_grad) {
             inc_grads.emplace_back(std::make_pair(name, inc_grad->grad));
             this->parent.saveIncGrad_(name, *inc_grad);
         }
-        auto dec_grad = calcIncOrDecGrad_(name, gs_well, /*increase=*/false);
+        auto dec_grad = this->parent.calcIncOrDecGrad_(name, gs_well, /*increase=*/false);
         if (dec_grad) {
             dec_grads.emplace_back(std::make_pair(name, dec_grad->grad));
             this->parent.saveDecGrad_(name, *dec_grad);
@@ -702,44 +813,10 @@ recalculateGradients(
          std::vector<GradPair> &inc_grads, std::vector<GradPair> &dec_grads,
          GradPairItr &min_dec_grad_itr, GradPairItr &max_inc_grad_itr)
 {
-    {
-        const std::string &name = max_inc_grad_itr->first;
-        GasLiftSingleWell &gs_well = *(this->parent.stage1_wells_.at(name).get());
-        auto inc_grad = calcIncOrDecGrad_(name, gs_well, /*increase=*/true);
-        if (inc_grad) {
-            max_inc_grad_itr->second = inc_grad->grad;
-            auto old_grad = this->parent.updateIncGrad_(name, *inc_grad);
-            // The old incremental gradient becomes the new decremental gradient
-            this->parent.updateDecGrad_(name, old_grad);
-            updateGradVector_(name, dec_grads, old_grad.grad);
-        }
-        else {
-            inc_grads.erase(max_inc_grad_itr); // NOTE: this invalidates max_inc_grad_itr
-            auto old_grad = this->parent.deleteIncGradItem_(name);
-            // NOTE: Either creates a new item or reassigns
-            this->parent.dec_grads_[name] = old_grad;
-            updateGradVector_(name, dec_grads, old_grad.grad);
-        }
-    }
-    {
-        const std::string &name = min_dec_grad_itr->first;
-        GasLiftSingleWell &gs_well = *(this->parent.stage1_wells_.at(name).get());
-        auto dec_grad = calcIncOrDecGrad_(name, gs_well, /*increase=*/false);
-        if (dec_grad) {
-            min_dec_grad_itr->second = dec_grad->grad;
-            auto old_grad = this->parent.updateDecGrad_(name, *dec_grad);
-            // The old decremental gradient becomes the new incremental gradient
-            this->parent.updateIncGrad_(name, old_grad);
-            updateGradVector_(name, inc_grads, old_grad.grad);
-        }
-        else {
-            dec_grads.erase(min_dec_grad_itr); // NOTE: this invalidates min_dec_grad_itr
-            auto old_grad = this->parent.deleteDecGradItem_(name);
-            // NOTE: Either creates a new item or reassigns
-            this->parent.inc_grads_[name] = old_grad;
-            updateGradVector_(name, inc_grads, old_grad.grad);
-        }
-    }
+    this->parent.recalculateGradientAndUpdateData_(
+        max_inc_grad_itr, /*increase=*/true, inc_grads, dec_grads);
+    this->parent.recalculateGradientAndUpdateData_(
+        min_dec_grad_itr, /*increase=*/false, dec_grads, inc_grads);
 }
 
 // Take one ALQ increment from well1, and give it to well2
@@ -764,40 +841,7 @@ GasLiftStage2<TypeTag>::OptimizeState::
  * Private methods declared in OptimizeState
  **********************************************/
 
-template<typename TypeTag>
-std::optional<typename GasLiftStage2<TypeTag>::GradInfo>
-GasLiftStage2<TypeTag>::OptimizeState::
-calcIncOrDecGrad_(
-    const std::string well_name, const GasLiftSingleWell &gs_well, bool increase)
-{
-    /*
-    {
-        const std::string msg = fmt::format("well: {}", well_name);
-        displayDebugMessage_(msg);
-    }
-    */
-    auto grad = gs_well.calcIncOrDecGradient(increase);
-    if (grad) {
-        const std::string msg = fmt::format(
-            "well {} : adding {} gradient = {}",
-            well_name,
-            (increase ? "incremental" : "decremental"),
-            grad->grad
-        );
-        displayDebugMessage_(msg);
-    }
-    else {
-        /*
-        const std::string msg = fmt::format(
-            "well {} : not able to obtain {} gradient",
-            well_name,
-            (increase ? "incremental" : "decremental")
-        );
-        displayDebugMessage_(msg);
-        */
-    }
-    return grad;
-}
+
 
 template<typename TypeTag>
 void
@@ -815,18 +859,22 @@ displayWarning_(const std::string &msg)
     this->parent.displayWarning_(msg, this->group.name());
 }
 
+/**********************************************
+ * Public methods declared in SurplusState
+ **********************************************/
+
 template<typename TypeTag>
 void
-GasLiftStage2<TypeTag>::OptimizeState::
-updateGradVector_(const std::string &name, std::vector<GradPair> &grads, double grad)
+GasLiftStage2<TypeTag>::SurplusState::
+updateRates(const std::string &well_name)
 {
-    for (auto itr = grads.begin(); itr != grads.end(); itr++) {
-        if (itr->first == name) {
-            itr->second = grad;
-            return;
-        }
-    }
-    grads.push_back({name, grad});
-    // NOTE: the gradient vector is no longer sorted, but sorting will be done
-    //   later in getEcoGradients()
+    const GradInfo &gi = this->parent.dec_grads_.at(well_name);
+    GLiftWellState &state = *(this->parent.well_state_map_.at(well_name).get());
+    auto delta_oil = gi.new_oil_rate - state.oilRate();
+    // NEXT: Add efficiency factor here
+    //this->oil_rate += delta_oil;
+    //state.update(gi.new_oil_rate, gi.oil_is_limited,
+    //    gi.new_gas_rate, gi.gas_is_limited,
+    //    gi.alq, gi.alq_is_limited, add);
+
 }

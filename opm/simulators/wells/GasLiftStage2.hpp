@@ -31,6 +31,7 @@
 #include <opm/parser/eclipse/EclipseState/Schedule/GasLiftOpt.hpp>
 #include <opm/simulators/wells/StandardWell.hpp>
 #include <opm/simulators/wells/GasLiftSingleWell.hpp>
+#include <opm/simulators/wells/GasLiftWellState.hpp>
 #include <opm/simulators/utils/DeferredLogger.hpp>
 #include <opm/simulators/wells/WellStateFullyImplicitBlackoil.hpp>
 // NOTE: BlackoilWellModel.hpp includes ourself (GasLiftStage2.hpp), so we need
@@ -60,8 +61,10 @@ namespace Opm
         using WellState = WellStateFullyImplicitBlackoil;
         using BlackoilWellModel = Opm::BlackoilWellModel<TypeTag>;
         using GasLiftSingleWell = Opm::GasLiftSingleWell<TypeTag>;
+        using GLiftWellState = Opm::GasLiftWellState<TypeTag>;
         using GLiftOptWells = typename BlackoilWellModel::GLiftOptWells;
         using GLiftProdWells = typename BlackoilWellModel::GLiftProdWells;
+        using GLiftWellStateMap = typename BlackoilWellModel::GLiftWellStateMap;
         using GradPair = std::pair<std::string, double>;
         using GradPairItr = std::vector<GradPair>::iterator;
         using GradInfo = typename GasLiftSingleWell::GradInfo;
@@ -76,17 +79,19 @@ namespace Opm
             DeferredLogger &deferred_logger,
             WellState &well_state,
             GLiftProdWells &prod_wells,
-            GLiftOptWells &glift_wells
+            GLiftOptWells &glift_wells,
+            GLiftWellStateMap &state_map
         );
         void runOptimize();
     private:
         void addOrRemoveALQincrement_(
             GradMap &grad_map, const std::string well_name, bool add);
-        std::optional<double> calcOrGetIncOrDecGrad_(
-            const std::string name, GasLiftSingleWell &gs_well, bool increase);
+        std::optional<GradInfo> calcIncOrDecGrad_(
+            const std::string name, const GasLiftSingleWell &gs_well, bool increase);
+        bool checkRateAlreadyLimited_(GLiftWellState &state, bool increase);
         GradInfo deleteDecGradItem_(const std::string &name);
         GradInfo deleteIncGradItem_(const std::string &name);
-        GradInfo deleteGrad_(GradMap &map, const std::string &name);
+        GradInfo deleteGrad_(const std::string &name, bool increase);
         void displayDebugMessage_(const std::string &msg);
         void displayDebugMessage_(const std::string &msg, const std::string &group_name);
         void displayWarning_(const std::string &msg, const std::string &group_name);
@@ -102,26 +107,32 @@ namespace Opm
         std::pair<double, double> getStdWellRates_(const WellInterface<TypeTag> &well);
         void optimizeGroup_(const Opm::Group &group);
         void optimizeGroupsRecursive_(const Opm::Group &group);
+        void recalculateGradientAndUpdateData_(
+            GradPairItr &grad_itr, bool increase,
+            std::vector<GradPair> &grads, std::vector<GradPair> &other_grads);
         void redistributeALQ_(
             std::vector<GasLiftSingleWell *> &wells,  const Opm::Group &group,
             std::vector<GradPair> &inc_grads, std::vector<GradPair> &dec_grads);
         void removeSurplusALQ_(
             std::vector<GasLiftSingleWell *> &wells,  const Opm::Group &group,
-            std::vector<GradPair> &dec_grads);
+            std::vector<GradPair> &inc_grads, std::vector<GradPair> &dec_grads);
         void saveGrad_(GradMap &map, const std::string &name, GradInfo &grad);
         void saveDecGrad_(const std::string &name, GradInfo &grad);
         void saveIncGrad_(const std::string &name, GradInfo &grad);
         void sortGradients_(std::vector<GradPair> &grads);
-        GradInfo updateGrad_(GradMap &map, const std::string &name, GradInfo &grad);
+        GradInfo updateGrad_(const std::string &name, GradInfo &grad, bool increase);
+        void updateGradVector_(
+            const std::string &name, std::vector<GradPair> &grads, double grad);
         GradInfo updateDecGrad_(const std::string &name, GradInfo &grad);
         GradInfo updateIncGrad_(const std::string &name, GradInfo &grad);
 
         DeferredLogger &deferred_logger_;
         const Simulator &ebos_simulator_;
         const BlackoilWellModel &well_model_;
-        const WellState &well_state_;
+        WellState &well_state_;
         GLiftProdWells &prod_wells_;
         GLiftOptWells &stage1_wells_;
+        GLiftWellStateMap &well_state_map_;
 
         int report_step_idx_;
         const SummaryState &summary_state_;
@@ -160,14 +171,29 @@ namespace Opm
             void redistributeALQ( GradPairItr &min_dec_grad, GradPairItr &max_inc_grad);
 
         private:
-            std::optional<GradInfo> calcIncOrDecGrad_(
-                const std::string well_name,
-                const GasLiftSingleWell &gs_well, bool increase);
             void displayDebugMessage_(const std::string &msg);
             void displayWarning_(const std::string &msg);
-            void updateGradVector_(
-                const std::string &name, std::vector<GradPair> &grads, double grad);
 
+        };
+
+        struct SurplusState {
+            SurplusState( GasLiftStage2 &parent_, const Opm::Group &group_,
+                double oil_rate_, double gas_rate_, double alq_) :
+                parent{parent_},
+                group{group_},
+                oil_rate{oil_rate_},
+                gas_rate{gas_rate_},
+                alq{alq_},
+                it{0}
+            {}
+            GasLiftStage2 &parent;
+            const Opm::Group &group;
+            double oil_rate;
+            double gas_rate;
+            double alq;
+            int it;
+            void updateRates(const std::string &name);
+        private:
         };
     };
 

@@ -37,6 +37,7 @@ namespace Opm {
 
 #include <opm/simulators/wells/WellStateFullyImplicitBlackoil.hpp>
 #include <opm/core/props/BlackoilPhases.hpp>
+#include <opm/simulators/wells/GasLiftWellState.hpp>
 
 #include <algorithm>
 #include <cassert>
@@ -59,6 +60,7 @@ namespace Opm
         using Simulator = GetPropType<TypeTag, Properties::Simulator>;
         using WellState = WellStateFullyImplicitBlackoil;
         using StdWell = Opm::StandardWell<TypeTag>;
+        using GLiftWellState = Opm::GasLiftWellState<TypeTag>;
         // TODO: same definition with WellInterface, and
         //  WellStateFullyImplicitBlackoil eventually they should go
         //  to a common header file.
@@ -76,27 +78,17 @@ namespace Opm
             WellState &well_state
         );
         struct GradInfo;
-        std::optional<GradInfo> calcIncOrDecGradient(bool increase) const;
+        std::optional<GradInfo> calcIncOrDecGradient(
+            double oil_rate, double gas_rate, double alq, bool increase) const;
         std::pair<double, double> getStage2Rates();
         const WellInterface<TypeTag> &getStdWell() const { return std_well_; }
         bool hasStage2Rates();
-        void runOptimize();
+        std::unique_ptr<GLiftWellState> runOptimize();
         const std::string& name() const {return well_name_; }
         void updateStage2State(const GradInfo &gi, bool increase);
 
         struct GradInfo
         {
-            // TODO: I do not know why this (default) constructor is required by
-            //    the compiler..
-            // If I comment it out, the error from the compiler is:
-            // /usr/include/c++/9/tuple:1674:70:
-            //    error: no matching function for call to
-            //   ‘Opm::GasLiftSingleWell<
-            //     Opm::Properties::TTag::EclFlowProblem>::GradInfo::GradInfo()’
-            //         second(std::forward<_Args2>(std::get<_Indexes2>(__tuple2))...)
-            //
-            // I also tried to set a breakpoint inside here, and it was never hit..
-            //  so it seems it is never called during a simulation.
             GradInfo() { }
 
             GradInfo(double grad_, double new_oil_rate_, bool oil_is_limited_,
@@ -159,14 +151,13 @@ namespace Opm
         reduceALQtoOilTarget_(double alq, double oil_rate, double gas_rate,
             bool oil_is_limited, bool gas_is_limited, std::vector<double> &potentials);
 
-        std::optional<double> runOptimize1_();
-        std::optional<double> runOptimize2_();
-        std::optional<double> runOptimizeLoop_(bool increase);
+        std::unique_ptr<GLiftWellState> runOptimize1_();
+        std::unique_ptr<GLiftWellState> runOptimize2_();
+        std::unique_ptr<GLiftWellState> runOptimizeLoop_(bool increase);
         void setAlqMaxRate_(const GasLiftOpt::Well &well);
         void setAlqMinRate_(const GasLiftOpt::Well &well);
-        bool stage2CheckRateAlreadyLimited_(bool increase) const;
-        std::optional<double> tryIncreaseLiftGas_();
-        std::optional<double> tryDecreaseLiftGas_();
+        std::unique_ptr<GLiftWellState> tryIncreaseLiftGas_();
+        std::unique_ptr<GLiftWellState> tryDecreaseLiftGas_();
         void updateWellStateAlqFixedValue_(const GasLiftOpt::Well &well);
         bool useFixedAlq_(const GasLiftOpt::Well &well);
         void warnMaxIterationsExceeded_();
@@ -198,11 +189,10 @@ namespace Opm
         bool optimize_;
         double orig_alq_;
         int water_pos_;
-        std::optional<Stage2State> stage2_state_;
 
         struct OptimizeState
         {
-            OptimizeState( GasLiftSingleWell &parent_, bool increase_, double min_alq_ ) :
+            OptimizeState( GasLiftSingleWell &parent_, bool increase_ ) :
                 parent{parent_},
                 increase{increase_},
                 it{0},
@@ -216,12 +206,12 @@ namespace Opm
             bool stop_iteration;
             double bhp;
 
-            std::pair<double,bool> addOrSubtractAlqIncrement(
-                double alq, bool increase);
+            std::pair<double,bool> addOrSubtractAlqIncrement(double alq);
             double calcEcoGradient(double oil_rate, double new_oil_rate,
                 double gas_rate, double new_gas_rate);
             bool checkAlqOutsideLimits(double alq, double oil_rate);
             bool checkEcoGradient(double gradient);
+            bool checkNegativeOilRate(double oil_rate);
             bool checkOilRateExceedsTarget(double oil_rate);
             bool checkRate(double rate, double limit, const std::string &rate_str) const;
             bool checkWellRatesViolated(std::vector<double> &potentials);
@@ -231,49 +221,6 @@ namespace Opm
             void warn_(std::string msg) {parent.displayWarning_(msg);}
         };
 
-        class Stage2State
-        {
-        public:
-            Stage2State(double oil_rate, bool oil_is_limited,
-                        double gas_rate, bool gas_is_limited,
-                        double alq, bool alq_is_limited,
-                        bool increase) :
-                oil_rate_{oil_rate},
-                oil_is_limited_{oil_is_limited},
-                gas_rate_{gas_rate},
-                gas_is_limited_{gas_is_limited},
-                alq_{alq},
-                alq_is_limited_{alq_is_limited},
-                increase_{increase} {}
-            double alq() const { return alq_; }
-            bool alqIsLimited() const { return alq_is_limited_; }
-            bool gasIsLimited() const { return gas_is_limited_; }
-            double gasRate() const { return gas_rate_; }
-            bool oilIsLimited() const { return oil_is_limited_; }
-            double oilRate() const { return oil_rate_; }
-            bool increase() const { return increase_; }
-            void update(double oil_rate, bool oil_is_limited,
-                        double gas_rate, bool gas_is_limited,
-                        double alq, bool alq_is_limited,
-                        bool increase)
-            {
-                oil_rate_ = oil_rate;
-                oil_is_limited_ = oil_is_limited;
-                gas_rate_ = gas_rate;
-                gas_is_limited_ = gas_is_limited;
-                alq_ = alq;
-                alq_is_limited_ = alq_is_limited;
-                increase_ = increase;
-            }
-        private:
-            double oil_rate_;
-            bool oil_is_limited_;
-            double gas_rate_;
-            bool gas_is_limited_;
-            double alq_;
-            bool alq_is_limited_;
-            bool increase_;
-        };
     };
 
 #include "GasLiftSingleWell_impl.hpp"

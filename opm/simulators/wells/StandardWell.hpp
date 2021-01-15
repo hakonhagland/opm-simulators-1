@@ -79,6 +79,7 @@ namespace Opm
         using typename Base::GasLiftSingleWell;
         using typename Base::GLiftOptWells;
         using typename Base::GLiftProdWells;
+        using typename Base::GLiftWellStateMap;
 
         using Base::numEq;
         using Base::numPhases;
@@ -263,7 +264,8 @@ namespace Opm
             const Simulator& ebosSimulator,
             DeferredLogger& deferred_logger,
             GLiftProdWells &prod_wells,
-            GLiftOptWells &glift_wells
+            GLiftOptWells &glift_wells,
+            GLiftWellStateMap &state_map
         ) const override;
 
         bool checkGliftNewtonIterationIdxOk(

@@ -95,6 +95,8 @@ namespace Opm
         using GasLiftSingleWell = Opm::GasLiftSingleWell<TypeTag>;
         using GLiftOptWells = typename Opm::BlackoilWellModel<TypeTag>::GLiftOptWells;
         using GLiftProdWells = typename Opm::BlackoilWellModel<TypeTag>::GLiftProdWells;
+        using GLiftWellStateMap =
+            typename Opm::BlackoilWellModel<TypeTag>::GLiftWellStateMap;
 
         static const int numEq = Indices::numEq;
         static const int numPhases = Indices::numPhases;
@@ -192,7 +194,8 @@ namespace Opm
             const Simulator& ebosSimulator,
             DeferredLogger& deferred_logger,
             GLiftProdWells& prod_wells,
-            GLiftOptWells& glift_wells
+            GLiftOptWells& glift_wells,
+            GLiftWellStateMap& state_map
         ) const = 0;
 
         void updateWellTestState(const WellState& well_state,

@@ -48,6 +48,7 @@ namespace Opm
         using typename Base::GasLiftSingleWell;
         using typename Base::GLiftProdWells;
         using typename Base::GLiftOptWells;
+        using typename Base::GLiftWellStateMap;
 
         /// the number of reservior equations
         using Base::numEq;
@@ -128,7 +129,8 @@ namespace Opm
             const Simulator&,
             DeferredLogger&,
             GLiftProdWells &,
-            GLiftOptWells &
+            GLiftOptWells &,
+            GLiftWellStateMap &
         ) const override {
             // Not implemented yet
         }
