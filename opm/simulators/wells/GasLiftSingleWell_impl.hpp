@@ -229,7 +229,7 @@ runOptimize2_()
 {
     std::unique_ptr<GLiftWellState> state;
     state = tryIncreaseLiftGas_();
-    if (!state && !state->alqChanged()) {
+    if (!state || !(state->alqChanged())) {
         state = tryDecreaseLiftGas_();
     }
     return state;

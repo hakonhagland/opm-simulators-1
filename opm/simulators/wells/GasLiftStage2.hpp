@@ -93,10 +93,13 @@ namespace Opm
         GradInfo deleteIncGradItem_(const std::string &name);
         GradInfo deleteGrad_(const std::string &name, bool increase);
         void displayDebugMessage_(const std::string &msg);
+        void displayDebugMessage2B_(const std::string &msg);
         void displayDebugMessage_(const std::string &msg, const std::string &group_name);
         void displayWarning_(const std::string &msg, const std::string &group_name);
         void displayWarning_(const std::string &msg);
         std::tuple<double, double, double> getCurrentGroupRates_(
+            const Opm::Group &group);
+        std::tuple<double, double, double> getCurrentGroupRatesRecursive_(
             const Opm::Group &group);
         std::tuple<double, double, double> getCurrentWellRates_(
             const std::string &well_name, const std::string &group_name);
@@ -114,7 +117,7 @@ namespace Opm
             std::vector<GasLiftSingleWell *> &wells,  const Opm::Group &group,
             std::vector<GradPair> &inc_grads, std::vector<GradPair> &dec_grads);
         void removeSurplusALQ_(
-            std::vector<GasLiftSingleWell *> &wells,  const Opm::Group &group,
+            const Opm::Group &group,
             std::vector<GradPair> &inc_grads, std::vector<GradPair> &dec_grads);
         void saveGrad_(GradMap &map, const std::string &name, GradInfo &grad);
         void saveDecGrad_(const std::string &name, GradInfo &grad);
@@ -178,12 +181,18 @@ namespace Opm
 
         struct SurplusState {
             SurplusState( GasLiftStage2 &parent_, const Opm::Group &group_,
-                double oil_rate_, double gas_rate_, double alq_) :
+                double oil_rate_, double gas_rate_, double alq_, double min_eco_grad_,
+                double oil_target_, double gas_target_,
+                std::optional<double> max_glift_) :
                 parent{parent_},
                 group{group_},
                 oil_rate{oil_rate_},
                 gas_rate{gas_rate_},
                 alq{alq_},
+                min_eco_grad{min_eco_grad_},
+                oil_target{oil_target_},
+                gas_target{gas_target_},
+                max_glift{max_glift_},
                 it{0}
             {}
             GasLiftStage2 &parent;
@@ -191,8 +200,17 @@ namespace Opm
             double oil_rate;
             double gas_rate;
             double alq;
+            const double min_eco_grad;
+            const double oil_target;
+            const double gas_target;
+            std::optional<double> max_glift;
             int it;
-            void updateRates(const std::string &name);
+
+            bool checkALQlimit();
+            bool checkEcoGradient(const std::string &well_name, double eco_grad);
+            bool checkGasTarget();
+            bool checkOilTarget();
+            void updateRates(const std::string &name, const GradInfo &gi);
         private:
         };
     };

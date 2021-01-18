@@ -84,7 +84,6 @@ void
 GasLiftStage2<TypeTag>::
 addOrRemoveALQincrement_(GradMap &grad_map, const std::string well_name, bool add)
 {
-    GasLiftSingleWell &gs_well = *(this->stage1_wells_.at(well_name).get());
     const GradInfo &gi = grad_map.at(well_name);
     GLiftWellState &state = *(this->well_state_map_.at(well_name).get());
     state.update(gi.new_oil_rate, gi.oil_is_limited,
@@ -233,6 +232,17 @@ displayDebugMessage_(const std::string &msg)
 template<typename TypeTag>
 void
 GasLiftStage2<TypeTag>::
+displayDebugMessage2B_(const std::string &msg)
+{
+    if (this->debug_) {
+        const std::string message = fmt::format(
+            "Stage 2B : {}", msg);
+        displayDebugMessage_(message);
+    }
+}
+template<typename TypeTag>
+void
+GasLiftStage2<TypeTag>::
 displayDebugMessage_(const std::string &msg, const std::string &group_name)
 {
     if (this->debug_) {
@@ -246,6 +256,24 @@ template<typename TypeTag>
 std::tuple<double, double, double>
 GasLiftStage2<TypeTag>::
 getCurrentGroupRates_(const Opm::Group &group)
+{
+    if (this->debug_) {
+        auto [oil_rate, gas_rate, alq] = getCurrentGroupRatesRecursive_(group);
+        const std::string msg = fmt::format(
+            "Current group rates for {} : oil: {}, gas: {}, alq: {}",
+            group.name(), oil_rate, gas_rate, alq);
+        displayDebugMessage2B_(msg);
+        return std::make_tuple(oil_rate, gas_rate, alq);
+    }
+    else {
+        return getCurrentGroupRatesRecursive_(group);
+    }
+}
+
+template<typename TypeTag>
+std::tuple<double, double, double>
+GasLiftStage2<TypeTag>::
+getCurrentGroupRatesRecursive_(const Opm::Group &group)
 {
     double oil_rate = 0.0;
     double gas_rate = 0.0;
@@ -300,7 +328,7 @@ getCurrentWellRates_(const std::string &well_name, const std::string &group_name
         std::tie(oil_rate, gas_rate) = state.getRates();
         if ( this->debug_) debug_info = "(A)";
     }
-    if (this->prod_wells_.count(well_name) == 1) {
+    else if (this->prod_wells_.count(well_name) == 1) {
         well_ptr = this->prod_wells_.at(well_name);
         std::tie(oil_rate, gas_rate) = getStdWellRates_(*well_ptr);
         success = true;
@@ -435,7 +463,7 @@ optimizeGroup_(const Opm::Group &group)
         std::vector<GradPair> inc_grads;
         std::vector<GradPair> dec_grads;
         redistributeALQ_(wells, group, inc_grads, dec_grads);
-        removeSurplusALQ_(wells, group, inc_grads, dec_grads);
+        removeSurplusALQ_(group, inc_grads, dec_grads);
     }
     else {
         displayDebugMessage_("skipping", group.name());
@@ -569,11 +597,11 @@ redistributeALQ_(std::vector<GasLiftSingleWell *> &wells,  const Opm::Group &gro
 template<typename TypeTag>
 void
 GasLiftStage2<TypeTag>::
-removeSurplusALQ_(std::vector<GasLiftSingleWell *> &wells,  const Opm::Group &group,
+removeSurplusALQ_(const Opm::Group &group,
     std::vector<GradPair> &inc_grads, std::vector<GradPair> &dec_grads)
 {
     if (dec_grads.size() == 0) {
-        displayDebugMessage_("remove surplus ALQ: no wells to remove from");
+        displayDebugMessage2B_("no wells to remove ALQ from. Skipping");
         return;
     }
     assert(dec_grads.size() > 0);
@@ -584,35 +612,23 @@ removeSurplusALQ_(std::vector<GasLiftSingleWell *> &wells,  const Opm::Group &gr
     auto [oil_rate, gas_rate, alq] = getCurrentGroupRates_(group);
     auto min_eco_grad = this->glo_.min_eco_gradient();
     bool stop_iteration = false;
-    SurplusState state {*this, group, oil_rate, gas_rate, alq};
+    SurplusState state {*this, group, oil_rate, gas_rate, alq,
+                        min_eco_grad, controls.oil_target, controls.gas_target,
+                        max_glift };
     while (!stop_iteration) {
         ++state.it;
         if (dec_grads.size() >= 2) {
             sortGradients_(dec_grads);
         }
-        bool remove = false;  // remove ALQ in this iteration?
         auto dec_grad_itr = dec_grads.begin();
-        if (dec_grad_itr->second < min_eco_grad) {
-            remove = true;
-        }
-        else if (group.has_control(Group::ProductionCMode::ORAT)) {
-            if (controls.oil_target < state.oil_rate  ) {
-                remove = true;
-            }
-        }
-        else if (group.has_control(Group::ProductionCMode::GRAT)) {
-            if (controls.gas_target < state.gas_rate  ) {
-                remove = true;
-            }
-        }
-        else if (max_glift) {
-            if (*max_glift < state.alq) {
-                remove = true;
-            }
-        }
-        if (remove) {
+        const auto &well_name = dec_grad_itr->first;
+        auto eco_grad = dec_grad_itr->second;
+        if (state.checkEcoGradient(well_name, eco_grad)
+               || state.checkOilTarget() || state.checkGasTarget()
+               || state.checkALQlimit()) {
             const auto &name = dec_grad_itr->first;
-            state.updateRates(name);
+            const GradInfo &gi = this->dec_grads_.at(name);
+            state.updateRates(name, gi);
             addOrRemoveALQincrement_( this->dec_grads_, name, /*add=*/false);
             recalculateGradientAndUpdateData_(
                 dec_grad_itr, /*increase=*/false, dec_grads, inc_grads);
@@ -622,9 +638,6 @@ removeSurplusALQ_(std::vector<GasLiftSingleWell *> &wells,  const Opm::Group &gr
             stop_iteration = true;
         }
     }
-    //std::vector<GradPair> dec_grads;
-    //dec_grads.reserve(wells.size());
-    //state.calculateEcoGradients(wells, inc_grads, dec_grads);
 }
 
 template<typename TypeTag>
@@ -864,17 +877,88 @@ displayWarning_(const std::string &msg)
  **********************************************/
 
 template<typename TypeTag>
+bool
+GasLiftStage2<TypeTag>::SurplusState::
+checkALQlimit()
+{
+    if (this->max_glift) {
+        double max_alq = *(this->max_glift);
+        if (max_alq < this->alq  ) {
+            const std::string msg = fmt::format("group: {} : "
+                "ALQ rate {} is greater than ALQ limit {}", this->group.name(),
+                this->alq, max_alq);
+            this->parent.displayDebugMessage2B_(msg);
+            return true;
+        }
+    }
+    return false;
+}
+
+template<typename TypeTag>
+bool
+GasLiftStage2<TypeTag>::SurplusState::
+checkEcoGradient(const std::string &well_name, double eco_grad)
+{
+    if (eco_grad < this->min_eco_grad) {
+        const std::string msg = fmt::format("group: {}, well: {} : "
+            "economic gradient {} less than minimum ({})", this->group.name(),
+            well_name, eco_grad, this->min_eco_grad);
+        this->parent.displayDebugMessage2B_(msg);
+        return true;
+    }
+    else {
+        return false;
+    }
+}
+
+template<typename TypeTag>
+bool
+GasLiftStage2<TypeTag>::SurplusState::
+checkGasTarget()
+{
+    if (this->group.has_control(Group::ProductionCMode::GRAT)) {
+        if (this->gas_target < this->gas_rate  ) {
+            const std::string msg = fmt::format("group: {} : "
+                "gas rate {} is greater than gas target {}", this->group.name(),
+                this->gas_rate, this->gas_target);
+            this->parent.displayDebugMessage2B_(msg);
+            return true;
+        }
+    }
+    return false;
+}
+
+template<typename TypeTag>
+bool
+GasLiftStage2<TypeTag>::SurplusState::
+checkOilTarget()
+{
+    if (this->group.has_control(Group::ProductionCMode::ORAT)) {
+        if (this->oil_target < this->oil_rate  ) {
+            const std::string msg = fmt::format("group: {} : "
+                "oil rate {} is greater than oil target {}", this->group.name(),
+                this->oil_rate, this->oil_target);
+            this->parent.displayDebugMessage2B_(msg);
+            return true;
+        }
+    }
+    return false;
+}
+
+template<typename TypeTag>
 void
 GasLiftStage2<TypeTag>::SurplusState::
-updateRates(const std::string &well_name)
+updateRates(const std::string &well_name, const GradInfo &gi)
 {
-    const GradInfo &gi = this->parent.dec_grads_.at(well_name);
     GLiftWellState &state = *(this->parent.well_state_map_.at(well_name).get());
+    GasLiftSingleWell &gs_well = *(this->parent.stage1_wells_.at(well_name).get());
+    const WellInterface<TypeTag> &well = gs_well.getStdWell();
+    const auto &well_ecl = well.wellEcl();
+    double factor = well_ecl.getEfficiencyFactor();
     auto delta_oil = gi.new_oil_rate - state.oilRate();
-    // NEXT: Add efficiency factor here
-    //this->oil_rate += delta_oil;
-    //state.update(gi.new_oil_rate, gi.oil_is_limited,
-    //    gi.new_gas_rate, gi.gas_is_limited,
-    //    gi.alq, gi.alq_is_limited, add);
-
+    this->oil_rate += factor * delta_oil;
+    auto delta_gas = gi.new_gas_rate - state.gasRate();
+    this->gas_rate += factor * delta_gas;
+    auto delta_alq = gi.alq - state.alq();
+    this->alq += factor * delta_alq;
 }
