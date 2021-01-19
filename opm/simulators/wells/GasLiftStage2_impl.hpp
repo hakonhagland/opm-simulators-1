@@ -76,7 +76,7 @@ runOptimize()
  * Private methods in alphabetical order
  ********************************************/
 
-// Update "stage2_state" in GasLiftSingleWell for "well_name" to the
+// Update GasLiftWellState and WellState for "well_name" to the
 //   new ALQ value and related data (the data has already been computed and
 //   saved in "grad_map")
 template<typename TypeTag>
@@ -99,12 +99,6 @@ GasLiftStage2<TypeTag>::
 calcIncOrDecGrad_(
     const std::string well_name, const GasLiftSingleWell &gs_well, bool increase)
 {
-    /*
-    {
-        const std::string msg = fmt::format("well: {}", well_name);
-        displayDebugMessage_(msg);
-    }
-    */
     GLiftWellState &state = *(this->well_state_map_.at(well_name).get());
     if (checkRateAlreadyLimited_(state, increase)) {
         /*
@@ -167,7 +161,6 @@ checkRateAlreadyLimited_(GLiftWellState &state, bool increase)
     }
     return false;
 }
-
 
 
 template<typename TypeTag>
@@ -326,6 +319,7 @@ getCurrentWellRates_(const std::string &well_name, const std::string &group_name
         well_ptr = &well;
         GLiftWellState &state = *(this->well_state_map_.at(well_name).get());
         std::tie(oil_rate, gas_rate) = state.getRates();
+        success = true;
         if ( this->debug_) debug_info = "(A)";
     }
     else if (this->prod_wells_.count(well_name) == 1) {
@@ -483,7 +477,7 @@ optimizeGroupsRecursive_(const Opm::Group &group)
         optimizeGroupsRecursive_(sub_group);
     }
     // TODO: should we also optimize groups that do not have GLIFTOPT defined?
-    //   (i.e. glo_.has_group(name) returns true)
+    //   (i.e. glo_.has_group(name) returns false)
     //   IF GLIFTOPT is not specified for the group or if item 2 of GLIFTOPT
     //   is defaulted, there is no maximum lift gas supply for the group.
     //   But even if there is no limit on the liftgas supply it can still

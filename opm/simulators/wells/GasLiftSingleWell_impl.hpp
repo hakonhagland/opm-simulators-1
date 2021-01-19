@@ -670,10 +670,8 @@ std::tuple<double,double,bool,bool>
 GasLiftSingleWell<TypeTag>::
 getInitialRatesWithLimit_(const std::vector<double> &potentials)
 {
-    double oil_rate, gas_rate;
-    bool oil_is_limited, gas_is_limited;
-    std::tie(oil_rate, oil_is_limited) = getOilRateWithLimit_(potentials);
-    std::tie(gas_rate, gas_is_limited) = getGasRateWithLimit_(potentials);
+    auto [oil_rate, oil_is_limited] = getOilRateWithLimit_(potentials);
+    auto [gas_rate, gas_is_limited] = getGasRateWithLimit_(potentials);
 
     if (oil_is_limited) {
         const std::string msg = fmt::format(
