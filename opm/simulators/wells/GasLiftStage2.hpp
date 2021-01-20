@@ -206,6 +206,8 @@ namespace Opm
             std::optional<double> max_glift;
             int it;
 
+            void addOrRemoveALQincrement(
+                GradMap &grad_map, const std::string well_name, bool add);
             bool checkALQlimit();
             bool checkEcoGradient(const std::string &well_name, double eco_grad);
             bool checkGasTarget();

@@ -281,7 +281,7 @@ addOrSubtractAlqIncrement_(double alq, bool increase) const
             limited = true;
         }
     }
-    else {
+    else { // we are decreasing ALQ
         alq -= this->increment_;
         if (this->min_alq_ > 0) {
             // According to WLIFTOPT item 5: If a positive value is
@@ -292,6 +292,12 @@ addOrSubtractAlqIncrement_(double alq, bool increase) const
             // receiving its minimum lift gas rate.
             if (alq < this->min_alq_) {
                 alq = this->min_alq_;
+                limited = true;
+            }
+        }
+        else {
+            if (alq < 0) {
+                alq = 0.0;
                 limited = true;
             }
         }

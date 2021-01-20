@@ -423,24 +423,6 @@ getGroupGliftWellsRecursive_(const Opm::Group &group,
     }
 }
 
-// NOTE: This method is called by optimizeGroupsRecursive_() such that for the
-//   example group tree:
-//
-//                                       FIELD
-//                                         |
-//                                       PLAT-A
-//                          ---------------+---------------------
-//                         |                                    |
-//                        M5S                                  M5N
-//                ---------+----------                     -----+-------
-//               |                   |                    |            |
-//              B1                  G1                   C1           F1
-//           ----+------          ---+---              ---+---       ---+---
-//          |    |     |         |      |             |      |      |      |
-//        B-1H  B-2H  B-3H     G-3H    G-4H         C-1H   C-2H    F-1H   F-2H
-//
-//
-
 template<typename TypeTag>
 void
 GasLiftStage2<TypeTag>::
@@ -620,10 +602,9 @@ removeSurplusALQ_(const Opm::Group &group,
         if (state.checkEcoGradient(well_name, eco_grad)
                || state.checkOilTarget() || state.checkGasTarget()
                || state.checkALQlimit()) {
-            const auto &name = dec_grad_itr->first;
-            const GradInfo &gi = this->dec_grads_.at(name);
-            state.updateRates(name, gi);
-            addOrRemoveALQincrement_( this->dec_grads_, name, /*add=*/false);
+            const GradInfo &gi = this->dec_grads_.at(well_name);
+            state.updateRates(well_name, gi);
+            state.addOrRemoveALQincrement( this->dec_grads_, well_name, /*add=*/false);
             recalculateGradientAndUpdateData_(
                 dec_grad_itr, /*increase=*/false, dec_grads, inc_grads);
             if (dec_grads.size() == 0) stop_iteration = true;
@@ -848,8 +829,6 @@ GasLiftStage2<TypeTag>::OptimizeState::
  * Private methods declared in OptimizeState
  **********************************************/
 
-
-
 template<typename TypeTag>
 void
 GasLiftStage2<TypeTag>::OptimizeState::
@@ -869,6 +848,17 @@ displayWarning_(const std::string &msg)
 /**********************************************
  * Public methods declared in SurplusState
  **********************************************/
+
+template<typename TypeTag>
+void
+GasLiftStage2<TypeTag>::SurplusState::
+addOrRemoveALQincrement(GradMap &grad_map, const std::string well_name, bool add)
+{
+    const std::string msg = fmt::format("group: {} : well {} : {} ALQ increment",
+        this->group.name(), well_name, (add ? "adding" : "subtracting"));
+    this->parent.displayDebugMessage2B_(msg);
+    this->parent.addOrRemoveALQincrement_(grad_map, well_name, add);
+}
 
 template<typename TypeTag>
 bool
