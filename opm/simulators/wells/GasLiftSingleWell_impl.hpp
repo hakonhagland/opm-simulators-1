@@ -214,9 +214,11 @@ runOptimize()
             state = runOptimize2_();
         }
         if (state) {
-            double alq = state->alq();
-            logSuccess_(alq);
-            this->well_state_.setALQ(this->well_name_, alq);
+            if (state->increase()) {
+                double alq = state->alq();
+                logSuccess_(alq);
+                this->well_state_.setALQ(this->well_name_, alq);
+            }
         }
     }
     return state;

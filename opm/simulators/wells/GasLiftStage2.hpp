@@ -123,11 +123,10 @@ namespace Opm
         void saveDecGrad_(const std::string &name, GradInfo &grad);
         void saveIncGrad_(const std::string &name, GradInfo &grad);
         void sortGradients_(std::vector<GradPair> &grads);
-        GradInfo updateGrad_(const std::string &name, GradInfo &grad, bool increase);
+        std::optional<GradInfo> updateGrad_(
+            const std::string &name, GradInfo &grad, bool increase);
         void updateGradVector_(
             const std::string &name, std::vector<GradPair> &grads, double grad);
-        GradInfo updateDecGrad_(const std::string &name, GradInfo &grad);
-        GradInfo updateIncGrad_(const std::string &name, GradInfo &grad);
 
         DeferredLogger &deferred_logger_;
         const Simulator &ebos_simulator_;
@@ -146,6 +145,8 @@ namespace Opm
         GradMap dec_grads_;
         bool debug_;
         int max_iterations_ = 1000;
+        int time_step_idx_;
+        int nonlinear_iteration_idx_;
 
         struct OptimizeState {
             OptimizeState( GasLiftStage2 &parent_, const Opm::Group &group_ ) :
