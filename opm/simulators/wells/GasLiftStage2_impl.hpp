@@ -619,8 +619,7 @@ removeSurplusALQ_(const Opm::Group &group,
         displayDebugMessage2B_(msg);
     }
     SurplusState state {*this, group, oil_rate, gas_rate, alq,
-            min_eco_grad, controls.oil_target, controls.gas_target,
-            max_glift };
+            min_eco_grad, controls.oil_target, controls.gas_target, max_glift };
     while (!stop_iteration) {
         if (dec_grads.size() >= 2) {
             sortGradients_(dec_grads);
@@ -656,11 +655,14 @@ removeSurplusALQ_(const Opm::Group &group,
         }
     }
     if (state.it >= 1) {
-        auto [oil_rate2, gas_rate2, alq2] = getCurrentGroupRates_(group);
-        const std::string msg = fmt::format("Finished after {} iterations for group: {}."
-            " oil_rate = {}, gas_rate = {}, alq = {}", state.it,
-            group.name(), oil_rate2, gas_rate2, alq2);
-        displayDebugMessage2B_(msg);
+        if (this->debug_) {
+            auto [oil_rate2, gas_rate2, alq2] = getCurrentGroupRates_(group);
+            const std::string msg = fmt::format(
+                 "Finished after {} iterations for group: {}."
+                 " oil_rate = {}, gas_rate = {}, alq = {}", state.it,
+                 group.name(), oil_rate2, gas_rate2, alq2);
+            displayDebugMessage2B_(msg);
+        }
     }
     else {
         displayDebugMessage2B_("Finished after 0 iterations");
@@ -907,7 +909,9 @@ checkALQlimit()
 {
     if (this->max_glift) {
         double max_alq = *(this->max_glift);
-        if (max_alq < this->alq  ) {
+        double increment = this->parent.glo_.gaslift_increment();
+        double epsilon = 1e-6 * increment;
+        if ((max_alq+epsilon) < this->alq  ) {
             const std::string msg = fmt::format("group: {} : "
                 "ALQ rate {} is greater than ALQ limit {}", this->group.name(),
                 this->alq, max_alq);
