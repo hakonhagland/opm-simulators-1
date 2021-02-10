@@ -145,7 +145,7 @@ namespace Opm
         GradMap dec_grads_;
         bool debug_;
         int max_iterations_ = 1000;
-        int time_step_idx_;
+        //int time_step_idx_;
         int nonlinear_iteration_idx_;
 
         struct OptimizeState {

@@ -55,8 +55,8 @@ GasLiftStage2(
     glo_{schedule_.glo(report_step_idx_)},
     debug_{true}
 {
-    this->time_step_idx_
-        = this->ebos_simulator_.model().newtonMethod().currentTimeStep();
+//    this->time_step_idx_
+//        = this->ebos_simulator_.model().newtonMethod().currentTimeStep();
     this->nonlinear_iteration_idx_
         = this->ebos_simulator_.model().newtonMethod().numIterations();
 
@@ -298,7 +298,7 @@ getCurrentGroupRatesRecursive_(const Opm::Group &group)
     }
     else {
         for (const std::string& group_name : group.groups()) {
-            if(this->schedule_.hasGroup(group_name)) {
+            if(this->schedule_.back().groups.has(group_name)) {
                 const Group& sub_group =
                     this->schedule_.getGroup(group_name, this->report_step_idx_);
                 // If groups have efficiency factors to model
@@ -424,7 +424,7 @@ getGroupGliftWellsRecursive_(const Opm::Group &group,
          std::vector<GasLiftSingleWell *> &wells)
 {
     for (const std::string& group_name : group.groups()) {
-        if(this->schedule_.hasGroup(group_name)) {
+    if(this->schedule_.back().groups.has(group_name)) {
             const Group& sub_group =
                 this->schedule_.getGroup(group_name, this->report_step_idx_);
             getGroupGliftWellsRecursive_(sub_group, wells);
@@ -467,7 +467,7 @@ GasLiftStage2<TypeTag>::
 optimizeGroupsRecursive_(const Opm::Group &group)
 {
     for (const std::string& group_name : group.groups()) {
-        if(!this->schedule_.hasGroup(group_name))
+        if(!this->schedule_.back().groups.has(group_name))
             continue;
         const Group& sub_group = this->schedule_.getGroup(
             group_name, this->report_step_idx_);

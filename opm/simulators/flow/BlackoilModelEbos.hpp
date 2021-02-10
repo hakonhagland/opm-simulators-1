@@ -420,9 +420,9 @@ namespace Opm {
                                                 const int iterationIdx)
         {
             // -------- Mass balance equations --------
-            auto stepNum = timer.currentStepNum();
+            //auto stepNum = timer.currentStepNum();
             ebosSimulator_.model().newtonMethod().setIterationIndex(iterationIdx);
-            ebosSimulator_.model().newtonMethod().setCurrentTimeStep(stepNum);
+            //ebosSimulator_.model().newtonMethod().setCurrentTimeStep(stepNum);
             ebosSimulator_.problem().beginIteration();
             ebosSimulator_.model().linearizer().linearizeDomain();
             ebosSimulator_.problem().endIteration();
