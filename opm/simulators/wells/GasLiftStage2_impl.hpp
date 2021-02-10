@@ -492,7 +492,9 @@ recalculateGradientAndUpdateData_(
     GradPairItr &grad_itr, bool increase,
     std::vector<GradPair> &grads, std::vector<GradPair> &other_grads)
 {
-    const std::string &name = grad_itr->first;
+    // NOTE: We make a copy of the name string instead of taking a reference
+    //   since we may have to erase grad_itr (in the "else" condition below)
+    const std::string name = grad_itr->first;
     GasLiftSingleWell &gs_well = *(this->stage1_wells_.at(name).get());
     auto grad = calcIncOrDecGrad_(name, gs_well, increase);
     std::optional<GradInfo> old_grad = std::nullopt;
