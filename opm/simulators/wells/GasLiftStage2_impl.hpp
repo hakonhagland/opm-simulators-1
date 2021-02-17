@@ -649,6 +649,7 @@ removeSurplusALQ_(const Opm::Group &group,
                 dec_grad_itr, /*increase=*/false, dec_grads, inc_grads);
             // NOTE: recalculateGradientAndUpdateData_() will remove the current gradient
             //   from dec_grads if it cannot calculate a new decremental gradient.
+            //   This will invalidate dec_grad_itr and well_name
             if (dec_grads.size() == 0) stop_iteration = true;
             ++state.it;
         }
@@ -914,10 +915,12 @@ checkALQlimit()
         double increment = this->parent.glo_.gaslift_increment();
         double epsilon = 1e-6 * increment;
         if ((max_alq+epsilon) < this->alq  ) {
-            const std::string msg = fmt::format("group: {} : "
-                "ALQ rate {} is greater than ALQ limit {}", this->group.name(),
-                this->alq, max_alq);
-            this->parent.displayDebugMessage2B_(msg);
+            if (this->parent.debug_) {
+                const std::string msg = fmt::format("group: {} : "
+                    "ALQ rate {} is greater than ALQ limit {}", this->group.name(),
+                    this->alq, max_alq);
+                this->parent.displayDebugMessage2B_(msg);
+            }
             return true;
         }
     }
@@ -930,10 +933,12 @@ GasLiftStage2<TypeTag>::SurplusState::
 checkEcoGradient(const std::string &well_name, double eco_grad)
 {
     if (eco_grad < this->min_eco_grad) {
-        const std::string msg = fmt::format("group: {}, well: {} : "
-            "economic gradient {} less than minimum ({})", this->group.name(),
-            well_name, eco_grad, this->min_eco_grad);
-        this->parent.displayDebugMessage2B_(msg);
+        if (this->parent.debug_) {
+            const std::string msg = fmt::format("group: {}, well: {} : "
+                "economic gradient {} less than minimum ({})", this->group.name(),
+                well_name, eco_grad, this->min_eco_grad);
+            this->parent.displayDebugMessage2B_(msg);
+        }
         return true;
     }
     else {
@@ -948,10 +953,12 @@ checkGasTarget()
 {
     if (this->group.has_control(Group::ProductionCMode::GRAT)) {
         if (this->gas_target < this->gas_rate  ) {
-            const std::string msg = fmt::format("group: {} : "
-                "gas rate {} is greater than gas target {}", this->group.name(),
-                this->gas_rate, this->gas_target);
-            this->parent.displayDebugMessage2B_(msg);
+            if (this->parent.debug_) {
+                const std::string msg = fmt::format("group: {} : "
+                    "gas rate {} is greater than gas target {}", this->group.name(),
+                    this->gas_rate, this->gas_target);
+                this->parent.displayDebugMessage2B_(msg);
+            }
             return true;
         }
     }
@@ -965,10 +972,12 @@ checkOilTarget()
 {
     if (this->group.has_control(Group::ProductionCMode::ORAT)) {
         if (this->oil_target < this->oil_rate  ) {
-            const std::string msg = fmt::format("group: {} : "
-                "oil rate {} is greater than oil target {}", this->group.name(),
-                this->oil_rate, this->oil_target);
-            this->parent.displayDebugMessage2B_(msg);
+            if (this->parent.debug_) {
+                const std::string msg = fmt::format("group: {} : "
+                    "oil rate {} is greater than oil target {}", this->group.name(),
+                    this->oil_rate, this->oil_target);
+                this->parent.displayDebugMessage2B_(msg);
+            }
             return true;
         }
     }

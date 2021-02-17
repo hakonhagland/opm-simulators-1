@@ -2704,12 +2704,6 @@ namespace Opm
             return false;
         }
         const int well_index = index_of_well_;
-        const Well::ProducerCMode& control_mode
-            = well_state.currentProductionControls()[well_index];
-        if (control_mode != Well::ProducerCMode::THP ) {
-            gliftDebug("Not THP control", deferred_logger);
-            return false;
-        }
         if (!checkGliftNewtonIterationIdxOk(ebos_simulator, deferred_logger)) {
             return false;
         }
@@ -2847,10 +2841,7 @@ namespace Opm
         const auto& well = well_ecl_;
         if (well.isProducer()) {
             const auto& summary_state = ebos_simulator.vanguard().summaryState();
-            const Well::ProducerCMode& current_control
-                = well_state.currentProductionControls()[this->index_of_well_];
-            if ( this->Base::wellHasTHPConstraints(summary_state)
-                && current_control != Well::ProducerCMode::BHP ) {
+            if ( this->Base::wellHasTHPConstraints(summary_state) ) {
                 if (doGasLiftOptimize(well_state, ebos_simulator, deferred_logger)) {
                     std::unique_ptr<GasLiftSingleWell> glift
                         = std::make_unique<GasLiftSingleWell>(

@@ -445,6 +445,9 @@ namespace Opm {
             void assembleWellEq(const std::vector<Scalar>& B_avg, const double dt, Opm::DeferredLogger& deferred_logger);
 
             void maybeDoGasLiftOptimize(Opm::DeferredLogger& deferred_logger);
+
+            void gliftDebugShowALQ(Opm::DeferredLogger& deferred_logger);
+
             void gasLiftOptimizationStage2(Opm::DeferredLogger& deferred_logger,
                 GLiftProdWells &prod_wells, GLiftOptWells &glift_wells,
                 GLiftWellStateMap &map);

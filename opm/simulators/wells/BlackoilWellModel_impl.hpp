@@ -1006,6 +1006,7 @@ namespace Opm {
                 prod_wells, glift_wells, state_map);
         }
         gasLiftOptimizationStage2(deferred_logger, prod_wells, glift_wells, state_map);
+        if (this->glift_debug) gliftDebugShowALQ(deferred_logger);
         well_state_.disableGliftOptimization();
     }
 
@@ -1027,6 +1028,21 @@ namespace Opm {
         GasLiftStage2 glift {*this, ebosSimulator_, deferred_logger, well_state_,
                              prod_wells, glift_wells, glift_well_state_map};
         glift.runOptimize();
+    }
+
+    template<typename TypeTag>
+    void
+    BlackoilWellModel<TypeTag>::
+    gliftDebugShowALQ(Opm::DeferredLogger& deferred_logger)
+    {
+        for (auto& well : this->well_container_) {
+            if (well->isProducer()) {
+                auto alq = this->well_state_.getALQ(well->name());
+                const std::string msg = fmt::format("ALQ_REPORT : {} : {}",
+                    well->name(), alq);
+                gliftDebug(msg, deferred_logger);
+            }
+        }
     }
 
     template<typename TypeTag>
