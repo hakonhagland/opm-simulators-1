@@ -416,7 +416,7 @@ namespace Opm {
         /// \param[in]      reservoir_state   reservoir state variables
         /// \param[in, out] well_state        well state variables
         /// \param[in]      initial_assembly  pass true if this is the first call to assemble() in this timestep
-        SimulatorReportSingle assembleReservoir(const SimulatorTimerInterface &timer /* timer */,
+        SimulatorReportSingle assembleReservoir(const SimulatorTimerInterface &/*timer */,
                                                 const int iterationIdx)
         {
             // -------- Mass balance equations --------

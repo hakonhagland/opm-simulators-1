@@ -48,7 +48,6 @@ GasLiftSingleWell(
     debug{true},  // extra debugging output
     debug_limit_increase_decrease_{false}
 {
-    int well_index = this->std_well_.indexOfWell();
     const Schedule& schedule = this->ebos_simulator_.vanguard().schedule();
     const int report_step_idx = this->ebos_simulator_.episodeIndex();
     this->well_name_ = ecl_well_.name();
@@ -124,8 +123,11 @@ std::optional<typename GasLiftSingleWell<TypeTag>::GradInfo>
 GasLiftSingleWell<TypeTag>::
 calcIncOrDecGradient(double oil_rate, double gas_rate, double alq, bool increase) const
 {
-    // TODO: What to do if ALQ is limited?
-    auto [new_alq, alq_is_limited] = addOrSubtractAlqIncrement_(alq, increase);
+    auto [new_alq_opt, alq_is_limited] = addOrSubtractAlqIncrement_(alq, increase);
+    // TODO: What to do if ALQ is limited and new_alq != alq?
+    if (!new_alq_opt)
+        return std::nullopt;
+    double new_alq = *new_alq_opt;
     if (auto bhp = computeBhpAtThpLimit_(new_alq)) {
         auto [new_bhp, bhp_is_limited] = getBhpWithLimit_(*bhp);
         // TODO: What to do if BHP is limited?
@@ -264,11 +266,12 @@ runOptimize1_()
  ****************************************/
 
 template<typename TypeTag>
-std::pair<double, bool>
+std::pair<std::optional<double>, bool>
 GasLiftSingleWell<TypeTag>::
 addOrSubtractAlqIncrement_(double alq, bool increase) const
 {
     bool limited = false;
+    double orig_alq = alq;
     if (increase) {
         alq += this->increment_;
         // NOTE: if max_alq_ was defaulted in WLIFTOPT, item 3, it has
@@ -300,7 +303,13 @@ addOrSubtractAlqIncrement_(double alq, bool increase) const
             }
         }
     }
-    return {alq, limited};
+    std::optional<double> alq_opt {alq};
+    // If we were not able to change ALQ (to within rounding error), we
+    //   return std::nullopt
+    if (limited && checkALQequal_(orig_alq,alq))
+        alq_opt = std::nullopt;
+
+    return {alq_opt, limited};
 }
 
 template<typename TypeTag>
@@ -324,6 +333,31 @@ calcEcoGradient_(
     if (!increase) gradient = -gradient;
     return gradient;
 }
+
+template<typename TypeTag>
+bool
+GasLiftSingleWell<TypeTag>::
+checkALQequal_(double alq1, double alq2) const
+{
+    return std::fabs(alq1-alq2) < (this->increment_*ALQ_EPSILON);
+}
+
+template<typename TypeTag>
+bool
+GasLiftSingleWell<TypeTag>::
+checkInitialALQmodified_(double alq, double initial_alq) const
+{
+    if (checkALQequal_(alq,initial_alq)) {
+        return false;
+    }
+    else {
+        const std::string msg = fmt::format("initial ALQ changed from {} "
+            "to {} before iteration starts..", initial_alq, alq);
+        displayDebugMessage_(msg);
+        return true;
+    }
+}
+
 
 template<typename TypeTag>
 bool
@@ -484,7 +518,6 @@ GasLiftSingleWell<TypeTag>::
 debugShowBhpAlqTable_()
 {
     double alq = 0.0;
-    std::vector<double> potentials(this->num_phases_, 0.0);
     const std::string fmt_fmt1 {"{:^12s} {:^12s} {:^12s} {:^12s}"};
     const std::string fmt_fmt2 {"{:>12.5g} {:>12.5g} {:>12.5g} {:>12.5g}"};
     const std::string header = fmt::format(fmt_fmt1, "ALQ", "BHP", "oil", "gas");
@@ -497,6 +530,7 @@ debugShowBhpAlqTable_()
             displayDebugMessage_(msg);
         }
         else {
+            std::vector<double> potentials(this->num_phases_, 0.0);
             computeWellRates_(*bhp_at_thp_limit, potentials, /*debug_out=*/false);
             auto oil_rate = -potentials[this->oil_pos_];
             auto gas_rate = -potentials[this->gas_pos_];
@@ -763,6 +797,9 @@ GasLiftSingleWell<TypeTag>::
 reduceALQtoOilTarget_(double alq, double oil_rate, double gas_rate,
     bool oil_is_limited, bool gas_is_limited, std::vector<double> &potentials)
 {
+    displayDebugMessage_("Reducing ALQ to meet oil target before iteration starts..");
+    double orig_oil_rate = oil_rate;
+    double orig_alq = alq;
     // NOTE: This method should only be called if oil_is_limited, and hence
     //   we know that it has oil rate control
     assert(this->controls_.hasControl(Well::ProducerCMode::ORAT));
@@ -784,6 +821,11 @@ reduceALQtoOilTarget_(double alq, double oil_rate, double gas_rate,
     }
     std::tie(oil_rate, oil_is_limited) = getOilRateWithLimit_(potentials);
     std::tie(gas_rate, gas_is_limited) = getGasRateWithLimit_(potentials);
+    if (this->debug) {
+        const std::string msg = fmt::format("Reduced oil rate from {} to {} and ALQ ",
+            "from {} to {}", orig_oil_rate, oil_rate, orig_alq, alq);
+        displayDebugMessage_(msg);
+    }
     return std::make_tuple(oil_rate, gas_rate, oil_is_limited, gas_is_limited, alq);
 }
 
@@ -839,15 +881,21 @@ runOptimizeLoop_(bool increase)
                     oil_is_limited, gas_is_limited, potentials);
         }
     }
-    if (temp_alq != cur_alq) success = true;
+    if (checkInitialALQmodified_(temp_alq, cur_alq)) {
+        cur_alq = temp_alq;
+        success = true;
+    }
     OptimizeState state {*this, increase};
     if (this->debug) debugShowStartIteration_(temp_alq, increase, oil_rate);
     while (!state.stop_iteration && (++state.it <= this->max_iterations_)) {
         if (!increase && state.checkNegativeOilRate(oil_rate)) break;
         if (state.checkWellRatesViolated(potentials)) break;
         if (state.checkAlqOutsideLimits(temp_alq, oil_rate)) break;
-        std::tie(temp_alq, alq_is_limited)
+        std::optional<double> alq_opt;
+        std::tie(alq_opt, alq_is_limited)
             = state.addOrSubtractAlqIncrement(temp_alq);
+        if (!alq_opt) break;
+        temp_alq = *alq_opt;
         if (this->debug) state.debugShowIterationInfo(temp_alq);
         if (!state.computeBhpAtThpLimit(temp_alq)) break;
         // NOTE: if BHP is below limit, we set state.stop_iteration = true
@@ -1049,11 +1097,18 @@ warnMaxIterationsExceeded_()
  ****************************************/
 
 template<typename TypeTag>
-std::pair<double, bool>
+std::pair<std::optional<double>, bool>
 GasLiftSingleWell<TypeTag>::OptimizeState::
 addOrSubtractAlqIncrement(double alq)
 {
-    return this->parent.addOrSubtractAlqIncrement_(alq, this->increase);
+    auto [alq_opt, limited]
+        = this->parent.addOrSubtractAlqIncrement_(alq, this->increase);
+    if (!alq_opt) {
+        const std::string msg = fmt::format(
+            "iteration {}, alq = {} : not able to {} ALQ increment",
+            this->it, alq, (this->increase ? "add" : "subtract"));
+    }
+    return {alq_opt, limited};
 }
 
 template<typename TypeTag>

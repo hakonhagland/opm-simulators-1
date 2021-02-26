@@ -345,7 +345,7 @@ namespace Opm {
             std::vector<double> depth_;
             bool initial_step_;
             bool report_step_starts_;
-            bool glift_debug = false;
+            bool glift_debug = true;
             bool alternative_well_rate_init_;
 
             std::optional<int> last_run_wellpi_{};

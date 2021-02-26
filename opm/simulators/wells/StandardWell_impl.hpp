@@ -2703,7 +2703,15 @@ namespace Opm
                 deferred_logger);
             return false;
         }
-        const int well_index = index_of_well_;
+        if (this->glift_optimize_only_thp_wells) {
+            const int well_index = index_of_well_;
+            const Well::ProducerCMode& control_mode
+                = well_state.currentProductionControls()[well_index];
+            if (control_mode != Well::ProducerCMode::THP ) {
+                gliftDebug("Not THP control", deferred_logger);
+                return false;
+            }
+        }
         if (!checkGliftNewtonIterationIdxOk(ebos_simulator, deferred_logger)) {
             return false;
         }

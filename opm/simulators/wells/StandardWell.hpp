@@ -411,6 +411,9 @@ namespace Opm
         // Enable GLIFT debug mode. This will enable output of logging messages.
         bool glift_debug = true;
 
+        // Optimize only wells under THP control
+        bool glift_optimize_only_thp_wells = true;
+
         const EvalWell& getBhp() const;
 
         EvalWell getQs(const int comp_idx) const;

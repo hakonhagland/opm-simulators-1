@@ -41,6 +41,7 @@ namespace Opm {
 
 #include <algorithm>
 #include <cassert>
+#include <cmath>
 #include <functional>
 #include <iostream>
 #include <map>
@@ -67,6 +68,7 @@ namespace Opm
         static const int Water = BlackoilPhases::Aqua;
         static const int Oil = BlackoilPhases::Liquid;
         static const int Gas = BlackoilPhases::Vapour;
+        static constexpr double ALQ_EPSILON = 1e-8;
         struct OptimizeState;
         class Stage2State;
     public:
@@ -111,10 +113,12 @@ namespace Opm
         };
 
     private:
-        std::pair<double, bool> addOrSubtractAlqIncrement_(
+        std::pair<std::optional<double>, bool> addOrSubtractAlqIncrement_(
             double alq, bool increase) const;
         double calcEcoGradient_(double oil_rate, double new_oil_rate,
             double gas_rate, double new_gas_rate, bool increase) const;
+        bool checkALQequal_(double alq1, double alq2) const;
+        bool checkInitialALQmodified_(double alq, double initial_alq) const;
         bool checkWellRatesViolated_(
             std::vector<double> &potentials,
             const std::function<bool(double, double, const std::string &)> &callback,
@@ -206,7 +210,7 @@ namespace Opm
             bool stop_iteration;
             double bhp;
 
-            std::pair<double,bool> addOrSubtractAlqIncrement(double alq);
+            std::pair<std::optional<double>,bool> addOrSubtractAlqIncrement(double alq);
             double calcEcoGradient(double oil_rate, double new_oil_rate,
                 double gas_rate, double new_gas_rate);
             bool checkAlqOutsideLimits(double alq, double oil_rate);

@@ -25,6 +25,7 @@
 #include <opm/simulators/wells/WellStateFullyImplicitBlackoil.hpp>
 #include <opm/parser/eclipse/EclipseState/Schedule/GasLiftOpt.hpp>
 
+#include <cmath>
 #include <optional>
 #include <string>
 
