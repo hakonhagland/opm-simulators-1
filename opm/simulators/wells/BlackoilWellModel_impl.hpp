@@ -325,8 +325,8 @@ namespace Opm {
         Opm::DeferredLogger local_deferredLogger;
 
         well_state_ = previous_well_state_;
-        well_state_.disableGliftOptimization();
         updateAndCommunicateGroupData();
+        well_state_.gliftTimeStepInit();
         const int reportStepIdx = ebosSimulator_.episodeIndex();
         const double simulationTime = ebosSimulator_.time();
         int exception_thrown = 0;
@@ -977,11 +977,8 @@ namespace Opm {
                 }
                 updateWellControls(local_deferredLogger, /* check group controls */ false);
             }
-
-            gliftDebug("assemble() : running assembleWellEq()..", local_deferredLogger);
-            well_state_.enableGliftOptimization();
+            maybeDoGasLiftOptimize(local_deferredLogger);
             assembleWellEq(B_avg, dt, local_deferredLogger);
-            well_state_.disableGliftOptimization();
 
         } catch (std::exception& e) {
             exception_thrown = 1;
@@ -995,11 +992,64 @@ namespace Opm {
     template<typename TypeTag>
     void
     BlackoilWellModel<TypeTag>::
+    maybeDoGasLiftOptimize(Opm::DeferredLogger& deferred_logger)
+    {
+        well_state_.enableGliftOptimization();
+        GLiftOptWells glift_wells;
+        GLiftProdWells prod_wells;
+        GLiftWellStateMap state_map;
+        // Stage1: Optimize single wells not checking any group limits
+        for (auto& well : well_container_) {
+            well->gasLiftOptimizationStage1(
+                well_state_, ebosSimulator_, deferred_logger,
+                prod_wells, glift_wells, state_map);
+        }
+        gasLiftOptimizationStage2(deferred_logger, prod_wells, glift_wells, state_map);
+        if (this->glift_debug) gliftDebugShowALQ(deferred_logger);
+        well_state_.disableGliftOptimization();
+    }
+
+    // If a group has any production rate constraints, and/or a limit
+    // on its total rate of lift gas supply,  allocate lift gas
+    // preferentially to the wells that gain the most benefit from
+    // it. Lift gas increments are allocated in turn to the well that
+    // currently has the largest weighted incremental gradient. The
+    // procedure takes account of any limits on the group production
+    // rate or lift gas supply applied to any level of group.
+    template<typename TypeTag>
+    void
+    BlackoilWellModel<TypeTag>::
+    gasLiftOptimizationStage2(Opm::DeferredLogger& deferred_logger,
+        GLiftProdWells &prod_wells, GLiftOptWells &glift_wells,
+        GLiftWellStateMap &glift_well_state_map)
+    {
+
+        GasLiftStage2 glift {*this, ebosSimulator_, deferred_logger, well_state_,
+                             prod_wells, glift_wells, glift_well_state_map};
+        glift.runOptimize();
+    }
+
+    template<typename TypeTag>
+    void
+    BlackoilWellModel<TypeTag>::
+    gliftDebugShowALQ(Opm::DeferredLogger& deferred_logger)
+    {
+        for (auto& well : this->well_container_) {
+            if (well->isProducer()) {
+                auto alq = this->well_state_.getALQ(well->name());
+                const std::string msg = fmt::format("ALQ_REPORT : {} : {}",
+                    well->name(), alq);
+                gliftDebug(msg, deferred_logger);
+            }
+        }
+    }
+
+    template<typename TypeTag>
+    void
+    BlackoilWellModel<TypeTag>::
     assembleWellEq(const std::vector<Scalar>& B_avg, const double dt, Opm::DeferredLogger& deferred_logger)
     {
         for (auto& well : well_container_) {
-            well->maybeDoGasLiftOptimization(
-                 well_state_, ebosSimulator_, deferred_logger);
             well->assembleWellEq(ebosSimulator_, B_avg, dt, well_state_, deferred_logger);
         }
     }
