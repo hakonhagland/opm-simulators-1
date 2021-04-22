@@ -1340,15 +1340,6 @@ namespace Opm
         void gliftTimeStepInit() {
             this->alq_increase_count_.clear();
             this->alq_decrease_count_.clear();
-            disableGliftOptimization();
-        }
-
-        void disableGliftOptimization() {
-            do_glift_optimization_ = false;
-        }
-
-        void enableGliftOptimization() {
-            do_glift_optimization_ = true;
         }
 
         int wellNameToGlobalIdx(const std::string &name) {
@@ -1369,7 +1360,7 @@ namespace Opm
                 OPM_THROW(std::logic_error, "Could not find well name for global idx " << index);
             }
             return it->first;
-        }
+         }
 
     private:
         std::vector<double> perfphaserates_;
@@ -1403,7 +1394,9 @@ namespace Opm
         std::map<std::string, double> default_alq_;
         std::map<std::string, int> alq_increase_count_;
         std::map<std::string, int> alq_decrease_count_;
-        bool do_glift_optimization_;
+
+        // For debugging purposes we can switch glift off here..
+        bool do_glift_optimization_ = true;
 
         std::vector<double> perfRateSolvent_;
 

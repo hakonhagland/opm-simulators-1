@@ -54,6 +54,7 @@
 #include <opm/simulators/flow/countGlobalCells.hpp>
 #include <opm/simulators/wells/GasLiftSingleWell.hpp>
 #include <opm/simulators/wells/GasLiftStage2.hpp>
+#include <opm/simulators/wells/GasLiftGroupInfo.hpp>
 #include <opm/simulators/wells/GasLiftWellState.hpp>
 #include <opm/simulators/wells/PerforationData.hpp>
 #include <opm/simulators/wells/VFPInjProperties.hpp>
@@ -108,6 +109,7 @@ namespace Opm {
             typedef typename Opm::BaseAuxiliaryModule<TypeTag>::NeighborSet NeighborSet;
             using GasLiftSingleWell = Opm::GasLiftSingleWell<TypeTag>;
             using GasLiftStage2 = Opm::GasLiftStage2<TypeTag>;
+            using GLiftGroupInfo = Opm::GasLiftGroupInfo<TypeTag>;
             using GLiftWellState = Opm::GasLiftWellState<TypeTag>;
             using GLiftWellStateMap =
                 std::map<std::string,std::unique_ptr<GLiftWellState>>;
@@ -211,6 +213,7 @@ namespace Opm {
                                          unsigned timeIdx) const;
 
 
+            using WellInterfaceRawPtr = WellInterface<TypeTag> *;
             using WellInterfacePtr = std::shared_ptr<WellInterface<TypeTag> >;
             WellInterfacePtr well(const std::string& wellName) const;
 
@@ -396,6 +399,7 @@ namespace Opm {
             void prepareTimeStep(Opm::DeferredLogger& deferred_logger);
             void initPrimaryVariablesEvaluation() const;
             void updateWellControls(Opm::DeferredLogger& deferred_logger, const bool checkGroupControls);
+            WellInterfaceRawPtr maybeGetWell(const std::string& well_name) const;
             WellInterfacePtr getWell(const std::string& well_name) const;
 
         protected:
@@ -454,7 +458,7 @@ namespace Opm {
             std::vector<double> depth_;
             bool initial_step_;
             bool report_step_starts_;
-            bool glift_debug = false;
+            bool glift_debug = true;
             bool alternative_well_rate_init_;
 
             std::optional<int> last_run_wellpi_{};
@@ -515,6 +519,7 @@ namespace Opm {
             void recoverWellSolutionAndUpdateWellState(const BVector& x);
 
             void updateAndCommunicateGroupData();
+
             void updateNetworkPressures();
 
             // setting the well_solutions_ based on well_state.
@@ -547,13 +552,15 @@ namespace Opm {
 
             void assembleWellEq(const double dt, Opm::DeferredLogger& deferred_logger);
 
-            void maybeDoGasLiftOptimize(Opm::DeferredLogger& deferred_logger);
-
             void gliftDebugShowALQ(Opm::DeferredLogger& deferred_logger);
+
+            bool checkDoGasLiftOptimization(Opm::DeferredLogger& deferred_logger);
 
             void gasLiftOptimizationStage2(Opm::DeferredLogger& deferred_logger,
                 GLiftProdWells &prod_wells, GLiftOptWells &glift_wells,
                 GLiftWellStateMap &map);
+
+            void maybeDoGasLiftOptimize(Opm::DeferredLogger& deferred_logger);
 
             void extractLegacyCellPvtRegionIndex_();
 
