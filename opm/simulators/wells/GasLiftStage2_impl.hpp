@@ -603,11 +603,20 @@ redistributeALQ_(std::vector<GasLiftSingleWell *> &wells,  const Opm::Group &gro
     std::vector<GradPair> dec_grads_local;
     inc_grads_local.reserve(wells.size());
     dec_grads_local.reserve(wells.size());
-    state.calculateEcoGradients(wells, inc_grads_local, dec_grads_local);
-
-    // the gradients needs to be communicated to all ranks
-    dec_grads = localToGlobalGradVector_(dec_grads_local);
-    inc_grads = localToGlobalGradVector_(inc_grads_local);
+    bool debug1 = false;
+    if (debug1) {
+        state.calculateEcoGradients(wells, inc_grads, dec_grads);
+    }
+    else {
+        state.calculateEcoGradients(wells, inc_grads_local, dec_grads_local);
+        // the gradients needs to be communicated to all ranks
+        /*
+        dec_grads = localToGlobalGradVector_(dec_grads_local);
+        inc_grads = localToGlobalGradVector_(inc_grads_local);
+        */
+        dec_grads = dec_grads_local;
+        inc_grads = inc_grads_local;
+    }
 
     if (!state.checkAtLeastTwoWells(wells)) {
         // NOTE: Even though we here in redistributeALQ_() do not use the
@@ -814,10 +823,12 @@ localToGlobalGradVector_(const std::vector<GradPair> &grads_local) const
     std::vector<Pair> grads_local_tmp;
     grads_local_tmp.reserve(grads_local.size());
     for (size_t i = 0; i < grads_local.size(); ++i) {
-        if(!well_state_.wellIsOwned(grads_local[i].first))
+        if(!this->well_state_.wellIsOwned(grads_local[i].first))
             continue;
-
-        grads_local_tmp.push_back(std::make_pair(well_state_.wellNameToGlobalIdx(grads_local[i].first), grads_local[i].second));
+        grads_local_tmp.push_back(
+           std::make_pair(
+              this->well_state_.wellNameToGlobalIdx(grads_local[i].first),
+              grads_local[i].second));
     }
 
     std::vector<int> sizes_(comm.size());

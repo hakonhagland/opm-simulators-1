@@ -1943,6 +1943,7 @@ namespace Opm {
             auto * perf_rates = state.perfRates().data() + wm.second[1];
             auto * perf_phase_rates = state.perfPhaseRates().data() + wm.second[1]*np;
             const auto& perf_data = this->well_perf_data_[well_index];
+
             for (std::size_t perf_index = 0; perf_index < perf_data.size(); perf_index++) {
                 const auto& pd = perf_data[perf_index];
                 const auto& rst_connection = rst_well.connections[pd.ecl_index];
