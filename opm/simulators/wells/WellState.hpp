@@ -45,6 +45,12 @@ namespace Opm
     public:
         typedef std::array< int, 3 >  mapentry_t;
         typedef std::map< std::string, mapentry_t > WellMapType;
+        using MPIComm = typename Dune::MPIHelper::MPICommunicator;
+#if DUNE_VERSION_NEWER(DUNE_COMMON, 2, 7)
+        using Communication = Dune::Communication<MPIComm>;
+#else
+        using Communication = Dune::CollectiveCommunication<MPIComm>;
+#endif
 
 
 
@@ -371,12 +377,6 @@ namespace Opm
 
         WellMapType wellMap_;
 
-        using MPIComm = typename Dune::MPIHelper::MPICommunicator;
-#if DUNE_VERSION_NEWER(DUNE_COMMON, 2, 7)
-        using Communication = Dune::Communication<MPIComm>;
-#else
-        using Communication = Dune::CollectiveCommunication<MPIComm>;
-#endif
         void gatherVectorsOnRoot(const std::vector< data::Connection >& from_connections,
                                  std::vector< data::Connection >& to_connections,
                                  const Communication& comm) const

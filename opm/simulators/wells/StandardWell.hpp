@@ -80,6 +80,7 @@ namespace Opm
         using typename Base::GLiftOptWells;
         using typename Base::GLiftProdWells;
         using typename Base::GLiftWellStateMap;
+        using typename Base::GLiftGroupInfo;
 
         using Base::numEq;
         using Base::numPhases;
@@ -258,7 +259,8 @@ namespace Opm
             DeferredLogger& deferred_logger,
             GLiftProdWells &prod_wells,
             GLiftOptWells &glift_wells,
-            GLiftWellStateMap &state_map
+            GLiftWellStateMap &state_map,
+            GLiftGroupInfo &group_info
         ) const override;
 
         bool checkGliftNewtonIterationIdxOk(
@@ -409,9 +411,6 @@ namespace Opm
 
         // Enable GLIFT debug mode. This will enable output of logging messages.
         bool glift_debug = false;
-
-        // Optimize only wells under THP control
-        bool glift_optimize_only_thp_wells = true;
 
         const EvalWell& getBhp() const;
 

@@ -50,6 +50,7 @@ namespace Opm
         using typename Base::GLiftProdWells;
         using typename Base::GLiftOptWells;
         using typename Base::GLiftWellStateMap;
+        using typename Base::GLiftGroupInfo;
 
         /// the number of reservior equations
         using Base::numEq;
@@ -131,7 +132,8 @@ namespace Opm
             DeferredLogger&,
             GLiftProdWells &,
             GLiftOptWells &,
-            GLiftWellStateMap &
+            GLiftWellStateMap &,
+            GLiftGroupInfo &
         ) const override {
             // Not implemented yet
         }

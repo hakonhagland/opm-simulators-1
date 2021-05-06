@@ -38,6 +38,7 @@
 #include <opm/simulators/wells/BlackoilWellModel.hpp>
 #include <opm/simulators/wells/StandardWell.hpp>
 #include <opm/simulators/wells/GasLiftSingleWell.hpp>
+#include <opm/simulators/wells/GasLiftGroupInfo.hpp>
 //#include <opm/simulators/flow/SimulatorFullyImplicitBlackoilEbos.hpp>
 //#include <flow/flow_ebos_blackoil.hpp>
 #include <opm/simulators/wells/WellStateFullyImplicitBlackoil.hpp>
@@ -122,6 +123,7 @@ BOOST_AUTO_TEST_CASE(G1)
     using WellState = Opm::WellStateFullyImplicitBlackoil;
     using StdWell = Opm::StandardWell<TypeTag>;
     using GasLiftSingleWell = Opm::GasLiftSingleWell<TypeTag>;
+    using GLiftGroupInfo = Opm::GasLiftGroupInfo<TypeTag>;
     const std::string filename = "GLIFT1.DATA";
 
     auto simulator = initSimulator<TypeTag>(filename.data());
@@ -161,8 +163,10 @@ BOOST_AUTO_TEST_CASE(G1)
     BOOST_CHECK_EQUAL( well.name(), "B-1H");
     const auto& summary_state = simulator->vanguard().summaryState();
     WellState &well_state = const_cast<WellState &>(well_model.wellState());
+    GLiftGroupInfo group_info {
+        well_model, *(simulator.get()), deferred_logger, well_state};
     GasLiftSingleWell glift {*std_well, *(simulator.get()), summary_state,
-                             deferred_logger, well_state};
+                             deferred_logger, well_state, group_info};
     auto state = glift.runOptimize();
     BOOST_CHECK_CLOSE(state->oilRate(), 0.01736111111111111, 1e-8);
     BOOST_CHECK_CLOSE(state->gasRate(), 1.6464646999768586, 1e-8);
