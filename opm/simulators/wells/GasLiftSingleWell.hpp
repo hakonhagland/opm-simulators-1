@@ -34,9 +34,16 @@ namespace Opm {
     template<typename TypeTag> class StandardWell;
 }
 #include <opm/simulators/wells/StandardWell.hpp>
+// NOTE: BlackoilWellModel.hpp includes ourself (GasLiftStage2.hpp), so we need
+//   to forward declare BlackoilWellModel for it to be defined in this file.
+namespace Opm {
+    template<typename TypeTag> class BlackoilWellModel;
+}
+#include <opm/simulators/wells/BlackoilWellModel.hpp>
 
 #include <opm/simulators/wells/WellStateFullyImplicitBlackoil.hpp>
 #include <opm/core/props/BlackoilPhases.hpp>
+#include <opm/simulators/wells/GasLiftGroupInfo.hpp>
 #include <opm/simulators/wells/GasLiftWellState.hpp>
 
 #include <algorithm>
@@ -58,10 +65,12 @@ namespace Opm
     template<class TypeTag>
     class GasLiftSingleWell
     {
+        using BlackoilWellModel = Opm::BlackoilWellModel<TypeTag>;
         using Simulator = GetPropType<TypeTag, Properties::Simulator>;
         using WellState = WellStateFullyImplicitBlackoil;
         using StdWell = Opm::StandardWell<TypeTag>;
         using GLiftWellState = Opm::GasLiftWellState<TypeTag>;
+        using GLiftGroupInfo = typename BlackoilWellModel::GLiftGroupInfo;
         // TODO: same definition with WellInterface, and
         //  WellStateFullyImplicitBlackoil eventually they should go
         //  to a common header file.
@@ -77,7 +86,8 @@ namespace Opm
             const Simulator &ebos_simulator,
             const SummaryState &summary_state,
             DeferredLogger &deferred_logger,
-            WellState &well_state
+            WellState &well_state,
+            GLiftGroupInfo &group_info
         );
         struct GradInfo;
         std::optional<GradInfo> calcIncOrDecGradient(
@@ -151,9 +161,13 @@ namespace Opm
             increaseALQtoMinALQ_(double alq, double oil_rate, double gas_rate,
               bool oil_is_limited, bool gas_is_limited, std::vector<double> &potentials);
         void logSuccess_(double alq);
+        std::tuple<double,double,double,bool,bool>
+          maybeAdjustALQbeforeOptimizeLoop_(
+              bool increase, double alq, double oil_rate, double gas_rate,
+              bool oil_is_limited, bool gas_is_limited, std::vector<double> &potentials);
         std::tuple<double,double,bool,bool,double>
-        reduceALQtoOilTarget_(double alq, double oil_rate, double gas_rate,
-            bool oil_is_limited, bool gas_is_limited, std::vector<double> &potentials);
+           reduceALQtoOilTarget_(double alq, double oil_rate, double gas_rate,
+             bool oil_is_limited, bool gas_is_limited, std::vector<double> &potentials);
 
         std::unique_ptr<GLiftWellState> runOptimize1_();
         std::unique_ptr<GLiftWellState> runOptimize2_();
@@ -171,6 +185,7 @@ namespace Opm
         const StdWell &std_well_;
         const SummaryState &summary_state_;
         WellState &well_state_;
+        GLiftGroupInfo &group_info_;
         std::string well_name_;
         const Well &ecl_well_;
         const Well::ProductionControls controls_;
@@ -215,6 +230,8 @@ namespace Opm
                 double gas_rate, double new_gas_rate);
             bool checkAlqOutsideLimits(double alq, double oil_rate);
             bool checkEcoGradient(double gradient);
+            bool checkGroupALQrateExceeded(double delta_alq);
+            bool checkGroupTargetsViolated(double delta_oil, double delta_gas);
             bool checkNegativeOilRate(double oil_rate);
             bool checkOilRateExceedsTarget(double oil_rate);
             bool checkRate(double rate, double limit, const std::string &rate_str) const;
@@ -222,6 +239,7 @@ namespace Opm
             bool computeBhpAtThpLimit(double alq);
             void debugShowIterationInfo(double alq);
             double getBhpWithLimit();
+            void updateGroupRates(double delta_oil, double delta_gas, double delta_alq);
             void warn_(std::string msg) {parent.displayWarning_(msg);}
         };
 

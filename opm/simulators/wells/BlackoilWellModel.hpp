@@ -54,6 +54,7 @@
 #include <opm/simulators/flow/countGlobalCells.hpp>
 #include <opm/simulators/wells/GasLiftSingleWell.hpp>
 #include <opm/simulators/wells/GasLiftStage2.hpp>
+#include <opm/simulators/wells/GasLiftGroupInfo.hpp>
 #include <opm/simulators/wells/GasLiftWellState.hpp>
 #include <opm/simulators/wells/PerforationData.hpp>
 #include <opm/simulators/wells/VFPInjProperties.hpp>
@@ -109,6 +110,7 @@ namespace Opm {
             typedef typename BaseAuxiliaryModule<TypeTag>::NeighborSet NeighborSet;
             using GasLiftSingleWell = ::Opm::GasLiftSingleWell<TypeTag>;
             using GasLiftStage2 = ::Opm::GasLiftStage2<TypeTag>;
+            using GLiftGroupInfo = ::Opm::GasLiftGroupInfo<TypeTag>;
             using GLiftWellState = ::Opm::GasLiftWellState<TypeTag>;
             using GLiftWellStateMap =
                 std::map<std::string,std::unique_ptr<GLiftWellState>>;
@@ -212,6 +214,7 @@ namespace Opm {
                                          unsigned timeIdx) const;
 
 
+            using WellInterfaceRawPtr = WellInterface<TypeTag> *;
             using WellInterfacePtr = std::shared_ptr<WellInterface<TypeTag> >;
             WellInterfacePtr well(const std::string& wellName) const;
 
@@ -406,6 +409,7 @@ namespace Opm {
             void prepareTimeStep(DeferredLogger& deferred_logger);
             void initPrimaryVariablesEvaluation() const;
             void updateWellControls(DeferredLogger& deferred_logger, const bool checkGroupControls);
+            WellInterfaceRawPtr maybeGetWell(const std::string& well_name) const;
             WellInterfacePtr getWell(const std::string& well_name) const;
         protected:
             Simulator& ebosSimulator_;
@@ -465,7 +469,7 @@ namespace Opm {
             std::vector<double> depth_{};
             bool initial_step_{};
             bool report_step_starts_{};
-            bool glift_debug = false;
+            bool glift_debug = true;
             bool alternative_well_rate_init_{};
 
             std::optional<int> last_run_wellpi_{};
@@ -561,6 +565,8 @@ namespace Opm {
             void assembleWellEq(const double dt, DeferredLogger& deferred_logger);
 
             void maybeDoGasLiftOptimize(DeferredLogger& deferred_logger);
+
+            bool checkDoGasLiftOptimization(DeferredLogger& deferred_logger);
 
             void gliftDebugShowALQ(DeferredLogger& deferred_logger);
 

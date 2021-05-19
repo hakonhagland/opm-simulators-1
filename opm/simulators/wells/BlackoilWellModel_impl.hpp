@@ -1081,19 +1081,48 @@ namespace Opm {
     BlackoilWellModel<TypeTag>::
     maybeDoGasLiftOptimize(DeferredLogger& deferred_logger)
     {
-        this->wellState().enableGliftOptimization();
-        GLiftOptWells glift_wells;
-        GLiftProdWells prod_wells;
-        GLiftWellStateMap state_map;
-        // Stage1: Optimize single wells not checking any group limits
-        for (auto& well : well_container_) {
-            well->gasLiftOptimizationStage1(
-                this->wellState(), ebosSimulator_, deferred_logger,
-                prod_wells, glift_wells, state_map);
+        if (checkDoGasLiftOptimization(deferred_logger)) {
+            GLiftOptWells glift_wells;
+            GLiftProdWells prod_wells;
+            GLiftWellStateMap state_map;
+            GLiftGroupInfo group_info {
+                *this, ebosSimulator_, deferred_logger, this->wellState()};
+            group_info.initialize();
+            // Stage1: Optimize single wells not checking any group limits
+            //  NOTE: Only the wells in "group_info" needs to be optimized
+            for (const auto &item : group_info.wellGroupMap()) {
+                const auto &well_name = item.first;
+                auto well = getWell(well_name);
+                well->gasLiftOptimizationStage1(
+                    this->wellState(), ebosSimulator_, deferred_logger,
+                    prod_wells, glift_wells, state_map, group_info);
+            }
+            gasLiftOptimizationStage2(
+                deferred_logger, prod_wells, glift_wells, state_map);
+            if (this->glift_debug) gliftDebugShowALQ(deferred_logger);
         }
-        gasLiftOptimizationStage2(deferred_logger, prod_wells, glift_wells, state_map);
-        if (this->glift_debug) gliftDebugShowALQ(deferred_logger);
-        this->wellState().disableGliftOptimization();
+    }
+
+    template<typename TypeTag>
+    bool
+    BlackoilWellModel<TypeTag>::
+    checkDoGasLiftOptimization(Opm::DeferredLogger& deferred_logger)
+    {
+        gliftDebug("checking if GLIFT should be done..", deferred_logger);
+        /*
+        std::size_t num_procs = ebosSimulator_.gridView().comm().size();
+        if (num_procs > 1u) {
+            const std::string msg = fmt::format("  GLIFT: skipping optimization. "
+                "Parallel run not supported yet: num procs = {}", num_procs);
+            deferred_logger.warning(msg);
+            return false;
+        }
+        */
+        if (!(this->wellState().gliftOptimizationEnabled())) {
+            gliftDebug("Optimization disabled in WellState", deferred_logger);
+            return false;
+        }
+        return true;
     }
 
     // If a group has any production rate constraints, and/or a limit
@@ -1121,11 +1150,12 @@ namespace Opm {
     BlackoilWellModel<TypeTag>::
     gliftDebugShowALQ(DeferredLogger& deferred_logger)
     {
+        const int iteration_idx = ebosSimulator_.model().newtonMethod().numIterations();
         for (auto& well : this->well_container_) {
             if (well->isProducer()) {
                 auto alq = this->wellState().getALQ(well->name());
-                const std::string msg = fmt::format("ALQ_REPORT : {} : {}",
-                    well->name(), alq);
+                const std::string msg = fmt::format("IT={} : ALQ_REPORT : {} : {}",
+                    iteration_idx, well->name(), alq);
                 gliftDebug(msg, deferred_logger);
             }
         }
@@ -2087,6 +2117,25 @@ namespace Opm {
         return *well;
     }
 
+    template<typename TypeTag>
+    typename BlackoilWellModel<TypeTag>::WellInterfaceRawPtr
+    BlackoilWellModel<TypeTag>::
+    maybeGetWell(const std::string& well_name) const
+    {
+        // finding the iterator of the well in wells_ecl
+        auto well = std::find_if(well_container_.begin(),
+                                     well_container_.end(),
+                                     [&well_name](const WellInterfacePtr& elem)->bool {
+                                         return elem->name() == well_name;
+                                     });
+
+        if (well == well_container_.end()) {
+            return nullptr;
+        }
+        else {
+            return well->get();
+        }
+    }
 
 
 
