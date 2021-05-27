@@ -2489,102 +2489,6 @@ namespace Opm
         return potentials;
     }
 
-    /* At this point we know that the well does not have BHP control mode and
-       that it does have THP constraints, see computeWellPotentials().
-     * TODO: Currently we limit the application of gas lift optimization to wells
-     *    operating under THP control mode, does it make sense to
-     *    extend it to other modes?
-     */
-    template<typename TypeTag>
-    bool
-    StandardWell<TypeTag>::
-    doGasLiftOptimize(const WellState &well_state, const Simulator &ebos_simulator,
-                      DeferredLogger& deferred_logger) const
-    {
-
-        gliftDebug("checking if GLIFT should be done..", deferred_logger);
-        if (!well_state.gliftOptimizationEnabled()) {
-            gliftDebug("Optimization disabled in WellState", deferred_logger);
-            return false;
-        }
-        if (well_state.gliftCheckAlqOscillation(name())) {
-            gliftDebug("further optimization skipped due to oscillation in ALQ",
-                deferred_logger);
-            return false;
-        }
-        if (this->glift_optimize_only_thp_wells) {
-            const int well_index = index_of_well_;
-            auto control_mode = well_state.currentProductionControl(well_index);
-            if (control_mode != Well::ProducerCMode::THP ) {
-                gliftDebug("Not THP control", deferred_logger);
-                return false;
-            }
-        }
-        if (!checkGliftNewtonIterationIdxOk(ebos_simulator, deferred_logger)) {
-            return false;
-        }
-        const int report_step_idx = ebos_simulator.episodeIndex();
-        const Schedule& schedule = ebos_simulator.vanguard().schedule();
-        const GasLiftOpt& glo = schedule.glo(report_step_idx);
-        if (!glo.has_well(name())) {
-            gliftDebug("Gas Lift not activated: WLIFTOPT is probably missing",
-                deferred_logger);
-            return false;
-        }
-        auto increment = glo.gaslift_increment();
-        // NOTE: According to the manual: LIFTOPT, item 1, :
-        //   "Increment size for lift gas injection rate. Lift gas is
-        //   allocated to individual wells in whole numbers of the increment
-        //   size.  If gas lift optimization is no longer required, it can be
-        //   turned off by entering a zero or negative number."
-        if (increment <= 0) {
-            if (this->glift_debug) {
-                const std::string msg = fmt::format(
-                    "Gas Lift switched off in LIFTOPT item 1 due to non-positive "
-                    "value: {}", increment);
-                gliftDebug(msg, deferred_logger);
-            }
-            return false;
-        }
-        else {
-            return true;
-        }
-    }
-
-    template<typename TypeTag>
-    bool
-    StandardWell<TypeTag>::
-    checkGliftNewtonIterationIdxOk(
-            const Simulator& ebos_simulator,
-            DeferredLogger& deferred_logger ) const
-    {
-        const int report_step_idx = ebos_simulator.episodeIndex();
-        const Schedule& schedule = ebos_simulator.vanguard().schedule();
-        const GasLiftOpt& glo = schedule.glo(report_step_idx);
-        const int iteration_idx = ebos_simulator.model().newtonMethod().numIterations();
-        if (glo.all_newton()) {
-            const int nupcol = schedule[report_step_idx].nupcol();
-            if (this->glift_debug) {
-                const std::string msg = fmt::format(
-                    "LIFTOPT item4 == YES, it = {}, nupcol = {} -->  GLIFT optimize = {}",
-                    iteration_idx,
-                    nupcol,
-                    ((iteration_idx <= nupcol) ? "TRUE" : "FALSE"));
-                gliftDebug(msg, deferred_logger);
-            }
-            return iteration_idx <= nupcol;
-        }
-        else {
-            if (this->glift_debug) {
-                const std::string msg = fmt::format(
-                    "LIFTOPT item4 == NO, it = {} --> GLIFT optimize = {}",
-                    iteration_idx, ((iteration_idx == 1) ? "TRUE" : "FALSE"));
-                gliftDebug(msg, deferred_logger);
-            }
-            return iteration_idx == 1;
-        }
-    }
-
     template<typename TypeTag>
     void
     StandardWell<TypeTag>::
@@ -2650,29 +2554,23 @@ namespace Opm
                        DeferredLogger& deferred_logger,
                        GLiftProdWells &prod_wells,
                        GLiftOptWells &glift_wells,
-                       GLiftWellStateMap &glift_state_map
-                       //std::map<std::string, WellInterface *> &prod_wells
+                       GLiftWellStateMap &glift_state_map,
+                       GasLiftGroupInfo &group_info
     ) const
     {
-        const auto& well = well_ecl_;
-        if (well.isProducer()) {
-            const auto& summary_state = ebos_simulator.vanguard().summaryState();
-            if ( this->Base::wellHasTHPConstraints(summary_state) ) {
-                if (doGasLiftOptimize(well_state, ebos_simulator, deferred_logger)) {
-                    std::unique_ptr<GasLiftSingleWell> glift
-                        = std::make_unique<GasLiftSingleWell>(
-                             *this, ebos_simulator, summary_state,
-                             deferred_logger, well_state);
-                    auto state = glift->runOptimize(ebos_simulator.model().newtonMethod().numIterations());
-                    if (state) {
-                        glift_state_map.insert({this->name(), std::move(state)});
-                        glift_wells.insert({this->name(), std::move(glift)});
-                        return;
-                    }
-                }
-            }
-            prod_wells.insert({this->name(), this});
+        const auto& summary_state = ebos_simulator.vanguard().summaryState();
+        std::unique_ptr<GasLiftSingleWell> glift
+            = std::make_unique<GasLiftSingleWell>(
+                *this, ebos_simulator, summary_state,
+                deferred_logger, well_state, group_info);
+        auto state = glift->runOptimize(
+            ebos_simulator.model().newtonMethod().numIterations());
+        if (state) {
+            glift_state_map.insert({this->name(), std::move(state)});
+            glift_wells.insert({this->name(), std::move(glift)});
+            return;
         }
+        prod_wells.insert({this->name(), this});
     }
 
     template<typename TypeTag>

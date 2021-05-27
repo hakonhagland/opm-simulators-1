@@ -18,16 +18,6 @@
 */
 
 namespace Opm {
-#include <opm/simulators/wells/StandardWell.hpp>
-#include <opm/parser/eclipse/EclipseState/Schedule/Schedule.hpp>
-#include <opm/parser/eclipse/EclipseState/Schedule/Well/Well.hpp>
-#include <opm/simulators/utils/DeferredLogger.hpp>
-#include <opm/parser/eclipse/EclipseState/Schedule/SummaryState.hpp>
-#include <opm/simulators/wells/WellState.hpp>
-#include <opm/parser/eclipse/EclipseState/Schedule/GasLiftOpt.hpp>
-
-#include <optional>
-#include <string>
 
 template<typename TypeTag>
 GasLiftSingleWell<TypeTag>::
@@ -35,11 +25,16 @@ GasLiftSingleWell(const StdWell &std_well,
                   const Simulator &ebos_simulator,
                   const SummaryState &summary_state,
                   DeferredLogger &deferred_logger,
-                  WellState &well_state)
+                  WellState &well_state,
+                  GasLiftGroupInfo &group_info
+                 )
+    // The parent class GasLiftSingleWellGeneric contains all stuff
+    //   that is not dependent on TypeTag
     : GasLiftSingleWellGeneric(deferred_logger,
                                well_state,
                                std_well.wellEcl(),
                                summary_state,
+                               group_info,
                                ebos_simulator.vanguard().schedule(),
                                ebos_simulator.episodeIndex())
    , ebos_simulator_{ebos_simulator}

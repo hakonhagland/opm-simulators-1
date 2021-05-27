@@ -54,6 +54,7 @@
 #include <opm/simulators/flow/countGlobalCells.hpp>
 #include <opm/simulators/wells/GasLiftSingleWell.hpp>
 #include <opm/simulators/wells/GasLiftStage2.hpp>
+#include <opm/simulators/wells/GasLiftGroupInfo.hpp>
 #include <opm/simulators/wells/GasLiftWellState.hpp>
 #include <opm/simulators/wells/PerforationData.hpp>
 #include <opm/simulators/wells/VFPInjProperties.hpp>
@@ -112,7 +113,8 @@ namespace Opm {
             using GLiftOptWells =
                 std::map<std::string,std::unique_ptr<GasLiftSingleWell>>;
             using GLiftProdWells =
-                std::map<std::string,const WellInterfaceGeneric*>;
+                std::map<std::string,const WellInterfaceGeneric *>;
+            using GLiftEclWells = typename GasLiftGroupInfo::GLiftEclWells;
 
             static const int numEq = Indices::numEq;
             static const int solventSaturationIdx = Indices::solventSaturationIdx;
@@ -404,6 +406,8 @@ namespace Opm {
             void initPrimaryVariablesEvaluation() const;
             void updateWellControls(DeferredLogger& deferred_logger, const bool checkGroupControls);
             WellInterfacePtr getWell(const std::string& well_name) const;
+            void initGliftEclWellMap(GLiftEclWells &ecl_well_map);
+
         protected:
             Simulator& ebosSimulator_;
 
@@ -559,6 +563,8 @@ namespace Opm {
 
             void maybeDoGasLiftOptimize(DeferredLogger& deferred_logger);
 
+            bool checkDoGasLiftOptimization(DeferredLogger& deferred_logger);
+
             void gliftDebugShowALQ(DeferredLogger& deferred_logger);
 
             void gasLiftOptimizationStage2(DeferredLogger& deferred_logger,
@@ -640,7 +646,7 @@ namespace Opm {
                                        const std::unordered_map<std::string, data::GroupGuideRates>& groupGuideRates,
                                        data::GroupData& gdata) const;
 
-             void computeWellTemperature();                       
+             void computeWellTemperature();
         private:
             GroupState& groupState() { return this->active_wgstate_.group_state; }
             BlackoilWellModel(Simulator& ebosSimulator, const PhaseUsage& pu);

@@ -45,7 +45,9 @@
 namespace Opm {
     template<typename TypeTag> class GasLiftSingleWell;
     template<typename TypeTag> class BlackoilWellModel;
+    class GasLiftGroupInfo;
 }
+#include <opm/simulators/wells/GasLiftGroupInfo.hpp>
 #include <opm/simulators/wells/GasLiftSingleWell.hpp>
 #include <opm/simulators/wells/BlackoilWellModel.hpp>
 #include <opm/simulators/flow/BlackoilModelParametersEbos.hpp>
@@ -174,7 +176,8 @@ public:
         DeferredLogger& deferred_logger,
         GLiftProdWells& prod_wells,
         GLiftOptWells& glift_wells,
-        GLiftWellStateMap& state_map
+        GLiftWellStateMap& state_map,
+        GasLiftGroupInfo &group_info
     ) const = 0;
 
     /// using the solution x to recover the solution xw for wells and applying

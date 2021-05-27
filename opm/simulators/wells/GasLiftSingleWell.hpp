@@ -31,6 +31,7 @@ namespace Opm {
 }
 #include <opm/simulators/wells/StandardWell.hpp>
 #include <opm/simulators/wells/GasLiftSingleWellGeneric.hpp>
+#include <opm/simulators/wells/GasLiftGroupInfo.hpp>
 
 #include <optional>
 #include <vector>
@@ -51,7 +52,8 @@ namespace Opm
             const Simulator &ebos_simulator,
             const SummaryState &summary_state,
             DeferredLogger &deferred_logger,
-            WellState &well_state
+            WellState &well_state,
+            GasLiftGroupInfo &group_info
         );
         const WellInterfaceGeneric &getStdWell() const override { return std_well_; }
 

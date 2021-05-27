@@ -24,6 +24,7 @@
 
 #include <opm/parser/eclipse/EclipseState/Schedule/GasLiftOpt.hpp>
 #include <opm/parser/eclipse/EclipseState/Schedule/Well/Well.hpp>
+#include <opm/simulators/wells/GasLiftGroupInfo.hpp>
 
 #include <functional>
 #include <optional>
@@ -90,6 +91,7 @@ protected:
                              WellState &well_state,
                              const Well& ecl_well,
                              const SummaryState& summary_state,
+                             GasLiftGroupInfo &group_info,
                              const Schedule& schedule,
                              const int report_step_idx);
 
@@ -114,6 +116,8 @@ protected:
                                double gas_rate, double new_gas_rate);
         bool checkAlqOutsideLimits(double alq, double oil_rate);
         bool checkEcoGradient(double gradient);
+        bool checkGroupALQrateExceeded(double delta_alq);
+        bool checkGroupTargetsViolated(double delta_oil, double delta_gas);
         bool checkNegativeOilRate(double oil_rate);
         bool checkOilRateExceedsTarget(double oil_rate);
         bool checkRate(double rate, double limit, const std::string &rate_str) const;
@@ -121,6 +125,7 @@ protected:
         bool computeBhpAtThpLimit(double alq);
         void debugShowIterationInfo(double alq);
         double getBhpWithLimit();
+        void updateGroupRates(double delta_oil, double delta_gas, double delta_alq);
         void warn_(std::string msg) {parent.displayWarning_(msg);}
     };
 
@@ -183,15 +188,13 @@ protected:
 
     void logSuccess_(double alq,
                      const int iteration_idx);
-
+    std::tuple<double,double,double,bool,bool>
+      maybeAdjustALQbeforeOptimizeLoop_(
+          bool increase, double alq, double oil_rate, double gas_rate,
+          bool oil_is_limited, bool gas_is_limited, std::vector<double> &potentials);
     std::tuple<double,double,bool,bool,double>
-    reduceALQtoOilTarget_(double alq,
-                          double oil_rate,
-                          double gas_rate,
-                          bool oil_is_limited,
-                          bool gas_is_limited,
-                          std::vector<double>& potentials);
-
+      reduceALQtoOilTarget_(double alq, double oil_rate, double gas_rate,
+          bool oil_is_limited, bool gas_is_limited, std::vector<double> &potentials);
 
     std::unique_ptr<GasLiftWellState> runOptimize1_();
     std::unique_ptr<GasLiftWellState> runOptimize2_();
@@ -210,6 +213,7 @@ protected:
 
     DeferredLogger& deferred_logger_;
     WellState& well_state_;
+    GasLiftGroupInfo &group_info_;
     const Well& ecl_well_;
     const SummaryState& summary_state_;
 

@@ -35,6 +35,7 @@
 #include <opm/simulators/wells/WellProdIndexCalculator.hpp>
 #include <opm/simulators/wells/ParallelWellInfo.hpp>
 #include <opm/simulators/wells/GasLiftSingleWell.hpp>
+#include <opm/simulators/wells/GasLiftGroupInfo.hpp>
 
 #include <opm/models/blackoil/blackoilpolymermodules.hh>
 #include <opm/models/blackoil/blackoilsolventmodules.hh>
@@ -258,7 +259,9 @@ namespace Opm
             DeferredLogger& deferred_logger,
             GLiftProdWells &prod_wells,
             GLiftOptWells &glift_wells,
-            GLiftWellStateMap &state_map
+            GLiftWellStateMap &state_map,
+            GasLiftGroupInfo &group_info
+
         ) const override;
 
         bool checkGliftNewtonIterationIdxOk(
@@ -409,9 +412,6 @@ namespace Opm
 
         // Enable GLIFT debug mode. This will enable output of logging messages.
         bool glift_debug = false;
-
-        // Optimize only wells under THP control
-        bool glift_optimize_only_thp_wells = true;
 
         const EvalWell& getBhp() const;
 

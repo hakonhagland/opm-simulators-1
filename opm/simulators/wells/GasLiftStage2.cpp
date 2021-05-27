@@ -60,7 +60,7 @@ GasLiftStage2::GasLiftStage2(
     phase_usage_{phase_usage},
     glo_{schedule_.glo(report_step_idx_)},
     comm_{comm},
-    debug_{false}
+    debug_{true}
 {
 //    this->time_step_idx_
 //        = this->ebos_simulator_.model().newtonMethod().currentTimeStep();
