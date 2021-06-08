@@ -45,6 +45,7 @@ namespace Opm
     {
         using Simulator = GetPropType<TypeTag, Properties::Simulator>;
         using StdWell = StandardWell<TypeTag>;
+        using GLiftSyncGroups = typename GasLiftSingleWellGeneric::GLiftSyncGroups;
 
     public:
         GasLiftSingleWell(
@@ -53,7 +54,8 @@ namespace Opm
             const SummaryState &summary_state,
             DeferredLogger &deferred_logger,
             WellState &well_state,
-            GasLiftGroupInfo &group_info
+            GasLiftGroupInfo &group_info,
+            GLiftSyncGroups &sync_groups
         );
         const WellInterfaceGeneric &getStdWell() const override { return std_well_; }
 

@@ -35,6 +35,7 @@
 #include <map>
 #include <memory>
 #include <optional>
+#include <set>
 #include <string>
 #include <tuple>
 #include <unordered_map>
@@ -53,6 +54,7 @@
 #include <opm/simulators/timestepping/SimulatorReport.hpp>
 #include <opm/simulators/flow/countGlobalCells.hpp>
 #include <opm/simulators/wells/GasLiftSingleWell.hpp>
+#include <opm/simulators/wells/GasLiftSingleWellGeneric.hpp>
 #include <opm/simulators/wells/GasLiftStage2.hpp>
 #include <opm/simulators/wells/GasLiftGroupInfo.hpp>
 #include <opm/simulators/wells/GasLiftWellState.hpp>
@@ -115,6 +117,7 @@ namespace Opm {
             using GLiftProdWells =
                 std::map<std::string,const WellInterfaceGeneric *>;
             using GLiftEclWells = typename GasLiftGroupInfo::GLiftEclWells;
+            using GLiftSyncGroups = typename GasLiftSingleWellGeneric::GLiftSyncGroups;
 
             static const int numEq = Indices::numEq;
             static const int solventSaturationIdx = Indices::solventSaturationIdx;
@@ -566,6 +569,10 @@ namespace Opm {
             bool checkDoGasLiftOptimization(DeferredLogger& deferred_logger);
 
             void gliftDebugShowALQ(DeferredLogger& deferred_logger);
+
+            void gasLiftOptimizationStage1(DeferredLogger& deferred_logger,
+                GLiftProdWells &prod_wells, GLiftOptWells &glift_wells,
+                GasLiftGroupInfo &group_info, GLiftWellStateMap &state_map);
 
             void gasLiftOptimizationStage2(DeferredLogger& deferred_logger,
                 GLiftProdWells &prod_wells, GLiftOptWells &glift_wells,

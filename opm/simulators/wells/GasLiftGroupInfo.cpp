@@ -28,6 +28,7 @@ GasLiftGroupInfo(
     const SummaryState &summary_state,
     const int report_step_idx,
     const int iteration_idx,
+    const Communication& comm,
     const PhaseUsage &phase_usage,
     DeferredLogger &deferred_logger,
     WellState &well_state
@@ -37,6 +38,7 @@ GasLiftGroupInfo(
     summary_state_{summary_state},
     report_step_idx_{report_step_idx},
     iteration_idx_{iteration_idx},
+    comm_{comm},
     phase_usage_{phase_usage},
     deferred_logger_{deferred_logger},
     well_state_{well_state},
@@ -52,10 +54,17 @@ GasLiftGroupInfo(
 
 double
 GasLiftGroupInfo::
-alqRate(const std::string &group_name)
+alqRate(const std::string& group_name)
 {
-    auto &group_rate = this->group_rate_map_.at(group_name);
+    auto& group_rate = this->group_rate_map_.at(group_name);
     return group_rate.alq();
+}
+
+int
+GasLiftGroupInfo::
+getGroupIdx(const std::string& group_name)
+{
+    return this->group_idx_.at(group_name);
 }
 
 void
@@ -72,33 +81,63 @@ initialize()
 
 double
 GasLiftGroupInfo::
-gasRate(const std::string &group_name)
+gasRate(const std::string& group_name)
 {
-    auto &group_rate = this->group_rate_map_.at(group_name);
+    auto& group_rate = this->group_rate_map_.at(group_name);
     return group_rate.gasRate();
 }
 
 std::optional<double>
 GasLiftGroupInfo::
-gasTarget(const std::string &group_name)
+gasTarget(const std::string& group_name)
 {
-    auto &group_rate = this->group_rate_map_.at(group_name);
+    auto& group_rate = this->group_rate_map_.at(group_name);
     return group_rate.gasTarget();
 }
 
-std::vector<std::pair<std::string,double>> &
+std::tuple<double, double, double>
 GasLiftGroupInfo::
-getWellGroups(const std::string &well_name)
+getRates(int group_idx)
+{
+    const auto& group_name = groupIdxToName(group_idx);
+    auto& rates = this->group_rate_map_.at(group_name);
+    return std::make_tuple(rates.oilRate(), rates.gasRate(), rates.alq());
+}
+
+std::vector<std::pair<std::string,double>>&
+GasLiftGroupInfo::
+getWellGroups(const std::string& well_name)
 {
     assert(this->well_group_map_.count(well_name) == 1);
     return this->well_group_map_[well_name];
 }
 
+const std::string&
+GasLiftGroupInfo::
+groupIdxToName(int group_idx)
+{
+    const std::string *group_name = nullptr;
+    // TODO:  An alternative to the below loop is to set up a reverse map from idx ->
+    //   string, then we could in theory do faster lookup here..
+    for (const auto& [key, value] : this->group_idx_) {
+        if (value == group_idx) {
+            // NOTE: it is assumed that the mapping from name->idx is one-to-one
+            //   so there can only be one idx with a given group name.
+            group_name = &key;
+            break;
+        }
+    }
+    // the caller is responsible for providing a valid idx, so group_name
+    //   cannot be nullptr here..
+    assert(group_name);
+    return *group_name;
+}
+
 std::optional<double>
 GasLiftGroupInfo::
-maxAlq(const std::string &group_name)
+maxAlq(const std::string& group_name)
 {
-    auto &group_rate = this->group_rate_map_.at(group_name);
+    auto& group_rate = this->group_rate_map_.at(group_name);
     return group_rate.maxAlq();
 }
 
@@ -106,7 +145,7 @@ double
 GasLiftGroupInfo::
 oilRate(const std::string &group_name)
 {
-    auto &group_rate = this->group_rate_map_.at(group_name);
+    auto& group_rate = this->group_rate_map_.at(group_name);
     return group_rate.oilRate();
 }
 
@@ -114,7 +153,7 @@ std::optional<double>
 GasLiftGroupInfo::
 oilTarget(const std::string &group_name)
 {
-    auto &group_rate = this->group_rate_map_.at(group_name);
+    auto& group_rate = this->group_rate_map_.at(group_name);
     return group_rate.oilTarget();
 }
 
@@ -123,10 +162,18 @@ GasLiftGroupInfo::
 update(
     const std::string &group_name, double delta_oil, double delta_gas, double delta_alq)
 {
-    auto &group_rate = this->group_rate_map_.at(group_name);
+    auto& group_rate = this->group_rate_map_.at(group_name);
     group_rate.update(delta_oil, delta_gas, delta_alq);
 }
 
+void
+GasLiftGroupInfo::
+updateRate(int idx, double oil_rate, double gas_rate, double alq)
+{
+    const auto& group_name = groupIdxToName(idx);
+    auto& rates = this->group_rate_map_.at(group_name);
+    rates.assign(oil_rate, gas_rate, alq);
+}
 
 /****************************************
  * Private methods in alphabetical order
@@ -357,6 +404,10 @@ initializeGroupRatesRecursive_(const Group &group)
             alq += (gefac * sg_alq);
         }
     }
+    // These sums needs to be communictated
+    oil_rate = this->comm_.sum(oil_rate);
+    gas_rate = this->comm_.sum(gas_rate);
+    alq = this->comm_.sum(alq);
     std::optional<double> oil_target, gas_target, max_total_gas, max_alq;
     const auto controls = group.productionControls(this->summary_state_);
     if (group.has_control(Group::ProductionCMode::ORAT)) {
@@ -371,10 +422,26 @@ initializeGroupRatesRecursive_(const Group &group)
         max_total_gas = gl_group.max_total_gas();
     }
     if (oil_target || gas_target || max_total_gas || max_alq) {
+        updateGroupIdxMap_(group.name());
         this->group_rate_map_.try_emplace(group.name(),
             oil_rate, gas_rate, alq, oil_target, gas_target, max_total_gas, max_alq);
     }
     return std::make_tuple(oil_rate, gas_rate, alq);
+}
+
+// TODO: It would be more efficient if the group idx map was build once
+//  per time step (or better: once per report step) and saved e.g. in
+//  the well state object, instead of rebuilding here for each of
+//  NUPCOL well iteration for each time step.
+void
+GasLiftGroupInfo::
+updateGroupIdxMap_(const std::string &group_name)
+{
+    if (this->group_idx_.count(group_name) == 0) {
+        //auto [itr, success] =
+        this->group_idx_.try_emplace(group_name, this->next_group_idx_);
+        this->next_group_idx_++;
+    }
 }
 
 } // namespace Opm

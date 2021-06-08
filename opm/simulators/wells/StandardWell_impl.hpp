@@ -2555,14 +2555,15 @@ namespace Opm
                        GLiftProdWells &prod_wells,
                        GLiftOptWells &glift_wells,
                        GLiftWellStateMap &glift_state_map,
-                       GasLiftGroupInfo &group_info
+                       GasLiftGroupInfo &group_info,
+                       GLiftSyncGroups &sync_groups
     ) const
     {
         const auto& summary_state = ebos_simulator.vanguard().summaryState();
         std::unique_ptr<GasLiftSingleWell> glift
             = std::make_unique<GasLiftSingleWell>(
                 *this, ebos_simulator, summary_state,
-                deferred_logger, well_state, group_info);
+                deferred_logger, well_state, group_info, sync_groups);
         auto state = glift->runOptimize(
             ebos_simulator.model().newtonMethod().numIterations());
         if (state) {

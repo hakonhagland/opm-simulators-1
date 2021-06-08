@@ -20,6 +20,9 @@
 #ifndef OPM_GASLIFT_SINGLE_WELL_GENERIC_HEADER_INCLUDED
 #define OPM_GASLIFT_SINGLE_WELL_GENERIC_HEADER_INCLUDED
 
+#include <dune/common/version.hh>
+#include <dune/common/parallel/mpihelper.hh>
+
 #include <opm/core/props/BlackoilPhases.hpp>
 
 #include <opm/parser/eclipse/EclipseState/Schedule/GasLiftOpt.hpp>
@@ -50,8 +53,15 @@ protected:
     static const int Oil = BlackoilPhases::Liquid;
     static const int Gas = BlackoilPhases::Vapour;
     static constexpr double ALQ_EPSILON = 1e-8;
+    using MPIComm = typename Dune::MPIHelper::MPICommunicator;
+#if DUNE_VERSION_NEWER(DUNE_COMMON, 2, 7)
+    using Communication = Dune::Communication<MPIComm>;
+#else
+    using Communication = Dune::CollectiveCommunication<MPIComm>;
+#endif
 
 public:
+    using GLiftSyncGroups = std::set<int>;
     struct GradInfo
     {
         GradInfo() { }
@@ -87,13 +97,17 @@ public:
     virtual const WellInterfaceGeneric& getStdWell() const = 0;
 
 protected:
-    GasLiftSingleWellGeneric(DeferredLogger &deferred_logger,
-                             WellState &well_state,
-                             const Well& ecl_well,
-                             const SummaryState& summary_state,
-                             GasLiftGroupInfo &group_info,
-                             const Schedule& schedule,
-                             const int report_step_idx);
+    GasLiftSingleWellGeneric(
+        DeferredLogger &deferred_logger,
+        WellState &well_state,
+        const Well& ecl_well,
+        const SummaryState& summary_state,
+        GasLiftGroupInfo &group_info,
+        const Schedule& schedule,
+        const int report_step_idx,
+        const Communication& comm,
+        GLiftSyncGroups &sync_groups
+    );
 
     struct OptimizeState
     {
@@ -213,10 +227,11 @@ protected:
 
     DeferredLogger& deferred_logger_;
     WellState& well_state_;
-    GasLiftGroupInfo &group_info_;
     const Well& ecl_well_;
     const SummaryState& summary_state_;
-
+    GasLiftGroupInfo& group_info_;
+    const Communication& comm_;
+    GLiftSyncGroups& sync_groups_;
     const Well::ProductionControls controls_;
 
     double increment_;

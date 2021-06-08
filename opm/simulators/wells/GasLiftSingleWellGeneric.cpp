@@ -42,13 +42,17 @@ GasLiftSingleWellGeneric::GasLiftSingleWellGeneric(
     const SummaryState& summary_state,
     GasLiftGroupInfo &group_info,
     const Schedule& schedule,
-    const int report_step_idx
+    const int report_step_idx,
+    const Communication& comm,
+    GLiftSyncGroups &sync_groups
 ) :
     deferred_logger_{deferred_logger}
     , well_state_{well_state}
     , ecl_well_{ecl_well}
     , summary_state_{summary_state}
     , group_info_{group_info}
+    , comm_{comm}
+    , sync_groups_{sync_groups}
     , controls_{ecl_well_.productionControls(summary_state_)}
     , num_phases_{well_state_.numPhases()}
     , debug_{false}  // extra debugging output
@@ -1299,6 +1303,8 @@ updateGroupRates(double delta_oil, double delta_gas, double delta_alq)
     const auto &pairs =
         this->parent.group_info_.getWellGroups(this->parent.well_name_);
     for (const auto &[group_name, efficiency] : pairs) {
+        int idx = this->parent.group_info_.getGroupIdx(group_name);
+        this->parent.sync_groups_.insert(idx);
         this->parent.group_info_.update(group_name,
             efficiency * delta_oil, efficiency * delta_gas, efficiency * delta_alq);
     }

@@ -26,17 +26,22 @@ GasLiftSingleWell(const StdWell &std_well,
                   const SummaryState &summary_state,
                   DeferredLogger &deferred_logger,
                   WellState &well_state,
-                  GasLiftGroupInfo &group_info
+                  GasLiftGroupInfo &group_info,
+                  GLiftSyncGroups &sync_groups
                  )
     // The parent class GasLiftSingleWellGeneric contains all stuff
     //   that is not dependent on TypeTag
-    : GasLiftSingleWellGeneric(deferred_logger,
-                               well_state,
-                               std_well.wellEcl(),
-                               summary_state,
-                               group_info,
-                               ebos_simulator.vanguard().schedule(),
-                               ebos_simulator.episodeIndex())
+    : GasLiftSingleWellGeneric(
+        deferred_logger,
+        well_state,
+        std_well.wellEcl(),
+        summary_state,
+        group_info,
+        ebos_simulator.vanguard().schedule(),
+        ebos_simulator.episodeIndex(),
+        ebos_simulator.vanguard().grid().comm(),
+        sync_groups
+    )
    , ebos_simulator_{ebos_simulator}
    , std_well_{std_well}
 {

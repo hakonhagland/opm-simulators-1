@@ -460,7 +460,7 @@ mpiSyncGlobalGradVector_(std::vector<GradPair> &grads_global) const
 
     std::vector<GradPair> grads_local;
     for (auto itr = grads_global.begin(); itr != grads_global.end(); itr++) {
-        if (well_state_map_.count(itr->first) > 0) {
+        if (this->well_state_map_.count(itr->first) > 0) {
             grads_local.push_back(*itr);
         }
     }
