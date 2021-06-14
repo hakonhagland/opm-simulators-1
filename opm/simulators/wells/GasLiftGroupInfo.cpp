@@ -20,8 +20,8 @@
 #include <opm/simulators/wells/GasLiftGroupInfo.hpp>
 
 namespace Opm {
-
-GasLiftGroupInfo::
+template<typename Communication>
+GasLiftGroupInfo<Communication>::
 GasLiftGroupInfo(
     GLiftEclWells &ecl_wells,
     const Schedule &schedule,
@@ -52,23 +52,26 @@ GasLiftGroupInfo(
  * Public methods in alphabetical order
  ****************************************/
 
+template<typename Communication>
 double
-GasLiftGroupInfo::
+GasLiftGroupInfo<Communication>::
 alqRate(const std::string& group_name)
 {
     auto& group_rate = this->group_rate_map_.at(group_name);
     return group_rate.alq();
 }
 
+template<typename Communication>
 int
-GasLiftGroupInfo::
+GasLiftGroupInfo<Communication>::
 getGroupIdx(const std::string& group_name)
 {
     return this->group_idx_.at(group_name);
 }
 
+template<typename Communication>
 void
-GasLiftGroupInfo::
+GasLiftGroupInfo<Communication>::
 initialize()
 {
     const auto& group = this->schedule_.getGroup("FIELD", this->report_step_idx_);
@@ -79,24 +82,27 @@ initialize()
         group, group_names, group_efficiency, /*current efficiency=*/1.0);
 }
 
+template<typename Communication>
 double
-GasLiftGroupInfo::
+GasLiftGroupInfo<Communication>::
 gasRate(const std::string& group_name)
 {
     auto& group_rate = this->group_rate_map_.at(group_name);
     return group_rate.gasRate();
 }
 
+template<typename Communication>
 std::optional<double>
-GasLiftGroupInfo::
+GasLiftGroupInfo<Communication>::
 gasTarget(const std::string& group_name)
 {
     auto& group_rate = this->group_rate_map_.at(group_name);
     return group_rate.gasTarget();
 }
 
+template<typename Communication>
 std::tuple<double, double, double>
-GasLiftGroupInfo::
+GasLiftGroupInfo<Communication>::
 getRates(int group_idx)
 {
     const auto& group_name = groupIdxToName(group_idx);
@@ -104,16 +110,18 @@ getRates(int group_idx)
     return std::make_tuple(rates.oilRate(), rates.gasRate(), rates.alq());
 }
 
+template<typename Communication>
 std::vector<std::pair<std::string,double>>&
-GasLiftGroupInfo::
+GasLiftGroupInfo<Communication>::
 getWellGroups(const std::string& well_name)
 {
     assert(this->well_group_map_.count(well_name) == 1);
     return this->well_group_map_[well_name];
 }
 
+template<typename Communication>
 const std::string&
-GasLiftGroupInfo::
+GasLiftGroupInfo<Communication>::
 groupIdxToName(int group_idx)
 {
     const std::string *group_name = nullptr;
@@ -133,40 +141,45 @@ groupIdxToName(int group_idx)
     return *group_name;
 }
 
+template<typename Communication>
 bool
-GasLiftGroupInfo::
+GasLiftGroupInfo<Communication>::
 hasWell(const std::string& well_name)
 {
     return this->well_group_map_.count(well_name) == 1;
 }
 
 
+template<typename Communication>
 std::optional<double>
-GasLiftGroupInfo::
+GasLiftGroupInfo<Communication>::
 maxAlq(const std::string& group_name)
 {
     auto& group_rate = this->group_rate_map_.at(group_name);
     return group_rate.maxAlq();
 }
 
+template<typename Communication>
 double
-GasLiftGroupInfo::
+GasLiftGroupInfo<Communication>::
 oilRate(const std::string &group_name)
 {
     auto& group_rate = this->group_rate_map_.at(group_name);
     return group_rate.oilRate();
 }
 
+template<typename Communication>
 std::optional<double>
-GasLiftGroupInfo::
+GasLiftGroupInfo<Communication>::
 oilTarget(const std::string &group_name)
 {
     auto& group_rate = this->group_rate_map_.at(group_name);
     return group_rate.oilTarget();
 }
 
+template<typename Communication>
 void
-GasLiftGroupInfo::
+GasLiftGroupInfo<Communication>::
 update(
     const std::string &group_name, double delta_oil, double delta_gas, double delta_alq)
 {
@@ -174,8 +187,9 @@ update(
     group_rate.update(delta_oil, delta_gas, delta_alq);
 }
 
+template<typename Communication>
 void
-GasLiftGroupInfo::
+GasLiftGroupInfo<Communication>::
 updateRate(int idx, double oil_rate, double gas_rate, double alq)
 {
     const auto& group_name = groupIdxToName(idx);
@@ -188,8 +202,9 @@ updateRate(int idx, double oil_rate, double gas_rate, double alq)
  ****************************************/
 
 
+template<typename Communication>
 bool
-GasLiftGroupInfo::
+GasLiftGroupInfo<Communication>::
 checkDoGasLiftOptimization_(const std::string &well_name)
 {
     if (this->well_state_.gliftCheckAlqOscillation(well_name)) {
@@ -243,8 +258,9 @@ checkDoGasLiftOptimization_(const std::string &well_name)
     }
 }
 
+template<typename Communication>
 bool
-GasLiftGroupInfo::
+GasLiftGroupInfo<Communication>::
 checkNewtonIterationIdxOk_(const std::string &well_name)
 {
     if (this->glo_.all_newton()) {
@@ -271,8 +287,9 @@ checkNewtonIterationIdxOk_(const std::string &well_name)
     }
 }
 
+template<typename Communication>
 void
-GasLiftGroupInfo::
+GasLiftGroupInfo<Communication>::
 displayDebugMessage_(const std::string &msg)
 {
     if (this->debug) {
@@ -282,8 +299,9 @@ displayDebugMessage_(const std::string &msg)
     }
 }
 
+template<typename Communication>
 void
-GasLiftGroupInfo::
+GasLiftGroupInfo<Communication>::
 displayDebugMessage_(const std::string &msg, const std::string &well_name)
 {
     if (this->debug) {
@@ -295,8 +313,9 @@ displayDebugMessage_(const std::string &msg, const std::string &well_name)
 }
 
 
+template<typename Communication>
 std::pair<double, double>
-GasLiftGroupInfo::
+GasLiftGroupInfo<Communication>::
 getProducerWellRates_(int well_index)
 {
     const auto& pu = this->phase_usage_;
@@ -307,8 +326,9 @@ getProducerWellRates_(int well_index)
     return {oil_rate, gas_rate};
 }
 
+template<typename Communication>
 void
-GasLiftGroupInfo::
+GasLiftGroupInfo<Communication>::
 initializeWell2GroupMapRecursive_(
     const Group &group,
     std::vector<std::string> &group_names,
@@ -367,8 +387,9 @@ initializeWell2GroupMapRecursive_(
     }
 }
 
+template<typename Communication>
 std::tuple<double, double, double>
-GasLiftGroupInfo::
+GasLiftGroupInfo<Communication>::
 initializeGroupRatesRecursive_(const Group &group)
 {
     double oil_rate = 0.0;
@@ -441,8 +462,9 @@ initializeGroupRatesRecursive_(const Group &group)
 //  per time step (or better: once per report step) and saved e.g. in
 //  the well state object, instead of rebuilding here for each of
 //  NUPCOL well iteration for each time step.
+template<typename Communication>
 void
-GasLiftGroupInfo::
+GasLiftGroupInfo<Communication>::
 updateGroupIdxMap_(const std::string &group_name)
 {
     if (this->group_idx_.count(group_name) == 0) {

@@ -84,6 +84,8 @@ namespace Opm
         using typename Base::GLiftProdWells;
         using typename Base::GLiftWellStateMap;
         using typename Base::GLiftSyncGroups;
+        using typename Base::GasLiftGroupInfo;
+        using typename Base::Communication;
 
         using Base::numEq;
         using Base::numPhases;

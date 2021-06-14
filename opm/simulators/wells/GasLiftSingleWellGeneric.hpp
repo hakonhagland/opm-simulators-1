@@ -62,6 +62,7 @@ protected:
 
 public:
     using GLiftSyncGroups = std::set<int>;
+    using GasLiftGroupInfo = typename Opm::GasLiftGroupInfo<Communication>;
     struct GradInfo
     {
         GradInfo() { }

@@ -52,6 +52,7 @@ namespace Opm
         using typename Base::GLiftOptWells;
         using typename Base::GLiftWellStateMap;
         using typename Base::GLiftSyncGroups;
+        using typename Base::GasLiftGroupInfo;
 
         /// the number of reservior equations
         using Base::numEq;

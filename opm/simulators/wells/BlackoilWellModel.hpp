@@ -104,6 +104,13 @@ namespace Opm {
             using RateVector = GetPropType<TypeTag, Properties::RateVector>;
             using GlobalEqVector = GetPropType<TypeTag, Properties::GlobalEqVector>;
             using SparseMatrixAdapter = GetPropType<TypeTag, Properties::SparseMatrixAdapter>;
+            using MPIComm = typename Dune::MPIHelper::MPICommunicator;
+#if DUNE_VERSION_NEWER(DUNE_COMMON, 2, 7)
+            using Communication = Dune::Communication<MPIComm>;
+#else
+            using Communication = Dune::CollectiveCommunication<MPIComm>;
+#endif
+            using GasLiftGroupInfo = typename Opm::GasLiftGroupInfo<Communication>;
             using GLiftOptWells = typename BlackoilWellModelGeneric::GLiftOptWells;
             using GLiftProdWells = typename BlackoilWellModelGeneric::GLiftProdWells;
             using GLiftWellStateMap =

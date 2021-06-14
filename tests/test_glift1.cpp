@@ -121,10 +121,11 @@ BOOST_AUTO_TEST_CASE(G1)
     //using EclProblem = Opm::EclProblem<TypeTag>;
     //using EclWellModel = typename EclProblem::EclWellModel;
     using WellModel = Opm::BlackoilWellModel<TypeTag>;
+    using Communication = WellModel::Communication;
     using WellState = Opm::WellState;
     using StdWell = Opm::StandardWell<TypeTag>;
     using GasLiftSingleWell = Opm::GasLiftSingleWell<TypeTag>;
-    using GasLiftGroupInfo = Opm::GasLiftGroupInfo;
+    using GasLiftGroupInfo = typename Opm::GasLiftGroupInfo<Communication>;
     using GasLiftSingleWellGeneric = Opm::GasLiftSingleWellGeneric;
     using GLiftEclWells = typename GasLiftGroupInfo::GLiftEclWells;
     const std::string filename = "GLIFT1.DATA";

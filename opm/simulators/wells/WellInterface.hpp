@@ -41,7 +41,7 @@
 namespace Opm {
     template<typename TypeTag> class GasLiftSingleWell;
     template<typename TypeTag> class BlackoilWellModel;
-    class GasLiftGroupInfo;
+    template<typename Communication> class GasLiftGroupInfo;
 }
 #include <opm/simulators/wells/GasLiftGroupInfo.hpp>
 #include <opm/simulators/wells/GasLiftSingleWell.hpp>
@@ -82,6 +82,13 @@ public:
     using MaterialLaw = GetPropType<TypeTag, Properties::MaterialLaw>;
     using SparseMatrixAdapter = GetPropType<TypeTag, Properties::SparseMatrixAdapter>;
     using RateVector = GetPropType<TypeTag, Properties::RateVector>;
+    using MPIComm = typename Dune::MPIHelper::MPICommunicator;
+#if DUNE_VERSION_NEWER(DUNE_COMMON, 2, 7)
+    using Communication = Dune::Communication<MPIComm>;
+#else
+    using Communication = Dune::CollectiveCommunication<MPIComm>;
+#endif
+    using GasLiftGroupInfo = typename Opm::GasLiftGroupInfo<Communication>;
     using GasLiftSingleWell = ::Opm::GasLiftSingleWell<TypeTag>;
     using GLiftOptWells = typename BlackoilWellModel<TypeTag>::GLiftOptWells;
     using GLiftProdWells = typename BlackoilWellModel<TypeTag>::GLiftProdWells;

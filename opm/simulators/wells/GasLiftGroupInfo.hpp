@@ -42,6 +42,7 @@
 
 namespace Opm
 {
+template <typename Communication>
 class GasLiftGroupInfo
 {
     class GroupRates;
@@ -56,12 +57,6 @@ class GasLiftGroupInfo
         std::map<std::string, GroupRates>;
     using GroupIdxMap = std::map<std::string, int>;
 
-    using MPIComm = typename Dune::MPIHelper::MPICommunicator;
-#if DUNE_VERSION_NEWER(DUNE_COMMON, 2, 7)
-    using Communication = Dune::Communication<MPIComm>;
-#else
-    using Communication = Dune::CollectiveCommunication<MPIComm>;
-#endif
     // TODO: same definition with WellInterface, and
     //   WellState eventually they should go to a common header file.
     static const int Water = BlackoilPhases::Aqua;
