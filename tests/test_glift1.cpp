@@ -176,7 +176,6 @@ BOOST_AUTO_TEST_CASE(G1)
         summary_state,
         simulator->episodeIndex(),
         iteration_idx,
-        simulator->vanguard().grid().comm(),
         well_model.phaseUsage(),
         deferred_logger,
         well_state

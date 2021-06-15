@@ -935,10 +935,10 @@ namespace Opm {
                 num_rates_to_sync = groups_to_sync.size();
             }
             // Since "group_info" is not used in stage2, there is no need to
-            //   communicate rates if the is the last iteration...
+            //   communicate rates if this is the last iteration...
             if (i == (num_procs - 1))
                 break;
-            comm.sum(num_rates_to_sync);
+            num_rates_to_sync = comm.sum(num_rates_to_sync);
             if (num_rates_to_sync > 0) {
                 std::vector<int> group_indexes;
                 group_indexes.reserve(num_rates_to_sync);

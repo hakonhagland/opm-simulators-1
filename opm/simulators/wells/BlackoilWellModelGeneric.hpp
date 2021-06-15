@@ -415,7 +415,7 @@ protected:
     WGState last_valid_wgstate_;
     WGState nupcol_wgstate_;
 
-    bool glift_debug = false;
+    bool glift_debug = true;
 
   private:
     WellInterfaceGeneric* getGenWell(const std::string& well_name);
