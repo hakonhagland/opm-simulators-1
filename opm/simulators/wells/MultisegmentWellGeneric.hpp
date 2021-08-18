@@ -69,11 +69,14 @@ protected:
                                                   const double rho,
                                                   DeferredLogger& deferred_logger) const;
 
-    std::optional<double> computeBhpAtThpLimitProd(const std::function<std::vector<double>(const double)>& frates,
-                                                   const SummaryState& summary_state,
-                                                   const double maxPerfPress,
-                                                   const double rho,
-                                                   DeferredLogger& deferred_logger) const;
+    std::optional<double> computeBhpAtThpLimitProd(
+        const std::function<std::vector<double>(const double)>& frates,
+        const SummaryState& summary_state,
+        const double maxPerfPress,
+        const double rho,
+        DeferredLogger& deferred_logger,
+        double alq_value
+    ) const;
 
     /// Detect oscillation or stagnation based on the residual measure history
     void detectOscillations(const std::vector<double>& measure_history,

@@ -123,7 +123,7 @@ public:
     static const int contiBrineEqIdx = Indices::contiBrineEqIdx;
     static const bool compositionSwitchEnabled = Indices::compositionSwitchIdx >= 0;
 
-    // For the conversion between the surface volume rate and reservoir voidage rate 
+    // For the conversion between the surface volume rate and reservoir voidage rate
     using FluidState = BlackOilFluidState<Eval,
                                           FluidSystem,
                                           has_temperature,
@@ -164,17 +164,29 @@ public:
                         const GroupState& group_state,
                         DeferredLogger& deferred_logger);
 
-    virtual void gasLiftOptimizationStage1 (
+    void gasLiftOptimizationStage1 (
         WellState& well_state,
         const GroupState& group_state,
-        const Simulator& ebosSimulator,
+        const Simulator& ebos_simulator,
         DeferredLogger& deferred_logger,
         GLiftProdWells& prod_wells,
         GLiftOptWells& glift_wells,
         GLiftWellStateMap& state_map,
         GasLiftGroupInfo &group_info,
         GLiftSyncGroups &sync_groups
-    ) const = 0;
+    ) const;
+
+    virtual std::optional<double> computeBhpAtThpLimitProdWithAlq(
+            const Simulator& ebos_simulator,
+            const SummaryState& summary_state,
+            DeferredLogger& deferred_logger,
+            double alq_value) const = 0;
+
+    virtual void computeWellRatesWithBhp(
+        const Simulator& ebosSimulator,
+        const double& bhp,
+        std::vector<double>& well_flux,
+        DeferredLogger& deferred_logger) const = 0;
 
     /// using the solution x to recover the solution xw for wells and applying
     /// xw to update Well State

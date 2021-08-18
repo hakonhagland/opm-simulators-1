@@ -45,7 +45,7 @@ namespace Opm
     class GasLiftSingleWell : public GasLiftSingleWellGeneric
     {
         using Simulator = GetPropType<TypeTag, Properties::Simulator>;
-        using StdWell = StandardWell<TypeTag>;
+        using StdWell = WellInterface<TypeTag>;
         using GLiftSyncGroups = typename GasLiftSingleWellGeneric::GLiftSyncGroups;
 
     public:

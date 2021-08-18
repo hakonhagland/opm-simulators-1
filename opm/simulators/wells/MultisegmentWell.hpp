@@ -103,20 +103,6 @@ namespace Opm
 
         virtual void initPrimaryVariablesEvaluation() const override;
 
-        virtual void gasLiftOptimizationStage1 (
-            WellState&,
-            const GroupState&,
-            const Simulator&,
-            DeferredLogger&,
-            GLiftProdWells &,
-            GLiftOptWells &,
-            GLiftWellStateMap &,
-            GasLiftGroupInfo &,
-            GLiftSyncGroups &
-        ) const override {
-            // Not implemented yet
-        }
-
         /// updating the well state based the current control mode
         virtual void updateWellStateWithTarget(const Simulator& ebos_simulator,
                                                const GroupState& group_state,
@@ -266,14 +252,17 @@ namespace Opm
                                         std::vector<double>& well_flux,
                                         DeferredLogger& deferred_logger) const;
 
-        void computeWellRatesWithBhp(const Simulator& ebosSimulator,
-                                     const Scalar bhp,
-                                     std::vector<double>& well_flux,
-                                     DeferredLogger& deferred_logger) const;
+        virtual void computeWellRatesWithBhp(
+            const Simulator& ebos_simulator,
+            const double& bhp,
+            std::vector<double>& well_flux,
+            DeferredLogger& deferred_logger) const override;
 
         std::vector<double>
-        computeWellPotentialWithTHP(const Simulator& ebos_simulator,
-                                    DeferredLogger& deferred_logger) const;
+        computeWellPotentialWithTHP(
+            const WellState& well_state,
+            const Simulator& ebos_simulator,
+            DeferredLogger& deferred_logger) const;
 
         virtual double getRefDensity() const override;
 
@@ -309,9 +298,17 @@ namespace Opm
         bool allDrawDownWrongDirection(const Simulator& ebos_simulator) const;
 
 
-        std::optional<double> computeBhpAtThpLimitProd(const Simulator& ebos_simulator,
-                                                       const SummaryState& summary_state,
-                                                       DeferredLogger& deferred_logger) const;
+        std::optional<double> computeBhpAtThpLimitProd(
+            const WellState& well_state,
+            const Simulator& ebos_simulator,
+            const SummaryState& summary_state,
+            DeferredLogger& deferred_logger) const;
+
+        virtual std::optional<double> computeBhpAtThpLimitProdWithAlq(
+            const Simulator& ebos_simulator,
+            const SummaryState& summary_state,
+            DeferredLogger& deferred_logger,
+            double alq_value) const override;
 
         std::optional<double> computeBhpAtThpLimitInj(const Simulator& ebos_simulator,
                                                       const SummaryState& summary_state,

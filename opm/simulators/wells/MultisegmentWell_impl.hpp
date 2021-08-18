@@ -298,7 +298,8 @@ namespace Opm
         if (!Base::wellHasTHPConstraints(summaryState) || bhp_controlled_well) {
             computeWellRatesAtBhpLimit(ebosSimulator, well_potentials, deferred_logger);
         } else {
-            well_potentials = computeWellPotentialWithTHP(ebosSimulator, deferred_logger);
+            well_potentials = computeWellPotentialWithTHP(
+                well_state, ebosSimulator, deferred_logger);
         }
         deferred_logger.debug("Cost in iterations of finding well potential for well "
                               + name() + ": " + std::to_string(debug_cost_counter_));
@@ -329,7 +330,7 @@ namespace Opm
     void
     MultisegmentWell<TypeTag>::
     computeWellRatesWithBhp(const Simulator& ebosSimulator,
-                            const Scalar bhp,
+                            const double& bhp,
                             std::vector<double>& well_flux,
                             DeferredLogger& deferred_logger) const
     {
@@ -393,8 +394,10 @@ namespace Opm
     template<typename TypeTag>
     std::vector<double>
     MultisegmentWell<TypeTag>::
-    computeWellPotentialWithTHP(const Simulator& ebos_simulator,
-                                DeferredLogger& deferred_logger) const
+    computeWellPotentialWithTHP(
+        const WellState &well_state,
+        const Simulator& ebos_simulator,
+        DeferredLogger& deferred_logger) const
     {
         std::vector<double> potentials(number_of_phases_, 0.0);
         const auto& summary_state = ebos_simulator.vanguard().summaryState();
@@ -417,7 +420,8 @@ namespace Opm
                 computeWellRatesWithBhp(ebos_simulator, bhp, potentials, deferred_logger);
             }
         } else {
-            auto bhp_at_thp_limit = computeBhpAtThpLimitProd(ebos_simulator, summary_state, deferred_logger);
+            auto bhp_at_thp_limit = computeBhpAtThpLimitProd(
+                well_state, ebos_simulator, summary_state, deferred_logger);
             if (bhp_at_thp_limit) {
                 const auto& controls = well_ecl_.productionControls(summary_state);
                 const double bhp = std::max(*bhp_at_thp_limit, controls.bhp_limit);
@@ -1000,10 +1004,14 @@ namespace Opm
     template<typename TypeTag>
     void
     MultisegmentWell<TypeTag>::
-    checkOperabilityUnderTHPLimitProducer(const Simulator& ebos_simulator, const WellState& /*well_state*/, DeferredLogger& deferred_logger)
+    checkOperabilityUnderTHPLimitProducer(
+        const Simulator& ebos_simulator,
+        const WellState& well_state,
+        DeferredLogger& deferred_logger)
     {
         const auto& summaryState = ebos_simulator.vanguard().summaryState();
-        const auto obtain_bhp = computeBhpAtThpLimitProd(ebos_simulator, summaryState, deferred_logger);
+        const auto obtain_bhp = computeBhpAtThpLimitProd(
+            well_state, ebos_simulator, summaryState, deferred_logger);
 
         if (obtain_bhp) {
             this->operability_status_.can_obtain_bhp_with_thp_limit = true;
@@ -1433,14 +1441,27 @@ namespace Opm
 
 
 
-
+    template<typename TypeTag>
+    std::optional<double>
+    MultisegmentWell<TypeTag>::
+    computeBhpAtThpLimitProd(const WellState& well_state,
+                             const Simulator& ebos_simulator,
+                             const SummaryState& summary_state,
+                             DeferredLogger& deferred_logger) const
+    {
+        return computeBhpAtThpLimitProdWithAlq(ebos_simulator,
+                                               summary_state,
+                                               deferred_logger,
+                                               getALQ(well_state));
+    }
 
     template<typename TypeTag>
     std::optional<double>
     MultisegmentWell<TypeTag>::
-    computeBhpAtThpLimitProd(const Simulator& ebos_simulator,
-                             const SummaryState& summary_state,
-                             DeferredLogger& deferred_logger) const
+    computeBhpAtThpLimitProdWithAlq(const Simulator& ebos_simulator,
+                                    const SummaryState& summary_state,
+                                    DeferredLogger& deferred_logger,
+                                    double alq_value) const
     {
         // Make the frates() function.
         auto frates = [this, &ebos_simulator, &deferred_logger](const double bhp) {
@@ -1459,7 +1480,8 @@ namespace Opm
                                         summary_state,
                                         maxPerfPress(ebos_simulator),
                                         getRefDensity(),
-                                        deferred_logger);
+                                        deferred_logger,
+                                        alq_value);
     }
 
 
