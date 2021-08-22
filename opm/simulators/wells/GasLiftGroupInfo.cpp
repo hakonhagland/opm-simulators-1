@@ -44,7 +44,7 @@ GasLiftGroupInfo(
     well_state_{well_state},
     comm_{comm},
     glo_{schedule_.glo(report_step_idx_)},
-    debug{false}
+    debug{true}
 {
 
 }

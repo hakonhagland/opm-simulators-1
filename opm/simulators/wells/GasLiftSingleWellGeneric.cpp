@@ -57,7 +57,7 @@ GasLiftSingleWellGeneric::GasLiftSingleWellGeneric(
     , sync_groups_{sync_groups}
     , controls_{ecl_well_.productionControls(summary_state_)}
     , num_phases_{well_state_.numPhases()}
-    , debug_{false}  // extra debugging output
+    , debug_{true}  // extra debugging output
     , debug_limit_increase_decrease_{false}
 {
     this->well_name_ = ecl_well_.name();
@@ -504,6 +504,12 @@ getOilRateWithLimit_(const std::vector<double>& potentials) const
         auto water_rate = -potentials[this->water_pos_];
         auto liq_rate = oil_rate + water_rate;
         if (liq_rate > target) {
+            /* NOTE: here both the water rate and oil rate should be reduced
+             *   by a factor (target/liq_rate)
+             *   such that afterwards : oil_rate + water_rate = target
+             *   But since we are not using the water rate in gas lift optimization
+             *   it is not necessary to calculate a new water_rate.
+             */
             new_rate = oil_rate * (target/liq_rate);
             const std::string msg = fmt::format(
                 "limiting oil rate due to LRAT target {}: "
@@ -614,7 +620,8 @@ maybeAdjustALQbeforeOptimizeLoop_(
 {
     double orig_alq = alq;
     if (this->debug_) {
-        const std::string msg = fmt::format("initial ALQ: {}", alq);
+        const std::string msg = fmt::format("initial ALQ: {}, increment: {}",
+            alq, this->increment_);
         displayDebugMessage_(msg);
     }
     if (!increase && oil_is_limited) {
@@ -662,9 +669,22 @@ reduceALQtoOilTarget_(double alq,
     double orig_oil_rate = oil_rate;
     double orig_alq = alq;
     // NOTE: This method should only be called if oil_is_limited, and hence
-    //   we know that it has oil rate control
-    assert(this->controls_.hasControl(Well::ProducerCMode::ORAT));
-    auto target = this->controls_.oil_rate;
+    //   we know that it has oil rate or liquid rate control
+    assert(
+           this->controls_.hasControl(Well::ProducerCMode::ORAT)
+        || this->controls_.hasControl(Well::ProducerCMode::LRAT)
+    );
+    bool orat_control = this->controls_.hasControl(Well::ProducerCMode::ORAT);
+    double target;
+    std::string target_string;
+    if (orat_control) {
+        target = this->controls_.oil_rate;
+        if (this->debug_) target_string = "ORAT";
+    }
+    else {
+        target = this->controls_.liquid_rate;
+        if (this->debug_) target_string = "LRAT";
+    }
     bool stop_iteration = false;
     double temp_alq = alq;
     while(!stop_iteration) {
@@ -674,9 +694,20 @@ reduceALQtoOilTarget_(double alq,
         if (!bhp_opt) break;
         auto bhp_this = getBhpWithLimit_(*bhp_opt);
         computeWellRates_(bhp_this.first, potentials);
-        oil_rate = -potentials[this->oil_pos_];
-        if (oil_rate < target) {
-            break;
+        if (orat_control) {
+            oil_rate = -potentials[this->oil_pos_];
+            if (oil_rate < target) {
+                break;
+            }
+        }
+        else {
+            oil_rate = -potentials[this->oil_pos_];
+            double water_rate = -potentials[this->water_pos_];
+            double liquid_rate = oil_rate + water_rate;
+            if (liquid_rate < target) {
+                break;
+            }
+
         }
         alq = temp_alq;
     }
@@ -687,14 +718,15 @@ reduceALQtoOilTarget_(double alq,
         if (alq < orig_alq) {
             // NOTE: ALQ may drop below zero before we are able to meet the target
             const std::string msg = fmt::format(
-                "Reduced (oil_rate, alq) from ({}, {}) to ({}, {}) to meet target "
-                "at {}. ", orig_oil_rate, orig_alq, oil_rate, alq, target);
+                "Reduced (oil_rate, alq) from ({}, {}) to ({}, {}) to meet {} target "
+                "at {}. ", orig_oil_rate, orig_alq, oil_rate, alq, target_string, target);
             displayDebugMessage_(msg);
         }
         else if (alq == orig_alq) {
             // We might not be able to reduce ALQ, for example if ALQ starts out at zero.
             const std::string msg = fmt::format("Not able to reduce ALQ {} further. "
-                "Oil rate is {} and oil target is {}", orig_alq, oil_rate, target);
+                "Oil rate is {} and {} target is {}",
+                orig_alq, oil_rate, target_string, target);
             displayDebugMessage_(msg);
         }
     }

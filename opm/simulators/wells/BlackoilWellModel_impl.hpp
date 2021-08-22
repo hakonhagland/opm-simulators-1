@@ -851,6 +851,12 @@ namespace Opm {
         last_report_.assemble_time_well += perfTimer.stop();
     }
 
+    /* To turn on debugging for gas lift optimization:
+       - set glift_debug to "true" in BlackoilWellModelGeneric.hpp
+       - set debug to "true" in the constructor in GasLiftGroupInfo.cpp
+       - set "debug_" to "true" in the constructor in GasLiftSingleWellGeneric.cpp
+       - set "debug_" to "true" in the constructor in GasLiftStage2.cpp
+    */
     template<typename TypeTag>
     void
     BlackoilWellModel<TypeTag>::
