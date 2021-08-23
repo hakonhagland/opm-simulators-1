@@ -47,6 +47,7 @@ GasLiftSingleWell(const StdWell &std_well,
    , std_well_{std_well}
 {
     const auto& gl_well = *gl_well_;
+    checkVFPtableValid_();
     if(useFixedAlq_(gl_well)) {
         updateWellStateAlqFixedValue_(gl_well);
         this->optimize_ = false; // lift gas supply is fixed
@@ -93,6 +94,21 @@ GasLiftSingleWell(const StdWell &std_well,
 /****************************************
  * Private methods in alphabetical order
  ****************************************/
+
+template<typename TypeTag>
+void
+GasLiftSingleWell<TypeTag>::
+checkVFPtableValid_()
+{
+    const auto& table = this->std_well_.vfpProperties()->getProd()->getTable(
+                this->controls_.vfp_table_number);
+    if (table.getALQType() != VFPProdTable::ALQ_TYPE::ALQ_GRAT) {
+        OPM_DEFLOG_THROW(std::runtime_error,
+            "Gas Lift optimization: well "
+            <<  this->well_name_
+            << " : VFP table needs ALQ type = GRAT", this->deferred_logger_);
+    }
+}
 
 template<typename TypeTag>
 void

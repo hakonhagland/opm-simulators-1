@@ -62,6 +62,7 @@ namespace Opm
         const WellInterfaceGeneric &getStdWell() const override { return std_well_; }
 
     private:
+        void checkVFPtableValid_();
         std::optional<double> computeBhpAtThpLimit_(double alq) const override;
         void computeWellRates_(
             double bhp, std::vector<double> &potentials, bool debug_output=true) const override;
