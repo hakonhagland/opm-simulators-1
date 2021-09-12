@@ -17,33 +17,35 @@
   along with OPM.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef OPM_SIMULATORS_HEADER_INCLUDED
-#define OPM_SIMULATORS_HEADER_INCLUDED
+#ifndef OPM_PY_BLACKOIL_SIMULATOR_HEADER_INCLUDED
+#define OPM_PY_BLACKOIL_SIMULATOR_HEADER_INCLUDED
 
 #include <opm/simulators/flow/Main.hpp>
 #include <opm/simulators/flow/FlowMainEbos.hpp>
 #include <opm/models/utils/propertysystem.hh>
-#include <pybind11/pybind11.h>
-#include <pybind11/numpy.h>
-
-namespace py = pybind11;
+#include <opm/simulators/flow/python/Pybind11Exporter.hpp>
+#include <opm/simulators/flow/python/PyMaterialState.hpp>
+#include <opm/simulators/flow/python/PySchedule.hpp>
+#include <opm/parser/eclipse/EclipseState/Schedule/Schedule.hpp>
 
 namespace Opm::Pybind {
-class BlackOilSimulator
+class PyBlackOilSimulator
 {
-private:
     using TypeTag = Opm::Properties::TTag::EclFlowProblem;
+private:
     using Simulator = Opm::GetPropType<TypeTag, Opm::Properties::Simulator>;
 
 public:
-    BlackOilSimulator( const std::string &deckFilename);
+    PyBlackOilSimulator( const std::string &deckFilename);
     py::array_t<double> getPorosity();
+    PySchedule *getSchedule();
     int run();
     void setPorosity(
          py::array_t<double, py::array::c_style | py::array::forcecast> array);
     int step();
     int stepInit();
     int stepCleanup();
+    const Opm::FlowMainEbos<TypeTag>& getFlowMainEbos() const;
 
 private:
     const std::string deckFilename_;
@@ -58,7 +60,18 @@ private:
     std::unique_ptr<Opm::FlowMainEbos<TypeTag>> mainEbos_;
     Simulator *ebosSimulator_;
     std::unique_ptr<PyMaterialState<TypeTag>> materialState_;
+    std::shared_ptr<PyScheduleWrapper> scheduleWrapper_;
+};
+
+class PyScheduleWrapper {
+public:
+    PyScheduleWrapper(const PyBlackOilSimulator& sim) : sim_(sim)
+    {
+    }
+    const Opm::Schedule& getSchedule();
+private:
+    const PyBlackOilSimulator& sim_;
 };
 
 } // namespace Opm::Pybind
-#endif // OPM_SIMULATORS_HEADER_INCLUDED
+#endif // OPM_PY_BLACKOIL_SIMULATOR_HEADER_INCLUDED

@@ -391,6 +391,11 @@ namespace Opm
           }
         }
 
+        // NOTE: These are not a protected methods since they are used by the Python
+        //   interface.
+        const Schedule& schedule() const
+        { return ebosSimulator_->vanguard().schedule(); }
+
         EbosSimulator *getSimulatorPtr() {
             return ebosSimulator_.get();
         }
@@ -541,9 +546,6 @@ namespace Opm
 
         EclipseState& eclState()
         { return ebosSimulator_->vanguard().eclState(); }
-
-        const Schedule& schedule() const
-        { return ebosSimulator_->vanguard().schedule(); }
 
         // Run the simulator.
         int runSimulator()

@@ -25,38 +25,59 @@
 #define FLOW_BLACKOIL_ONLY
 #include <opm/simulators/flow/Main.hpp>
 #include <opm/simulators/flow/FlowMainEbos.hpp>
-#include <opm/simulators/flow/python/PyMaterialState.hpp>
-#include <pybind11/pybind11.h>
-#include <pybind11/numpy.h>
-#include <pybind11/embed.h>
 // NOTE: EXIT_SUCCESS, EXIT_FAILURE is defined in cstdlib
 #include <cstdlib>
 #include <iostream>
 #include <string>
-#include <opm/simulators/flow/python/simulators.hpp>
+#include <opm/simulators/flow/python/Pybind11Exporter.hpp>
+#include <opm/simulators/flow/python/PyBlackOilSimulator.hpp>
+#include <opm/simulators/flow/python/PyMaterialState.hpp>
 
 namespace py = pybind11;
 
 namespace Opm::Pybind {
-BlackOilSimulator::BlackOilSimulator( const std::string &deckFilename)
+PyBlackOilSimulator::PyBlackOilSimulator( const std::string &deckFilename)
     : deckFilename_{deckFilename}
 {
+    scheduleWrapper_ = std::make_shared<PyScheduleWrapper>(*this);
 }
 
-py::array_t<double> BlackOilSimulator::getPorosity()
+const Opm::FlowMainEbos<typename Opm::Pybind::PyBlackOilSimulator::TypeTag>&
+         PyBlackOilSimulator::getFlowMainEbos() const
+{
+    if (this->mainEbos_) {
+        return *(this->mainEbos_.get());
+    }
+    else {
+        throw std::runtime_error("BlackOilSimulator not initialized: "
+            "Cannot get reference to FlowMainEbos object" );
+    }
+}
+
+py::array_t<double> PyBlackOilSimulator::getPorosity()
 {
     std::size_t len;
     auto array = materialState_->getPorosity(&len);
     return py::array(len, array.get());
 }
 
-int BlackOilSimulator::run()
+PySchedule *PyBlackOilSimulator::getSchedule()
+{
+    return new PySchedule{scheduleWrapper_};
+}
+
+const Opm::Schedule& PyScheduleWrapper::getSchedule()
+{
+    return this->sim_.getFlowMainEbos().schedule();
+}
+
+int PyBlackOilSimulator::run()
 {
     auto mainObject = Opm::Main( deckFilename_ );
     return mainObject.runDynamic();
 }
 
-void BlackOilSimulator::setPorosity( py::array_t<double,
+void PyBlackOilSimulator::setPorosity( py::array_t<double,
     py::array::c_style | py::array::forcecast> array)
 {
     std::size_t size_ = array.size();
@@ -64,7 +85,7 @@ void BlackOilSimulator::setPorosity( py::array_t<double,
     materialState_->setPorosity(poro, size_);
 }
 
-int BlackOilSimulator::step()
+int PyBlackOilSimulator::step()
 {
     if (!hasRunInit_) {
         throw std::logic_error("step() called before step_init()");
@@ -75,13 +96,13 @@ int BlackOilSimulator::step()
     return mainEbos_->executeStep();
 }
 
-int BlackOilSimulator::stepCleanup()
+int PyBlackOilSimulator::stepCleanup()
 {
     hasRunCleanup_ = true;
     return mainEbos_->executeStepsCleanup();
 }
 
-int BlackOilSimulator::stepInit()
+int PyBlackOilSimulator::stepInit()
 {
 
     if (hasRunInit_) {
@@ -109,18 +130,20 @@ int BlackOilSimulator::stepInit()
     }
 }
 
+void export_PyBlackOilSimulator(py::module& m)
+{
+    py::class_<PyBlackOilSimulator>(m, "BlackOilSimulator")
+        .def(py::init< const std::string& >())
+        .def("get_porosity", &PyBlackOilSimulator::getPorosity,
+            py::return_value_policy::copy)
+        .def("get_schedule", &PyBlackOilSimulator::getSchedule,
+            py::return_value_policy::take_ownership)
+        .def("run", &PyBlackOilSimulator::run)
+        .def("set_porosity", &PyBlackOilSimulator::setPorosity)
+        .def("step", &PyBlackOilSimulator::step)
+        .def("step_init", &PyBlackOilSimulator::stepInit)
+        .def("step_cleanup", &PyBlackOilSimulator::stepCleanup);
+}
+
 } // namespace Opm::Pybind
 
-PYBIND11_MODULE(simulators, m)
-{
-    using namespace Opm::Pybind;
-    py::class_<BlackOilSimulator>(m, "BlackOilSimulator")
-        .def(py::init< const std::string& >())
-        .def("get_porosity", &BlackOilSimulator::getPorosity,
-            py::return_value_policy::copy)
-        .def("run", &BlackOilSimulator::run)
-        .def("set_porosity", &BlackOilSimulator::setPorosity)
-        .def("step", &BlackOilSimulator::step)
-        .def("step_init", &BlackOilSimulator::stepInit)
-        .def("step_cleanup", &BlackOilSimulator::stepCleanup);
-}
