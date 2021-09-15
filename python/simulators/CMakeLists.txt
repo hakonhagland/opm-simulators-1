@@ -1,11 +1,20 @@
 # NOTE: we assume that add_subdirectory( pybind11 ) is called from the
-#       parent folder's CMakeLists.txt before this CMakeLists.txt is loaded.
-#       Therefore, pybind11's CMakeLists.txt has already run
-#       find_package(PYTHON) to define variables like
-#       ${PYTHON_EXECUTABLE}
+#    parent folder's CMakeLists.txt before this CMakeLists.txt is loaded.
+#    Therefore, pybind11's CMakeLists.txt has already run
+#    find_package(PYTHON) to define variables like ${PYTHON_EXECUTABLE}
 #
-
-pybind11_add_module(simulators simulators.cpp ${PYBIND11_SYSTEM})
+# NOTE: The variable ${PYBIND11_SYSTEM} is set in python/CMakeLists.txt
+#   to the value "SYSTEM" or unset, depending on the current version of Pybind11.
+#   The value is then forwarded to target_include_directories(), see
+#
+#  https://cmake.org/cmake/help/latest/command/target_include_directories.html
+#  https://pybind11.readthedocs.io/en/stable/compiling.html
+#
+pybind11_add_module(simulators ${PYBIND11_SYSTEM}
+  PyBlackOilSimulator.cpp
+  PySchedule.cpp
+  PyWell.cpp
+  Pybind11Exporter.cpp)
 
 set_target_properties( simulators PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/python/opm2 )
 
