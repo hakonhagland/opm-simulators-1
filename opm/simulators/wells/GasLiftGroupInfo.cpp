@@ -103,7 +103,6 @@ getRate(Rate rate_type, const std::string& group_name) const
     }
 }
 
-
 std::tuple<double, double, double, double>
 GasLiftGroupInfo::
 getRates(const int group_idx) const
@@ -159,6 +158,14 @@ groupIdxToName(int group_idx) const
     //   cannot be nullptr here..
     assert(group_name);
     return *group_name;
+}
+
+bool
+GasLiftGroupInfo::
+hasAnyTarget(const std::string& group_name) const
+{
+    return oilTarget(group_name)   || gasTarget(group_name)
+        || waterTarget(group_name) || liquidTarget(group_name);
 }
 
 bool
