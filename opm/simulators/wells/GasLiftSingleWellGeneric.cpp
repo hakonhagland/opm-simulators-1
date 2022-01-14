@@ -637,11 +637,12 @@ getRateWithLimit_(Rate rate_type, const BasicRates &rates) const
     if (hasProductionControl_(rate_type)) {
         auto target = getProductionTarget_(rate_type);
         if (new_rate > target) {
-            new_rate = target;
             const std::string msg = fmt::format("limiting {} rate to target: "
                                                 "computed rate: {}, target: {}",
                   GasLiftGroupInfo::rateToString(rate_type), new_rate, target);
             displayDebugMessage_(msg);
+            new_rate = target;
+            target_type = rate_type;
         }
     }
     if ((rate_type == Rate::oil) || (rate_type == Rate::water)) {
@@ -955,6 +956,7 @@ maybeAdjustALQbeforeOptimizeLoop_(
 {
     double alq = orig_alq;
     LimitedRates rates = orig_rates;
+
     if (this->debug_) {
         const std::string msg = fmt::format("initial ALQ: {}", alq);
         displayDebugMessage_(msg);
@@ -1136,7 +1138,7 @@ runOptimizeLoop_(bool increase)
     if (!checkThpControl_()) {
         // If the well is not under THP control, we can still use the previous
         //   initial adjustment of ALQ by using the well's THP limit to calculate
-        //   BHP and then well rates.
+        //   BHP and then well rates from that.
         //   This is useful for example for wells under group control to reduce
         //   their gaslift. A typical case for this could be that a new well opens up.
         //   Then gaslift can be reduced while still keeping the group target.
@@ -1150,8 +1152,7 @@ runOptimizeLoop_(bool increase)
         if (checkGroupTargetsViolated(*rates, new_rates)) break;
         if (state.checkAlqOutsideLimits(temp_alq, new_rates.oil)) break;
         std::optional<double> alq_opt;
-        std::tie(alq_opt, alq_is_limited)
-            = state.addOrSubtractAlqIncrement(temp_alq);
+        std::tie(alq_opt, alq_is_limited) = state.addOrSubtractAlqIncrement(temp_alq);
         if (!alq_opt) break;
         auto delta_alq = *alq_opt - temp_alq;
         if (state.checkGroupALQrateExceeded(delta_alq)) break;
@@ -1174,7 +1175,7 @@ runOptimizeLoop_(bool increase)
         }
 */
         auto gradient = state.calcEcoGradient(
-            temp_rates->oil, temp_rates->oil, rates->gas, temp_rates->gas);
+            rates->oil, temp_rates->oil, rates->gas, temp_rates->gas);
         if (this->debug_)
             debugCheckNegativeGradient_(
                 gradient, cur_alq, temp_alq, rates->oil, temp_rates->oil,
