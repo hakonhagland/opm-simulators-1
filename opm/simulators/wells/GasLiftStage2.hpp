@@ -80,7 +80,7 @@ private:
     GradInfo deleteDecGradItem_(const std::string& name);
     GradInfo deleteIncGradItem_(const std::string& name);
     GradInfo deleteGrad_(const std::string& name, bool increase);
-    void displayDebugMessage_(const std::string& msg);
+    void displayDebugMessage_(const std::string& msg) const;
     void displayDebugMessage2B_(const std::string& msg);
     void displayDebugMessage_(const std::string& msg, const std::string& group_name);
     void displayWarning_(const std::string& msg, const std::string& group_name);

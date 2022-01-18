@@ -129,7 +129,11 @@ calcIncOrDecGrad_(
     // only applies to wells in the well_state_map (i.e. wells on this rank)
     if(this->well_state_map_.count(well_name) == 0)
         return std::nullopt;
-
+    if (this->debug_) {
+        const std::string msg = fmt::format("well {} : calculating {} gradient..",
+            well_name, (increase ? "incremental" : "decremental"));
+        displayDebugMessage_(msg);
+    }
     GasLiftWellState &state = *(this->well_state_map_.at(well_name).get());
     if (checkRateAlreadyLimited_(state, increase)) {
         /*
@@ -192,7 +196,6 @@ checkRateAlreadyLimited_(GasLiftWellState &state, bool increase)
     return false;
 }
 
-
 GasLiftStage2::GradInfo
 GasLiftStage2::
 deleteGrad_(const std::string &name, bool increase)
@@ -237,7 +240,7 @@ displayWarning_(const std::string &msg)
 
 void
 GasLiftStage2::
-displayDebugMessage_(const std::string &msg)
+displayDebugMessage_(const std::string &msg) const
 {
     if (this->debug_) {
         const std::string message = fmt::format(

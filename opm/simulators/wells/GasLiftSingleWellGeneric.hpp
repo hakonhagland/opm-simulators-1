@@ -222,10 +222,8 @@ protected:
         bool checkAlqOutsideLimits(double alq, double oil_rate);
         bool checkEcoGradient(double gradient);
         bool checkGroupALQrateExceeded(double delta_alq);
-        bool checkNegativeOilRate(double oil_rate);
         bool checkOilRateExceedsTarget(double oil_rate);
-        bool checkRate(double rate, double limit, const std::string &rate_str) const;
-        bool checkWellRatesViolated(const LimitedRates& rates) const;
+        bool checkRatesViolated(const LimitedRates& rates) const;
         void debugShowIterationInfo(double alq);
         double getBhpWithLimit();
         void warn_(std::string msg) {parent.displayWarning_(msg);}
@@ -240,10 +238,6 @@ protected:
                       const BasicRates& rates, const BasicRates& new_rates) const;
     bool checkInitialALQmodified_(double alq, double initial_alq) const;
     bool checkThpControl_() const;
-    bool checkWellRatesViolated_(
-            const LimitedRates& rates,
-            const std::function<bool(double, double, const std::string&)>& callback,
-            bool increase);
     virtual std::optional<double> computeBhpAtThpLimit_(double alq) const = 0;
     std::optional<BasicRates> computeInitialWellRates_() const;
     std::optional<LimitedRates> computeLimitedWellRatesWithALQ_(double alq) const;
