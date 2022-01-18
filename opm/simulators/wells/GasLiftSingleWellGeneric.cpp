@@ -57,7 +57,7 @@ GasLiftSingleWellGeneric::GasLiftSingleWellGeneric(
     , sync_groups_{sync_groups}
     , controls_{ecl_well_.productionControls(summary_state_)}
     , num_phases_{well_state_.numPhases()}
-    , debug_{true}  // extra debugging output
+    , debug_{false}  // extra debugging output
     , debug_limit_increase_decrease_{false}
 {
     this->well_name_ = ecl_well_.name();
@@ -649,47 +649,6 @@ getRateWithLimit_(Rate rate_type, const BasicRates &rates) const
     return { new_rate, target_type};
 }
 
-GasLiftSingleWellGeneric::LimitedRates
-GasLiftSingleWellGeneric::
-updateRatesToGroupLimits_(
-    const LimitedRates& old_rates, const LimitedRates& rates) const
-{
-    LimitedRates new_rates = rates;
-    auto [new_oil_rate, oil_is_limited] = getOilRateWithGroupLimit_(
-        new_rates.oil, old_rates.oil);
-    if (oil_is_limited) {
-        new_rates.oil_limiting_target = Rate::oil;
-    }
-    auto [new_gas_rate, gas_is_limited] = getGasRateWithGroupLimit_(
-        new_rates.gas, old_rates.gas);
-    auto [new_water_rate, water_is_limited] = getWaterRateWithGroupLimit_(
-        new_rates.water, old_rates.water);
-    if (water_is_limited) {
-        new_rates.water_limiting_target = Rate::water;
-    }
-    auto [new_oil_rate2, new_water_rate2, oil_is_limited2, water_is_limited2]
-        = getLiquidRateWithGroupLimit_(
-            new_oil_rate, old_rates.oil, new_water_rate, old_rates.water);
-    if (oil_is_limited2) {
-        new_rates.oil_limiting_target = Rate::liquid;
-    }
-    if (water_is_limited2) {
-        new_rates.water_limiting_target = Rate::liquid;
-    }
-    new_rates.oil = new_oil_rate2;
-    new_rates.gas = new_gas_rate;
-    new_rates.water = new_water_rate2;
-    new_rates.oil_is_limited = rates.oil_is_limited || oil_is_limited || oil_is_limited2;
-    new_rates.gas_is_limited = rates.gas_is_limited || gas_is_limited;
-    new_rates.water_is_limited =
-                      rates.water_is_limited || water_is_limited || water_is_limited2;
-    if (oil_is_limited || oil_is_limited2 || gas_is_limited
-                       || water_is_limited || water_is_limited2) {
-        new_rates.limit_type = LimitedRates::LimitType::group;
-    }
-    return new_rates;
-}
-
 std::pair<double, bool>
 GasLiftSingleWellGeneric::
 getOilRateWithGroupLimit_(double new_oil_rate, double oil_rate) const
@@ -795,14 +754,16 @@ getRateWithGroupLimit_(
             }
          }
       }
-      if (this->debug_ && group_name) {
-          const std::string msg = fmt::format(
-              "limiting {} rate from {} to {} to meet group target {} "
-              "for group {}. Computed group rate was: {}",
-              GasLiftGroupInfo::rateToString(rate_type),
-              new_rate, limited_rate, gr_target,
-              *group_name, new_gr_rate);
-          displayDebugMessage_(msg);
+      if (group_name) {
+          if (this->debug_) {
+              const std::string msg = fmt::format(
+                  "limiting {} rate from {} to {} to meet group target {} "
+                  "for group {}. Computed group rate was: {}",
+                  GasLiftGroupInfo::rateToString(rate_type),
+                  new_rate, limited_rate, gr_target,
+                  *group_name, new_gr_rate);
+              displayDebugMessage_(msg);
+          }
           return { limited_rate, group_name, efficiency };
       }
     }
@@ -1282,6 +1243,46 @@ updateGroupRates_(
     }
 }
 
+GasLiftSingleWellGeneric::LimitedRates
+GasLiftSingleWellGeneric::
+updateRatesToGroupLimits_(
+    const LimitedRates& old_rates, const LimitedRates& rates) const
+{
+    LimitedRates new_rates = rates;
+    auto [new_oil_rate, oil_is_limited] = getOilRateWithGroupLimit_(
+        new_rates.oil, old_rates.oil);
+    if (oil_is_limited) {
+        new_rates.oil_limiting_target = Rate::oil;
+    }
+    auto [new_gas_rate, gas_is_limited] = getGasRateWithGroupLimit_(
+        new_rates.gas, old_rates.gas);
+    auto [new_water_rate, water_is_limited] = getWaterRateWithGroupLimit_(
+        new_rates.water, old_rates.water);
+    if (water_is_limited) {
+        new_rates.water_limiting_target = Rate::water;
+    }
+    auto [new_oil_rate2, new_water_rate2, oil_is_limited2, water_is_limited2]
+        = getLiquidRateWithGroupLimit_(
+            new_oil_rate, old_rates.oil, new_water_rate, old_rates.water);
+    if (oil_is_limited2) {
+        new_rates.oil_limiting_target = Rate::liquid;
+    }
+    if (water_is_limited2) {
+        new_rates.water_limiting_target = Rate::liquid;
+    }
+    new_rates.oil = new_oil_rate2;
+    new_rates.gas = new_gas_rate;
+    new_rates.water = new_water_rate2;
+    new_rates.oil_is_limited = rates.oil_is_limited || oil_is_limited || oil_is_limited2;
+    new_rates.gas_is_limited = rates.gas_is_limited || gas_is_limited;
+    new_rates.water_is_limited =
+                      rates.water_is_limited || water_is_limited || water_is_limited2;
+    if (oil_is_limited || oil_is_limited2 || gas_is_limited
+                       || water_is_limited || water_is_limited2) {
+        new_rates.limit_type = LimitedRates::LimitType::group;
+    }
+    return new_rates;
+}
 
 // Called when we should use a fixed ALQ value
 void
