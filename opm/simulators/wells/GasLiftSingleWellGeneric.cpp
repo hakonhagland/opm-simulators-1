@@ -43,10 +43,11 @@ GasLiftSingleWellGeneric::GasLiftSingleWellGeneric(
     const GroupState& group_state,
     const Well& ecl_well,
     const SummaryState& summary_state,
-    GasLiftGroupInfo &group_info,
+    GasLiftGroupInfo& group_info,
+    const PhaseUsage& phase_usage,
     const Schedule& schedule,
     const int report_step_idx,
-    GLiftSyncGroups &sync_groups,
+    GLiftSyncGroups& sync_groups,
     bool glift_debug
 ) :
     GasLiftCommon(well_state, deferred_logger, glift_debug)
@@ -54,6 +55,7 @@ GasLiftSingleWellGeneric::GasLiftSingleWellGeneric(
     , ecl_well_{ecl_well}
     , summary_state_{summary_state}
     , group_info_{group_info}
+    , phase_usage_{phase_usage}
     , sync_groups_{sync_groups}
     , controls_{ecl_well_.productionControls(summary_state_)}
     , num_phases_{well_state_.numPhases()}
@@ -779,7 +781,9 @@ getInitialRatesWithLimit_() const
             displayDebugMessage_(
                              "Maybe limiting initial rates before optimize loop..");
         }
-        limited_rates = getLimitedRatesFromRates_(*rates);
+        auto temp_rates = getLimitedRatesFromRates_(*rates);
+        BasicRates old_rates = getWellStateSurfacesRates_();
+        limited_rates = updateRatesToGroupLimits_(old_rates, temp_rates);
     }
     return limited_rates;
 }
@@ -798,6 +802,35 @@ getLimitedRatesFromRates_(const BasicRates& rates) const
         oil_is_limited, gas_is_limited, water_is_limited, rates.bhp_is_limited,
         oil_limiting_target, water_limiting_target};
 }
+
+GasLiftSingleWellGeneric::BasicRates
+GasLiftSingleWellGeneric::
+getWellStateSurfacesRates_() const
+{
+    const int well_index = this->well_state_.index(this->well_name_).value();
+    const auto& pu = this->phase_usage_;
+    const auto& ws= this->well_state_.well(well_index);
+    const auto& wrate = ws.surface_rates;
+
+    const auto oil_rate = pu.phase_used[Oil]
+        ? -wrate[pu.phase_pos[Oil]]
+        : 0.0;
+
+    const auto gas_rate = pu.phase_used[Gas]
+        ? -wrate[pu.phase_pos[Gas]]
+        : 0.0;
+
+    const auto water_rate = pu.phase_used[Water]
+        ? -wrate[pu.phase_pos[Water]]
+        : 0.0;
+    if (this->debug) {
+        const std::string msg = fmt::format("Initial surface rates: oil : {}, "
+            "gas : {}, water : {}", oil_rate, gas_rate, water_rate);
+        displayDebugMessage_(msg);
+    }
+    return BasicRates{oil_rate, water_rate, gas_rate, /*bhp_is_limited=*/false};
+}
+
 
 bool
 GasLiftSingleWellGeneric::
@@ -1244,7 +1277,7 @@ updateGroupRates_(
 GasLiftSingleWellGeneric::LimitedRates
 GasLiftSingleWellGeneric::
 updateRatesToGroupLimits_(
-    const LimitedRates& old_rates, const LimitedRates& rates) const
+    const BasicRates& old_rates, const LimitedRates& rates) const
 {
     LimitedRates new_rates = rates;
     auto [new_oil_rate, oil_is_limited] = getOilRateWithGroupLimit_(
