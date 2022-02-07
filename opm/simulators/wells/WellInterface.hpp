@@ -57,6 +57,7 @@ namespace Opm {
 #include <opm/material/densead/Evaluation.hpp>
 
 #include <opm/simulators/wells/WellInterfaceIndices.hpp>
+#include <opm/simulators/timestepping/ConvergenceReport.hpp>
 
 #include <cassert>
 #include <vector>
@@ -170,6 +171,20 @@ public:
         GasLiftGroupInfo &group_info,
         GLiftSyncGroups &sync_groups,
         bool glift_debug
+    ) const = 0;
+
+    virtual void computeWellRatesWithBhp(
+        const Simulator& ebosSimulator,
+        const double& bhp,
+        std::vector<double>& well_flux,
+        DeferredLogger& deferred_logger
+    ) const = 0;
+
+    virtual std::optional<double> computeBhpAtThpLimitProdWithAlq(
+        const Simulator& ebos_simulator,
+        const SummaryState& summary_state,
+        DeferredLogger& deferred_logger,
+        double alq_value
     ) const = 0;
 
     /// using the solution x to recover the solution xw for wells and applying

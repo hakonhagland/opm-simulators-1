@@ -173,6 +173,12 @@ namespace Opm
                                     double* connII,
                                     DeferredLogger& deferred_logger) const;
 
+        virtual std::optional<double> computeBhpAtThpLimitProdWithAlq(
+            const Simulator& ebos_simulator,
+            const SummaryState& summary_state,
+            DeferredLogger& deferred_logger,
+            double alq_value) const override;
+
     protected:
         int number_segments_;
 
@@ -258,19 +264,20 @@ namespace Opm
                                         std::vector<double>& well_flux,
                                         DeferredLogger& deferred_logger) const;
 
-        void computeWellRatesWithBhp(const Simulator& ebosSimulator,
-                                     const Scalar& bhp,
+        virtual void computeWellRatesWithBhp(const Simulator& ebosSimulator,
+                                     const double& bhp,
                                      std::vector<double>& well_flux,
-                                     DeferredLogger& deferred_logger) const;
+                                     DeferredLogger& deferred_logger) const override;
 
         void computeWellRatesWithBhpIterations(const Simulator& ebosSimulator,
                                                const Scalar& bhp,
                                                std::vector<double>& well_flux,
                                                DeferredLogger& deferred_logger) const;
 
-        std::vector<double>
-        computeWellPotentialWithTHP(const Simulator& ebos_simulator,
-                                    DeferredLogger& deferred_logger) const;
+        std::vector<double> computeWellPotentialWithTHP(
+                                 const WellState& well_state,
+                                 const Simulator& ebos_simulator,
+                                 DeferredLogger& deferred_logger) const;
 
         virtual double getRefDensity() const override;
 
@@ -306,9 +313,12 @@ namespace Opm
         bool allDrawDownWrongDirection(const Simulator& ebos_simulator) const;
 
 
-        std::optional<double> computeBhpAtThpLimitProd(const Simulator& ebos_simulator,
-                                                       const SummaryState& summary_state,
-                                                       DeferredLogger& deferred_logger) const;
+
+        std::optional<double> computeBhpAtThpLimitProd(
+            const WellState& well_state,
+            const Simulator& ebos_simulator,
+            const SummaryState& summary_state,
+            DeferredLogger& deferred_logger) const;
 
         std::optional<double> computeBhpAtThpLimitInj(const Simulator& ebos_simulator,
                                                       const SummaryState& summary_state,

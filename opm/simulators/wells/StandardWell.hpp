@@ -229,19 +229,17 @@ namespace Opm
             std::vector<double> &potentials,
             double alq) const;
 
-        // NOTE: Cannot be protected since it is used by GasLiftRuntime
-        std::optional<double> computeBhpAtThpLimitProdWithAlq(
+        virtual std::optional<double> computeBhpAtThpLimitProdWithAlq(
             const Simulator& ebos_simulator,
             const SummaryState& summary_state,
             DeferredLogger& deferred_logger,
-            double alq_value) const;
+            double alq_value) const override;
 
-        // NOTE: Cannot be protected since it is used by GasLiftRuntime
-        void computeWellRatesWithBhp(
+        virtual void computeWellRatesWithBhp(
             const Simulator& ebosSimulator,
             const double& bhp,
             std::vector<double>& well_flux,
-            DeferredLogger& deferred_logger) const;
+            DeferredLogger& deferred_logger) const override;
 
         // NOTE: These cannot be protected since they are used by GasLiftRuntime
         using Base::phaseUsage;
