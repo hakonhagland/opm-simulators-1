@@ -160,19 +160,6 @@ public:
                         const GroupState& group_state,
                         DeferredLogger& deferred_logger);
 
-    virtual void gasLiftOptimizationStage1 (
-        WellState& well_state,
-        const GroupState& group_state,
-        const Simulator& ebosSimulator,
-        DeferredLogger& deferred_logger,
-        GLiftProdWells& prod_wells,
-        GLiftOptWells& glift_wells,
-        GLiftWellStateMap& state_map,
-        GasLiftGroupInfo &group_info,
-        GLiftSyncGroups &sync_groups,
-        bool glift_debug
-    ) const = 0;
-
     virtual void computeWellRatesWithBhp(
         const Simulator& ebosSimulator,
         const double& bhp,

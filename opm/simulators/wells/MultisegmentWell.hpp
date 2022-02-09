@@ -52,11 +52,6 @@ namespace Opm
         using typename Base::RateConverterType;
         using typename Base::SparseMatrixAdapter;
         using typename Base::FluidState;
-        using typename Base::GasLiftSingleWell;
-        using typename Base::GLiftProdWells;
-        using typename Base::GLiftOptWells;
-        using typename Base::GLiftWellStateMap;
-        using typename Base::GLiftSyncGroups;
 
         using Base::has_solvent;
         using Base::has_polymer;
@@ -98,21 +93,6 @@ namespace Opm
                           const std::vector< Scalar >& B_avg) override;
 
         virtual void initPrimaryVariablesEvaluation() const override;
-
-        virtual void gasLiftOptimizationStage1 (
-            WellState&,
-            const GroupState&,
-            const Simulator&,
-            DeferredLogger&,
-            GLiftProdWells &,
-            GLiftOptWells &,
-            GLiftWellStateMap &,
-            GasLiftGroupInfo &,
-            GLiftSyncGroups &,
-            bool
-        ) const override {
-            // Not implemented yet
-        }
 
         /// updating the well state based the current control mode
         virtual void updateWellStateWithTarget(const Simulator& ebos_simulator,

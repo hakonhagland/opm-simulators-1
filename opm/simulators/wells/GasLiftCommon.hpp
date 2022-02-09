@@ -35,14 +35,14 @@ public:
 
 protected:
     GasLiftCommon(
-        WellState &well_state,
+        const WellState &well_state,
         DeferredLogger &deferred_logger,
         bool debug
     );
     int debugUpdateGlobalCounter_() const;
     virtual void displayDebugMessage_(const std::string& msg) const = 0;
 
-    WellState &well_state_;
+    const WellState &well_state_;
     DeferredLogger &deferred_logger_;
     bool debug;
 };
