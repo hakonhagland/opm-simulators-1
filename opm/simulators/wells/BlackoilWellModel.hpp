@@ -399,11 +399,12 @@ namespace Opm {
                 GLiftProdWells &prod_wells, GLiftOptWells &glift_wells,
                 GasLiftGroupInfo &group_info, GLiftWellStateMap &state_map);
 
+            // cannot be const since it accesses the non-const WellState
             void gasLiftOptimizationStage1SingleWell(WellInterface<TypeTag> *well,
                 DeferredLogger& deferred_logger,
                 GLiftProdWells &prod_wells, GLiftOptWells &glift_wells,
                 GasLiftGroupInfo &group_info, GLiftWellStateMap &state_map,
-                GLiftSyncGroups& groups_to_sync) const;
+                GLiftSyncGroups& groups_to_sync);
 
             void extractLegacyCellPvtRegionIndex_();
 

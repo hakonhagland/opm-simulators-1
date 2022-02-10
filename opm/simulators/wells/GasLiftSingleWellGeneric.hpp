@@ -101,7 +101,7 @@ public:
 protected:
     GasLiftSingleWellGeneric(
         DeferredLogger& deferred_logger,
-        const WellState& well_state,
+        WellState& well_state,
         const GroupState& group_state,
         const Well& ecl_well,
         const SummaryState& summary_state,

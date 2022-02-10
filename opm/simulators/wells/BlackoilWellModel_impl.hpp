@@ -1026,6 +1026,9 @@ namespace Opm {
         }
     }
 
+    // NOTE: this method cannot be const since it passes this->wellState()
+    //   (see below) to the GasLiftSingleWell constructor which accepts WellState
+    //   as a non-const reference..
     template<typename TypeTag>
     void
     BlackoilWellModel<TypeTag>::
@@ -1033,7 +1036,7 @@ namespace Opm {
         DeferredLogger& deferred_logger,
         GLiftProdWells &prod_wells, GLiftOptWells &glift_wells,
         GasLiftGroupInfo &group_info, GLiftWellStateMap &state_map,
-        GLiftSyncGroups& sync_groups) const
+        GLiftSyncGroups& sync_groups)
     {
         const auto& summary_state = ebosSimulator_.vanguard().summaryState();
         std::unique_ptr<GasLiftSingleWell> glift
