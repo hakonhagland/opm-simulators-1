@@ -159,20 +159,20 @@ public:
         return this->alq_state.get(name);
     }
 
-    void setALQ( const std::string& name, double value) const
+    void setALQ( const std::string& name, double value)
     {
         this->alq_state.set(name, value);
     }
 
-    int gliftGetDebugCounter() const {
+    int gliftGetDebugCounter() {
         return this->alq_state.get_debug_counter();
     }
 
-    void gliftSetDebugCounter(int value) const {
+    void gliftSetDebugCounter(int value) {
         return this->alq_state.set_debug_counter(value);
     }
 
-    int gliftUpdateDebugCounter() const {
+    int gliftUpdateDebugCounter() {
         return this->alq_state.update_debug_counter();
     }
 
@@ -180,27 +180,27 @@ public:
         return this->alq_state.oscillation(name);
     }
 
-    int gliftGetAlqDecreaseCount(const std::string &name) const {
+    int gliftGetAlqDecreaseCount(const std::string &name) {
         return this->alq_state.get_decrement_count(name);
     }
 
-    int gliftGetAlqIncreaseCount(const std::string &name) const {
+    int gliftGetAlqIncreaseCount(const std::string &name) {
         return this->alq_state.get_increment_count(name);
     }
 
-    void gliftUpdateAlqIncreaseCount(const std::string &name, bool increase) const {
+    void gliftUpdateAlqIncreaseCount(const std::string &name, bool increase) {
         this->alq_state.update_count(name, increase);
     }
 
-    void gliftTimeStepInit() const {
+    void gliftTimeStepInit() {
         this->alq_state.reset_count();
     }
 
-    int wellNameToGlobalIdx(const std::string &name) const {
+    int wellNameToGlobalIdx(const std::string &name) {
         return this->global_well_info.value().well_index(name);
     }
 
-    std::string globalIdxToWellName(const int index) const {
+    std::string globalIdxToWellName(const int index) {
         return this->global_well_info.value().well_name(index);
     }
 
@@ -288,7 +288,7 @@ private:
     // WellStateFullyImplicitBlackoil class should be default constructible,
     // whereas the GlobalWellInfo is not.
     std::optional<GlobalWellInfo> global_well_info;
-    mutable ALQState alq_state;
+    ALQState alq_state;
 
     // The well_rates variable is defined for all wells on all processors. The
     // bool in the value pair is whether the current process owns the well or

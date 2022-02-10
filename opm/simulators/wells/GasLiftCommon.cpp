@@ -24,7 +24,7 @@ namespace Opm {
 
 GasLiftCommon::
 GasLiftCommon(
-    const WellState &well_state,
+    WellState &well_state,
     DeferredLogger &deferred_logger,
     bool glift_debug
 ) :
