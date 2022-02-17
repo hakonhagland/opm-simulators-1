@@ -58,7 +58,6 @@ GasLiftSingleWellGeneric::GasLiftSingleWellGeneric(
     , phase_usage_{phase_usage}
     , sync_groups_{sync_groups}
     , controls_{ecl_well_.productionControls(summary_state_)}
-    , num_phases_{well_state_.numPhases()}
     , debug_limit_increase_decrease_{false}
 {
     this->well_name_ = ecl_well_.name();
