@@ -67,7 +67,7 @@ GasLiftSingleWellGeneric::GasLiftSingleWellGeneric(
     //   allocated to individual wells in whole numbers of the increment
     //   size. If gas lift optimization is no longer required, it can be
     //   turned off by entering a zero or negative number."
-    // NOTE: This condition was checked in doGasLiftOptimize() in StandardWell
+    // NOTE: This condition was checked in checkDoGasLiftOptimize() in GasLiftGroupInfo.cpp
     //   so it can be assumed that increment_ > 0
     this->increment_ = glo.gaslift_increment();
     assert( this->increment_ > 0);
@@ -763,7 +763,7 @@ getRateWithGroupLimit_(
     const double delta_rate = new_rate - old_rate;
     if (delta_rate > 0) {
       // It is required that the production rate for a given group is
-      // is less than or equal to its target rate, see assert() below.
+      // is less than or equal to its target rate, see comment "Ref1" below.
       // Then it only makes sense to check if the group target is exceeded
       //  if delta_rate > 0
       const auto &pairs =
@@ -777,7 +777,7 @@ getRateWithGroupLimit_(
             double gr_target_temp = *gr_target_opt;
             double gr_rate_temp =
                 this->group_info_.getRate(rate_type, group_name_temp);
-            if (gr_rate_temp > gr_target_temp) {
+            if (gr_rate_temp > gr_target_temp) { /* Ref1: this should ideally not happen */
                 if (this->debug) {
                     debugInfoGroupRatesExceedTarget(
                         rate_type, group_name_temp, gr_rate_temp, gr_target_temp);
@@ -1165,27 +1165,32 @@ std::unique_ptr<GasLiftWellState>
 GasLiftSingleWellGeneric::
 runOptimizeLoop_(bool increase)
 {
+    auto counter = debugUpdateGlobalCounter_();
+    if (counter == 1) {
+        displayDebugMessage_("stop here");
+    }
     if (this->debug) debugShowProducerControlMode();
     std::unique_ptr<GasLiftWellState> ret_value; // nullptr initially
-    auto rates = getInitialRatesWithLimit_();
-    if (!rates) return ret_value;
+    auto rates_opt = getInitialRatesWithLimit_();
+    if (!rates_opt) return ret_value;
     // if (this->debug) debugShowBhpAlqTable_();
     if (this->debug) debugShowAlqIncreaseDecreaseCounts_();
     if (this->debug) debugShowTargets_();
     bool success = false;  // did we succeed to increase alq?
     bool alq_is_limited = false;
     auto cur_alq = this->orig_alq_;
-    LimitedRates new_rates = *rates;
-    auto [temp_rates2, new_alq] = maybeAdjustALQbeforeOptimizeLoop_(
-                                                 *rates, cur_alq, increase);
-    if (checkInitialALQmodified_(new_alq, cur_alq)) {
-        auto delta_alq = new_alq - cur_alq;
-        new_rates = temp_rates2;
-        cur_alq = new_alq;
-        success = true;
-        updateGroupRates_(*rates, new_rates, delta_alq);
+    LimitedRates new_rates = *rates_opt;
+    {
+        auto [temp_rates, new_alq] = maybeAdjustALQbeforeOptimizeLoop_(
+                                                 *rates_opt, cur_alq, increase);
+        if (checkInitialALQmodified_(new_alq, cur_alq)) {
+            auto delta_alq = new_alq - cur_alq;
+            new_rates = temp_rates;
+            cur_alq = new_alq;
+            success = true;
+            updateGroupRates_(*rates_opt, new_rates, delta_alq);
+        }
     }
-
     OptimizeState state {*this, increase};
     auto temp_alq = cur_alq;
     if (checkThpControl_()) {
@@ -1208,39 +1213,27 @@ runOptimizeLoop_(bool increase)
         if (!alq_opt) break;
         auto delta_alq = *alq_opt - temp_alq;
         if (checkGroupALQrateExceeded(delta_alq)) break;
-
         temp_alq = *alq_opt;
         if (this->debug) state.debugShowIterationInfo(temp_alq);
-        rates = new_rates;
-        auto temp_rates = computeLimitedWellRatesWithALQ_(temp_alq);
-        if (!temp_rates) break;
-        if (temp_rates->bhp_is_limited)
+        auto rates = new_rates;
+        auto temp_rates_opt = computeLimitedWellRatesWithALQ_(temp_alq);
+        if (!temp_rates_opt) break;
+        if (temp_rates_opt->bhp_is_limited)
             state.stop_iteration = true;
-        temp_rates = updateRatesToGroupLimits_(*rates, *temp_rates);
-
-        auto delta_gas_rate = temp_rates->gas - rates->gas;
+        auto temp_rates = updateRatesToGroupLimits_(rates, *temp_rates_opt);
+        if (!state.checkOilRatesChanged(rates, temp_rates)) break;
+        auto delta_gas_rate = temp_rates.gas - rates.gas;
         if (checkGroupTotalRateExceeded(delta_alq, delta_gas_rate)) break;
-
-/*        if (this->debug_abort_if_increase_and_gas_is_limited_) {
-            if (gas_is_limited && increase) {
-                // if gas is limited we do not want to increase
-                displayDebugMessage_(
-                    "increasing ALQ and gas is limited -> aborting iteration");
-                break;
-            }
-        }
-*/
-        auto gradient = state.calcEcoGradient(
-            rates->oil, temp_rates->oil, rates->gas, temp_rates->gas);
+        auto gradient = state.calcEcoGradient(rates.oil, temp_rates.oil, rates.gas, temp_rates.gas);
         if (this->debug)
             debugCheckNegativeGradient_(
-                gradient, cur_alq, temp_alq, rates->oil, temp_rates->oil,
-                rates->gas, temp_rates->gas, increase);
+                gradient, cur_alq, temp_alq, rates.oil, temp_rates.oil,
+                rates.gas, temp_rates.gas, increase);
         if (state.checkEcoGradient(gradient)) break;
         cur_alq = temp_alq;
         success = true;
-        new_rates = *temp_rates;
-        updateGroupRates_(*rates, new_rates, delta_alq);
+        new_rates = temp_rates;
+        updateGroupRates_(rates, new_rates, delta_alq);
     }
     if (state.it > this->max_iterations_) {
         warnMaxIterationsExceeded_();
@@ -1708,6 +1701,20 @@ checkEcoGradient(double gradient)
     }
     if (this->parent.debug) this->parent.displayDebugMessage_(ss.str());
     return result;
+}
+
+bool
+GasLiftSingleWellGeneric::OptimizeState::
+checkOilRatesChanged(const BasicRates& old_rates, const BasicRates& rates) const
+{
+    if (old_rates.oil == rates.oil) {
+        if (this->parent.debug) {
+            this->parent.displayDebugMessage_("No change in oil rate, probably "
+                "because group limits were already exceeded");
+        }
+        return false;
+    }
+    return true;
 }
 
 bool

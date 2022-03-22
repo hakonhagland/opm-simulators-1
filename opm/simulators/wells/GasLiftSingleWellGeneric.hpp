@@ -231,6 +231,7 @@ protected:
         bool checkAlqOutsideLimits(double alq, double oil_rate);
         bool checkEcoGradient(double gradient);
         bool checkOilRateExceedsTarget(double oil_rate);
+        bool checkOilRatesChanged(const BasicRates& old_rates, const BasicRates& rates) const;
         bool checkRatesViolated(const LimitedRates& rates) const;
         void debugShowIterationInfo(double alq);
         double getBhpWithLimit();
