@@ -1609,7 +1609,10 @@ checkAlqOutsideLimits(double alq, [[maybe_unused]] double oil_rate)
                 // NOTE: checking for an upper limit should not be necessary
                 // when decreasing alq.. so this is just to catch an
                 // illegal state at an early point.
-                if (alq >= this->parent.max_alq_) {
+                if (this->parent.checkALQequal_(alq, this->parent.max_alq_)) {
+                    return false;
+                }
+                else if (alq > this->parent.max_alq_) {
                     warn_( "unexpected: alq above upper limit when trying to "
                         "decrease lift gas. aborting iteration.");
                     result = true;
