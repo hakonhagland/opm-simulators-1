@@ -317,9 +317,9 @@ computeInitialWellRates_() const
 {
     std::optional<BasicRates> rates;
     double initial_alq = this->orig_alq_;
-    auto alq = initial_alq;
-    if (auto bhp = computeBhpAtThpLimit_(this->orig_alq_); bhp) {
- //   if (auto [bhp, alq] = computeConvergedBhpAtThpLimitByMaybeIncreasingALQ_(); bhp) {
+    //auto alq = initial_alq;
+    //if (auto bhp = computeBhpAtThpLimit_(this->orig_alq_); bhp) {
+    if (auto [bhp, alq] = computeConvergedBhpAtThpLimitByMaybeIncreasingALQ_(); bhp) {
         {
             const std::string msg = fmt::format(
                 "computed initial bhp {} given thp limit and given alq {}", *bhp, alq);

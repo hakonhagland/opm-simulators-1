@@ -332,9 +332,9 @@ namespace Opm
                 return;
             }
 
-            /*if (this->isProducer()) {
-￼                gliftBeginTimeStepWellTestUpdateALQ(simulator, well_state_copy, deferred_logger);
-￼           }*/
+            if (this->isProducer()) {
+                gliftBeginTimeStepWellTestUpdateALQ(simulator, well_state_copy, deferred_logger);
+            }
             updateWellOperability(simulator, well_state_copy, deferred_logger);
             if ( !this->isOperableAndSolvable() ) {
                 const auto msg = fmt::format("WTEST: Well {} is not operable (physical)", this->name());
