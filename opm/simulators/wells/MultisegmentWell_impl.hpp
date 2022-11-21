@@ -1133,7 +1133,9 @@ namespace Opm
         // either use mobility of the perforation cell or calcualte its own
         // based on passing the saturation table index
         const int satid = this->saturation_table_number_[perf] - 1;
+        const int imbid = satid;  // currently we do not support COMPIMB so we set imbid = satid
         const int satid_elem = materialLawManager->satnumRegionIdx(cell_idx);
+        const int imbid_elem = materialLawManager->imbnumRegionIdx(cell_idx);
         if( satid == satid_elem ) { // the same saturation number is used. i.e. just use the mobilty from the cell
 
             for (unsigned phaseIdx = 0; phaseIdx < FluidSystem::numPhases; ++phaseIdx) {
@@ -1149,12 +1151,12 @@ namespace Opm
             // }
         } else {
 
-            const auto& paramsCell = materialLawManager->connectionMaterialLawParams(satid, cell_idx);
+            const auto& paramsCell = materialLawManager->connectionMaterialLawParams(satid, imbid, cell_idx);
             std::array<Eval,3> relativePerms = { 0.0, 0.0, 0.0 };
             MaterialLaw::relativePermeabilities(relativePerms, paramsCell, intQuants.fluidState());
 
             // reset the satnumvalue back to original
-            materialLawManager->connectionMaterialLawParams(satid_elem, cell_idx);
+            materialLawManager->connectionMaterialLawParams(satid_elem, imbid_elem, cell_idx);
 
             // compute the mobility
             for (unsigned phaseIdx = 0; phaseIdx < FluidSystem::numPhases; ++phaseIdx) {
@@ -1185,7 +1187,9 @@ namespace Opm
         // either use mobility of the perforation cell or calcualte its own
         // based on passing the saturation table index
         const int satid = this->saturation_table_number_[perf] - 1;
+        const int imbid = satid;  // currently we do not support COMPIMB so we set imbid = satid
         const int satid_elem = materialLawManager->satnumRegionIdx(cell_idx);
+        const int imbid_elem = materialLawManager->imbnumRegionIdx(cell_idx);
         if( satid == satid_elem ) { // the same saturation number is used. i.e. just use the mobilty from the cell
 
             for (unsigned phaseIdx = 0; phaseIdx < FluidSystem::numPhases; ++phaseIdx) {
@@ -1201,12 +1205,12 @@ namespace Opm
             // }
         } else {
 
-            const auto& paramsCell = materialLawManager->connectionMaterialLawParams(satid, cell_idx);
+            const auto& paramsCell = materialLawManager->connectionMaterialLawParams(satid, imbid, cell_idx);
             std::array<Scalar,3> relativePerms = { 0.0, 0.0, 0.0 };
             MaterialLaw::relativePermeabilities(relativePerms, paramsCell, intQuants.fluidState());
 
             // reset the satnumvalue back to original
-            materialLawManager->connectionMaterialLawParams(satid_elem, cell_idx);
+            materialLawManager->connectionMaterialLawParams(satid_elem, imbid_elem, cell_idx);
 
             // compute the mobility
             for (unsigned phaseIdx = 0; phaseIdx < FluidSystem::numPhases; ++phaseIdx) {

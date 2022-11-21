@@ -1550,20 +1550,23 @@ public:
         Valgrind::CheckDefined(mobility);
         if (materialLawManager_->hasDirectionalRelperms()) {
             auto satnumIdx = materialLawManager_->satnumRegionIdx(globalSpaceIdx);
+            auto imbSatIdx = materialLawManager_->imbnumRegionIdx(globalSpaceIdx);
             using Dir = FaceDir::DirEnum;
             constexpr int ndim = 3;
             dirMob = std::make_unique<DirectionalMobility<TypeTag, Evaluation>>();
             Dir facedirs[ndim] = {Dir::XPlus, Dir::YPlus, Dir::ZPlus};
             for (int i = 0; i<ndim; i++) {
                 auto krnumSatIdx = materialLawManager_->getKrnumSatIdx(globalSpaceIdx, facedirs[i]);
+                auto imbnumSatIdx = materialLawManager_->getImbnumSatIdx(globalSpaceIdx, facedirs[i]);
                 auto& mob_array = dirMob->getArray(i);
-                if (krnumSatIdx != satnumIdx) {
+                if ((krnumSatIdx != satnumIdx) || (imbnumSatIdx != imbSatIdx)) {
                     // This hack is also used by StandardWell_impl.hpp:getMobilityEval() to temporarily use a different
                     // satnum index for a cell
-                    const auto& paramsCell = materialLawManager_->connectionMaterialLawParams(krnumSatIdx, globalSpaceIdx);
+                    const auto& paramsCell = materialLawManager_->connectionMaterialLawParams(
+                                                                     krnumSatIdx, imbnumSatIdx, globalSpaceIdx);
                     MaterialLaw::relativePermeabilities(mob_array, paramsCell, fluidState);
                     // reset the cell's satnum index back to the original
-                    materialLawManager_->connectionMaterialLawParams(satnumIdx, globalSpaceIdx);
+                    materialLawManager_->connectionMaterialLawParams(satnumIdx, imbSatIdx, globalSpaceIdx);
                 }
                 else {
                     // Copy the default (non-directional dependent) mobility
@@ -2210,6 +2213,8 @@ private:
 
         // directional relative permeabilities
         this->updateKrnum_();
+        this->updateImbnum_();
+
         ////////////////////////////////
         // porosity
         updateReferencePorosity_();
