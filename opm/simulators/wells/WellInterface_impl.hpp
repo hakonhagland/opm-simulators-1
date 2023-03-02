@@ -263,7 +263,6 @@ namespace Opm
                 DeferredLogger& deferred_logger)
     {
         deferred_logger.info(" well " + this->name() + " is being tested");
-
         WellState well_state_copy = well_state;
         auto& ws = well_state_copy.well(this->indexOfWell());
 
@@ -287,7 +286,8 @@ namespace Opm
             bool converged = solveWellForTesting(simulator, well_state_copy, group_state, deferred_logger);
             if (!converged) {
                 const auto msg = fmt::format("WTEST: Well {} is not solvable (physical)", this->name());
-                deferred_logger.debug(msg);
+                deferred_logger.info(msg);
+                deferred_logger.debug(msg); // TODO: do we need this one?
                 return;
             }
 
@@ -379,11 +379,12 @@ namespace Opm
         const double dt = ebosSimulator.timeStepSize();
         const auto& summary_state = ebosSimulator.vanguard().summaryState();
         const bool has_thp_limit = this->wellHasTHPConstraints(summary_state);
-        if (has_thp_limit)
+        if (has_thp_limit) {
             well_state.well(this->indexOfWell()).production_cmode = Well::ProducerCMode::THP;
-        else
+        }
+        else {
             well_state.well(this->indexOfWell()).production_cmode = Well::ProducerCMode::BHP;
-
+        }
         const bool converged = iterateWellEquations(ebosSimulator, dt, well_state, group_state, deferred_logger);
         if (converged) {
             deferred_logger.debug("WellTest: Well equation for well " + this->name() +  " converged");
