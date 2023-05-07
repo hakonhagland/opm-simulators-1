@@ -32,6 +32,7 @@
 #include <opm/input/eclipse/Schedule/Well/WVFPDP.hpp>
 
 #include <opm/material/densead/Evaluation.hpp>
+#include <opm/material/common/MathToolbox.hpp>
 
 #include <opm/simulators/utils/DeferredLoggingErrorHelpers.hpp>
 
@@ -322,13 +323,7 @@ calculateBhpFromThp(const WellState& well_state,
     else {
         OPM_DEFLOG_THROW(std::logic_error, "Expected INJECTOR or PRODUCER for well " + well_.name(), deferred_logger);
     }
-    double bhp_tab_double_value;
-    if constexpr (std::is_same_v<EvalWell, double>) {
-        bhp_tab_double_value = bhp_tab;
-    }
-    else {  // EvalWell and bhp_tab is of type DenseAd::Evaluation<double,...,...>
-        bhp_tab_double_value = bhp_tab.value();
-    }
+    double bhp_tab_double_value = getValue(bhp_tab);
     const auto bhp_adjustment = getVfpBhpAdjustment(bhp_tab_double_value, thp_limit);
     const double dp_hydro = wellhelpers::computeHydrostaticCorrection(
             well_.refDepth(), vfp_ref_depth, rho, well_.gravity());
