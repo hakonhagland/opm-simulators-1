@@ -43,6 +43,8 @@
 #include <cmath>
 #include <type_traits>
 
+#include <fmt/format.h>
+
 static constexpr bool extraBhpAtThpLimitOutput = false;
 
 namespace Opm
@@ -103,6 +105,7 @@ double WellBhpThpCalculator::calculateThpFromBhp(const std::vector<double>& rate
                                                  const double bhp,
                                                  const double rho,
                                                  const double alq,
+                                                 const double thp_limit,
                                                  DeferredLogger& deferred_logger) const
 {
     assert(int(rates.size()) == 3); // the vfp related only supports three phases now.
@@ -129,7 +132,16 @@ double WellBhpThpCalculator::calculateThpFromBhp(const std::vector<double>& rate
         const double vfp_ref_depth = well_.vfpProperties()->getProd()->getTable(table_id).getDatumDepth();
         const double dp = wellhelpers::computeHydrostaticCorrection(well_.refDepth(), vfp_ref_depth, rho, well_.gravity());
 
-        thp = well_.vfpProperties()->getProd()->thp(table_id, aqua, liquid, vapour, bhp + dp, alq);
+        auto pressure_loss = getVfpBhpAdjustment(bhp, thp_limit);
+        thp = well_.vfpProperties()->getProd()->thp(
+                                       table_id, aqua, liquid, vapour, bhp + dp - pressure_loss, alq);
+        auto thp2 = thp/unit::barsa;
+        std::string prefix = "XXX";
+        if (thp2 < 75.0) {
+            prefix = "XXX2";
+        }
+        const std::string msg = fmt::format("{}: thp = {} bars", prefix, thp2);
+        deferred_logger.debug(msg);
     }
     else {
         OPM_DEFLOG_THROW(std::logic_error, "Expected INJECTOR or PRODUCER well", deferred_logger);
@@ -237,6 +249,7 @@ void WellBhpThpCalculator::updateThp(const double rho,
                                      const std::function<double()>& alq_value,
                                      const std::array<unsigned,3>& active,
                                      WellState& well_state,
+                                     const SummaryState& summary_state,
                                      DeferredLogger& deferred_logger) const
 {
     static constexpr int Gas = BlackoilPhases::Vapour;
@@ -269,8 +282,8 @@ void WellBhpThpCalculator::updateThp(const double rho,
     if (active[Gas]) {
         rates[ Gas ] = ws.surface_rates[pu.phase_pos[ Gas ] ];
     }
-
-    ws.thp = this->calculateThpFromBhp(rates, ws.bhp, rho, alq_value(), deferred_logger);
+    const double thp_limit = well_.getTHPConstraint(summary_state);
+    ws.thp = this->calculateThpFromBhp(rates, ws.bhp, rho, alq_value(), thp_limit, deferred_logger);
 }
 
 template<class EvalWell>
