@@ -67,7 +67,7 @@ assembleControlEqProd(const WellState& well_state,
     const auto current = well_state.well(well_.indexOfWell()).production_cmode;
     const auto& pu = well_.phaseUsage();
     const double efficiencyFactor = well_.wellEcl().getEfficiencyFactor();
-
+    deferred_logger.debug("XXX70: WellAssemble: assembleControlEqProd()");
     switch (current) {
     case Well::ProducerCMode::ORAT: {
         assert(FluidSystem::phaseIsActive(FluidSystem::oilPhaseIdx));

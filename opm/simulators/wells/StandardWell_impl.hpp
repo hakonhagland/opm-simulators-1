@@ -509,7 +509,7 @@ namespace Opm
         // try to regularize equation if the well does not converge
         const Scalar regularization_factor =  this->regularize_? this->param_.regularization_factor_wells_ : 1.0;
         const double volume = 0.1 * unit::cubic(unit::feet) * regularization_factor;
-
+        deferred_logger.debug("XXX512: assembleWellEqWithoutIterationImpl()");
         auto& ws = well_state.well(this->index_of_well_);
 
         ws.vaporized_oil_rate = 0;
@@ -999,7 +999,13 @@ namespace Opm
                     DeferredLogger& deferred_logger)
     {
         if (!this->isOperableAndSolvable() && !this->wellIsStopped()) return;
-
+        static int uws_counter = 0;
+        const std::string msg = fmt::format("XXX1002: updateWellState() : counter = {}", uws_counter);
+        deferred_logger.debug(msg);
+        if (uws_counter == 117) {
+            deferred_logger.debug("Stop here");
+        }
+        uws_counter++;
         const bool stop_or_zero_rate_target = this->stopppedOrZeroRateTarget(summary_state, well_state);
         updatePrimaryVariablesNewton(dwells, stop_or_zero_rate_target, deferred_logger);
 
@@ -1598,7 +1604,7 @@ namespace Opm
         BVectorWell dx_well(1);
         dx_well[0].resize(this->primary_variables_.numWellEq());
         this->linSys_.solve( dx_well);
-
+        deferred_logger.debug("XXX1601: solveEqAndUpdateWellState()");
         updateWellState(summary_state, dx_well, well_state, deferred_logger);
     }
 
@@ -1666,7 +1672,7 @@ namespace Opm
 
         BVectorWell xw(1);
         xw[0].resize(this->primary_variables_.numWellEq());
-
+        deferred_logger.debug("XXX4: recoverWellSolutionAndUpdateWellState()");
         this->linSys_.recoverSolutionWell(x, xw);
         updateWellState(summary_state, xw, well_state, deferred_logger);
     }
@@ -1817,7 +1823,7 @@ namespace Opm
                                      DeferredLogger& deferred_logger) const
     {
         const auto& summary_state = ebos_simulator.vanguard().summaryState();
-
+        deferred_logger.debug("XXX1820: updateWellStateWithTHPTargetProd()");
         auto bhp_at_thp_limit = computeBhpAtThpLimitProdWithAlq(
             ebos_simulator, summary_state, this->getALQ(well_state), deferred_logger);
         if (bhp_at_thp_limit) {
@@ -1826,6 +1832,10 @@ namespace Opm
             auto& ws = well_state.well(this->name());
             ws.surface_rates = rates;
             ws.bhp = *bhp_at_thp_limit;
+            auto thp = this->getTHPConstraint(summary_state);
+            const std::string msg = fmt::format(
+                "XXX1829: updateWellStateWithTHPTarget() : setting ws.thp = {}", thp);
+            deferred_logger.debug(msg);
             ws.thp = this->getTHPConstraint(summary_state);
             return true;
         } else {

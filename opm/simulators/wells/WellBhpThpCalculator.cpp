@@ -44,6 +44,9 @@
 #include <type_traits>
 
 #include <fmt/format.h>
+#include <cstdlib>
+#include <stdlib.h>
+
 
 static constexpr bool extraBhpAtThpLimitOutput = false;
 
@@ -109,7 +112,7 @@ double WellBhpThpCalculator::calculateThpFromBhp(const std::vector<double>& rate
                                                  DeferredLogger& deferred_logger) const
 {
     assert(int(rates.size()) == 3); // the vfp related only supports three phases now.
-
+    deferred_logger.debug("XXX115: calculateThpFromBhp()");
     static constexpr int Water = BlackoilPhases::Aqua;
     static constexpr int Oil = BlackoilPhases::Liquid;
     static constexpr int Gas = BlackoilPhases::Vapour;
@@ -131,16 +134,68 @@ double WellBhpThpCalculator::calculateThpFromBhp(const std::vector<double>& rate
         const int table_id = well_.wellEcl().vfp_table_number();
         const double vfp_ref_depth = well_.vfpProperties()->getProd()->getTable(table_id).getDatumDepth();
         const double dp = wellhelpers::computeHydrostaticCorrection(well_.refDepth(), vfp_ref_depth, rho, well_.gravity());
-
-        auto pressure_loss = getVfpBhpAdjustment(bhp, thp_limit);
+        auto xxxdebug2 = this->get_xxx_debug_variable("2");
+        double pressure_loss = 0.0;
+        if (!xxxdebug2) {
+            pressure_loss = getVfpBhpAdjustment(bhp, thp_limit);
+        }
+        auto xxxdebug4 = this->get_xxx_debug_variable("4");
+        double sign = 1.0;
+        if (xxxdebug4) {
+            sign = -1.0;
+        }
         thp = well_.vfpProperties()->getProd()->thp(
-                                       table_id, aqua, liquid, vapour, bhp + dp - pressure_loss, alq);
+                                       table_id, aqua, liquid, vapour, bhp + dp - sign*pressure_loss, alq);
+        //thp = well_.vfpProperties()->getProd()->thp(
+        //                               table_id, aqua, liquid, vapour, bhp, alq);
+        //thp = thp + dp - pressure_loss;
+        auto xxxdebug3 = this->get_xxx_debug_variable("3");
+        if (xxxdebug3) {
+            bool do_iterate = true;
+            int it = 0;
+            double tolerance = 1e-4;
+            int max_iterations = 10;
+            double pressure_loss2 = 0.0;
+            while(do_iterate) {
+                {
+                    const std::string msg = fmt::format("XXX-IT: starting iteration #{}: thp = {}", it+1, thp);
+                    deferred_logger.debug(msg);
+                }
+                double thp_prev = thp;
+                pressure_loss2 = getVfpBhpAdjustment(bhp + dp - sign*pressure_loss2, thp_prev);
+                //auto pressure_loss2 = getVfpBhpAdjustment(bhp, thp_prev);
+                thp = well_.vfpProperties()->getProd()->thp(
+                               table_id, aqua, liquid, vapour, bhp + dp - sign*pressure_loss2, alq);
+                //thp = well_.vfpProperties()->getProd()->thp(
+                //               table_id, aqua, liquid, vapour, bhp, alq);
+                //thp = thp + dp - pressure_loss2;
+                it++;
+                {
+                    const std::string msg = fmt::format("XXX-IT: iteration #{}: newthp = {}, pressure_loss = {}",
+                         it+1, thp/unit::barsa, pressure_loss2/unit::barsa);
+                    deferred_logger.debug(msg);
+                }
+                if (it > max_iterations) {
+                    break;
+                }
+                if (std::fabs(thp-thp_prev) < tolerance) {
+                    break;
+                }
+            }
+        }
         auto thp2 = thp/unit::barsa;
         std::string prefix = "XXX";
         if (thp2 < 75.0) {
-            prefix = "XXX2";
+            prefix = "XXX2:";
+            set_xxx_debug_variable(/*name=*/"1", /*value=*/"1");
+            //this->debug1 = true;
         }
-        const std::string msg = fmt::format("{}: thp = {} bars", prefix, thp2);
+        if (thp2 < 0.0) {
+            prefix = "XXX2:(Neg)";
+            set_xxx_debug_variable(/*name=*/"5", /*value=*/"1");
+        }
+        const std::string msg = fmt::format("{} thp = {} bars, bhp = {}, dp = {}, pressure_loss = {}", 
+            prefix, thp2, bhp/unit::barsa, dp/unit::barsa, pressure_loss/unit::barsa);
         deferred_logger.debug(msg);
     }
     else {
@@ -148,6 +203,22 @@ double WellBhpThpCalculator::calculateThpFromBhp(const std::vector<double>& rate
     }
 
     return thp;
+}
+
+void WellBhpThpCalculator::set_xxx_debug_variable(const std::string& name, const std::string& value) const
+{
+    const std::string var = fmt::format("XXX_DEBUG{}", name);
+    setenv(var.c_str(), value.c_str(), /*overwrite=*/1);
+}
+
+int WellBhpThpCalculator::get_xxx_debug_variable(const std::string& name) const {
+    const std::string var = fmt::format("XXX_DEBUG{}", name);
+    if(const char* env_p = std::getenv(var.c_str())) {
+        char *end;
+        auto long_int = strtol(env_p, &end, 10);
+        return static_cast<int>(long_int);
+    }
+    return 0;
 }
 
 std::optional<double>
@@ -179,6 +250,7 @@ computeBhpAtThpLimitProd(const std::function<std::vector<double>(const double)>&
     static constexpr int Water = BlackoilPhases::Aqua;
     static constexpr int Oil = BlackoilPhases::Liquid;
     static constexpr int Gas = BlackoilPhases::Vapour;
+    deferred_logger.debug("XXX245: computeBhpAtThpLimitProd()");
 
     // Make the fbhp() function.
     const auto& controls = well_.wellEcl().productionControls(summary_state);
@@ -220,7 +292,12 @@ computeBhpAtThpLimitProd(const std::function<std::vector<double>(const double)>&
         return std::nullopt;
     }
     const std::array<double, 2> range {controls.bhp_limit, *bhp_max};
-    return this->computeBhpAtThpLimit(frates, fbhp, range, deferred_logger);
+    auto bhp = this->computeBhpAtThpLimit(frates, fbhp, range, deferred_logger);
+    if (bhp) {
+        const std::string msg = fmt::format("XXX253: computeBhpAtThpLimitProd() : bhp = {}", *bhp);
+        deferred_logger.debug(msg);
+    }
+    return bhp;
 }
 
 std::optional<double>
@@ -266,6 +343,7 @@ void WellBhpThpCalculator::updateThp(const double rho,
     bool thp_controlled = well_.isInjector() ? ws.injection_cmode == Well::InjectorCMode::THP:
                                                ws.production_cmode == Well::ProducerCMode::THP;
     if (thp_controlled) {
+        deferred_logger.debug("XXX343: updateThp() : well is THP controlled, so will not update..");
         return;
     }
 
@@ -283,7 +361,10 @@ void WellBhpThpCalculator::updateThp(const double rho,
         rates[ Gas ] = ws.surface_rates[pu.phase_pos[ Gas ] ];
     }
     const double thp_limit = well_.getTHPConstraint(summary_state);
-    ws.thp = this->calculateThpFromBhp(rates, ws.bhp, rho, alq_value(), thp_limit, deferred_logger);
+    auto thp = this->calculateThpFromBhp(rates, ws.bhp, rho, alq_value(), thp_limit, deferred_logger);
+    const std::string msg = fmt::format("XXX361: updateThp() : setting ws.thp = {}", thp);
+    deferred_logger.debug(msg);
+    ws.thp = thp;
 }
 
 template<class EvalWell>
@@ -302,6 +383,15 @@ calculateBhpFromThp(const WellState& well_state,
     // we face problems under THP control.
 
     assert(int(rates.size()) == 3); // the vfp related only supports three phases now.
+    static int counter378 = 0;
+    if( counter378 == 100 ) {
+        deferred_logger.debug("Stop here");
+    }
+    {
+        counter378++;
+        const std::string msg = fmt::format("XXX380: calculateBhpFromThp(), counter = {}", counter378);
+        deferred_logger.debug(msg);
+    }
 
     static constexpr int Gas = BlackoilPhases::Vapour;
     static constexpr int Oil = BlackoilPhases::Liquid;
@@ -707,7 +797,9 @@ bisectBracket(const std::function<double(const double)>& eq,
     double eq_high = eq(high);
     double eq_low = eq(low);
     const double eq_bhplimit = eq_low;
-    if constexpr (extraBhpAtThpLimitOutput) {
+    //if constexpr (extraBhpAtThpLimitOutput) {
+    auto xxxdebug1 = this->get_xxx_debug_variable("1");
+    if (xxxdebug1) {
         deferred_logger.debug("computeBhpAtThpLimitProd(): well = " + well_.name() +
                               "  low = " + std::to_string(low) +
                               "  high = " + std::to_string(high) +
@@ -733,6 +825,7 @@ bisectBracket(const std::function<double(const double)>& eq,
                 eq_high = eq(high);
                 abs_high = std::fabs(eq_high);
             }
+            interval = high - low;
             ++bracket_attempts;
         }
 

@@ -99,7 +99,7 @@ assembleControlEq(const WellState& well_state,
     static constexpr int Oil = BlackoilPhases::Liquid;
     static constexpr int Gas = BlackoilPhases::Vapour;
     EvalWell control_eq(primary_variables.numWellEq() + Indices::numEq, 0.0);
-
+    //deferred_logger.debug("XXX102: assembleControlEq()");
     const auto& well = well_.wellEcl();
 
     auto getRates = [&]() {

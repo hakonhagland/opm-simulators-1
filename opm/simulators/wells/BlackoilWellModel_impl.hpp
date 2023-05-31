@@ -353,6 +353,7 @@ namespace Opm {
                         != this->prevWellState().well(well->name()).status;
 
                 if (event || dyn_status_change) {
+                    local_deferredLogger.debug("XXX6: solving well equations..");
                     try {
                         well->updateWellStateWithTarget(ebosSimulator_, this->groupState(), this->wellState(), local_deferredLogger);
                         well->calculateExplicitQuantities(ebosSimulator_, this->wellState(), local_deferredLogger);
@@ -840,6 +841,7 @@ namespace Opm {
     {
 
         DeferredLogger local_deferredLogger;
+        local_deferredLogger.debug("XXX844: BlackoilWellModel: assemble() : start");
         if (this->glift_debug) {
             const std::string msg = fmt::format(
                 "assemble() : iteration {}" , iterationIdx);
@@ -871,6 +873,7 @@ namespace Opm {
         }
 
         const bool well_group_control_changed = assembleImpl(iterationIdx, dt, 0, local_deferredLogger);
+        local_deferredLogger.debug("XXX876: BlackoilWellModel: assemble() : end");
 
         // if group or well control changes we don't consider the
         // case converged
@@ -890,7 +893,8 @@ namespace Opm {
                  const std::size_t recursion_level,
                  DeferredLogger& local_deferredLogger)
     {
-
+        const std::string msg = fmt::format("XXX894: assembleImpl() : iteration {}", iterationIdx);
+        local_deferredLogger.debug(msg);
         auto [well_group_control_changed, network_changed, network_imbalance] = updateWellControls(local_deferredLogger);
 
         bool alq_updated = false;
@@ -900,6 +904,7 @@ namespace Opm {
             initPrimaryVariablesEvaluation();
 
             alq_updated = maybeDoGasLiftOptimize(local_deferredLogger);
+            local_deferredLogger.debug("XXX907: assembleImpl() : assembleWellEq()");
             assembleWellEq(dt, local_deferredLogger);
         }
         OPM_END_PARALLEL_TRY_CATCH_LOG(local_deferredLogger, "assemble() failed: ",
@@ -1138,6 +1143,7 @@ namespace Opm {
     BlackoilWellModel<TypeTag>::
     assembleWellEq(const double dt, DeferredLogger& deferred_logger)
     {
+        deferred_logger.debug("XXX1145: assembleWellEq()");
         for (auto& well : well_container_) {
             well->assembleWellEq(ebosSimulator_, dt, this->wellState(), this->groupState(), deferred_logger);
         }
@@ -1479,6 +1485,7 @@ namespace Opm {
         }
         // Check wells' group constraints and communicate.
         bool changed_well_to_group = false;
+        deferred_logger.debug("XXX1486: updateWellControls(): update group constraints..");
         for (const auto& well : well_container_) {
             const auto mode = WellInterface<TypeTag>::IndividualOrGroup::Group;
             const bool changed_well = well->updateWellControl(ebosSimulator_, mode, this->wellState(), this->groupState(), deferred_logger);
@@ -1494,6 +1501,7 @@ namespace Opm {
         }
 
         // Check individual well constraints and communicate.
+        deferred_logger.debug("XXX1502: updateWellControls(): update individual constraints..");
         bool changed_well_individual = false;
         for (const auto& well : well_container_) {
             const auto mode = WellInterface<TypeTag>::IndividualOrGroup::Individual;
@@ -1523,6 +1531,7 @@ namespace Opm {
                          const int iterationIdx,
                          DeferredLogger& deferred_logger)
     {
+        deferred_logger.debug("XXX1532: updateAndCommunicate()");
         updateAndCommunicateGroupData(reportStepIdx, iterationIdx);
         // if a well or group change control it affects all wells that are under the same group
         for (const auto& well : well_container_) {
@@ -1572,6 +1581,7 @@ namespace Opm {
     updateWellTestState(const double& simulationTime, WellTestState& wellTestState) const
     {
         DeferredLogger local_deferredLogger;
+        local_deferredLogger.debug("XXX1577: updateWellTestState()");
         for (const auto& well : well_container_) {
             const auto& wname = well->name();
             const auto wasClosed = wellTestState.well_is_closed(wname);
@@ -1685,6 +1695,7 @@ namespace Opm {
     BlackoilWellModel<TypeTag>::
     prepareTimeStep(DeferredLogger& deferred_logger)
     {
+        deferred_logger.debug("XXX1695: prepareTImeStep()");
         for (const auto& well : well_container_) {
             auto& events = this->wellState().well(well->indexOfWell()).events;
             if (events.hasEvent(WellState::event_mask)) {

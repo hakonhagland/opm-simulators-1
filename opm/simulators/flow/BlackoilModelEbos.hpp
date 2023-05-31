@@ -375,7 +375,7 @@ namespace Opm {
             }
 
             report.total_linearizations = 1;
-
+            OpmLog::debug("XXX378: BlackoilModelEbos: nonlinearIteration() -> assembleReservoir");
             try {
                 report += assembleReservoir(timer, iteration);
                 report.assemble_time += perfTimer.stop();
@@ -420,6 +420,7 @@ namespace Opm {
 
                 // Solve the linear system.
                 linear_solve_setup_time_ = 0.0;
+                OpmLog::debug("XXX423: BlackoilModelEbos: nonlinearIteration() -> wellModel.linearize");
                 try {
                     // apply the Schur compliment of the well model to the reservoir linearized
                     // equations
@@ -447,6 +448,7 @@ namespace Opm {
                 // handling well state update before oscillation treatment is a decision based
                 // on observation to avoid some big performance degeneration under some circumstances.
                 // there is no theorectical explanation which way is better for sure.
+                OpmLog::debug("XXX451: BlackoilModelEbos: nonlinearIteration() -> wellModel.postSolve");
                 wellModel().postSolve(x);
 
                 if (param_.use_update_stabilization_) {
@@ -505,8 +507,11 @@ namespace Opm {
         {
             // -------- Mass balance equations --------
             ebosSimulator_.model().newtonMethod().setIterationIndex(iterationIdx);
+            OpmLog::debug("XXX508: BlackoilModelEbos: assembleReservoir() -> beginIteration");
             ebosSimulator_.problem().beginIteration();
+            OpmLog::debug("XXX510: BlackoilModelEbos: assembleReservoir() -> linearizeDomain");
             ebosSimulator_.model().linearizer().linearizeDomain();
+            OpmLog::debug("XXX512: BlackoilModelEbos: assembleReservoir() -> endIteration");
             ebosSimulator_.problem().endIteration();
 
             return wellModel().lastReport();

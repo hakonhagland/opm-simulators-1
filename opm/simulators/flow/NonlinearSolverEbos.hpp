@@ -24,7 +24,7 @@
 #include <opm/simulators/timestepping/SimulatorReport.hpp>
 #include <opm/common/ErrorMacros.hpp>
 #include <opm/simulators/timestepping/SimulatorTimerInterface.hpp>
-
+#include <opm/common/OpmLog/OpmLog.hpp>
 #include <opm/models/utils/parametersystem.hh>
 #include <opm/models/utils/propertysystem.hh>
 #include <opm/models/utils/basicproperties.hh>
@@ -34,6 +34,8 @@
 #include <dune/common/fmatrix.hh>
 #include <dune/istl/bcrsmatrix.hh>
 #include <memory>
+#include <fmt/format.h>
+
 
 namespace Opm::Properties {
 
@@ -199,6 +201,7 @@ void stabilizeNonlinearUpdate(BVector& dx, BVector& dxOld,
             report.global_time = timer.simulationTimeElapsed();
             report.timestep_length = timer.currentStepLength();
 
+            OpmLog::debug("XXX202: NonlinearSolverEbos: step() -> prepareStep");
             // Do model-specific once-per-step calculations.
             report += model_->prepareStep(timer);
 
@@ -215,6 +218,9 @@ void stabilizeNonlinearUpdate(BVector& dx, BVector& dxOld,
                     // Do the nonlinear step. If we are in a converged state, the
                     // model will usually do an early return without an expensive
                     // solve, unless the minIter() count has not been reached yet.
+                    const std::string msg = fmt::format(
+                        "XXX202: NonlinearSolverEbos: step() -> nonlinearIteration({})", iteration);
+                    OpmLog::debug(msg);
                     auto iterReport = model_->nonlinearIteration(iteration, timer, *this);
                     iterReport.global_time = timer.simulationTimeElapsed();
                     report += iterReport;
@@ -241,6 +247,7 @@ void stabilizeNonlinearUpdate(BVector& dx, BVector& dxOld,
             }
 
             // Do model-specific post-step actions.
+            OpmLog::debug("XXX250: NonlinearSolverEbos: step() -> afterStep");
             report += model_->afterStep(timer);
             report.converged = true;
             return report;

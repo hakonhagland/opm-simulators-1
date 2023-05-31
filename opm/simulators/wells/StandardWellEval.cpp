@@ -77,7 +77,7 @@ updateWellStateFromPrimaryVariables(const bool stop_or_zero_rate_target,
                                     DeferredLogger& deferred_logger) const
 {
     this->primary_variables_.copyToWellState(well_state, deferred_logger);
-
+    deferred_logger.debug("XXX80: updateWellStateFromPrimaryVariables()");
     WellBhpThpCalculator(baseif_).
             updateThp(connections_.rho(),
                       stop_or_zero_rate_target,

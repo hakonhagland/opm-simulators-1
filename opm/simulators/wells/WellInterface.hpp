@@ -254,6 +254,8 @@ public:
         return out;
     }
 
+    int get_xxx_debug_variable(const std::string& name) const;
+
     // TODO: theoretically, it should be a const function
     // Simulator is not const is because that assembleWellEq is non-const Simulator
     void wellTesting(const Simulator& simulator,

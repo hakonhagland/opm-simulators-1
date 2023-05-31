@@ -140,7 +140,11 @@ private:
                                   double& low, double& high,
                                   DeferredLogger& deferred_logger);
 
+    int get_xxx_debug_variable(const std::string& name) const;
+    void set_xxx_debug_variable(const std::string& name, const std::string& value) const;
+
     const WellInterfaceGeneric& well_; //!< Reference to well interface
+    mutable bool debug1 = false;
 };
 
 }

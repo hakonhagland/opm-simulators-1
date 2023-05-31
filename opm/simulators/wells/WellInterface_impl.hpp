@@ -188,7 +188,6 @@ namespace Opm
         if (this->stopppedOrZeroRateTarget(summary_state, well_state)) {
             return false;
         }
-
         const auto& summaryState = ebos_simulator.vanguard().summaryState();
         const auto& schedule = ebos_simulator.vanguard().schedule();
         const auto& well = this->well_ecl_;
@@ -200,7 +199,10 @@ namespace Opm
             from = WellProducerCMode2String(ws.production_cmode);
         }
         bool oscillating = std::count(this->well_control_log_.begin(), this->well_control_log_.end(), from) >= param_.max_number_of_well_switches_;
-
+        const std::string msg = fmt::format(
+            "XXX191: updateWellControl() : current control = {}, oscillating = {}", from, oscillating);
+        deferred_logger.debug(msg);
+    
         if (oscillating) {
             // only output frist time
             bool output = std::count(this->well_control_log_.begin(), this->well_control_log_.end(), from) == param_.max_number_of_well_switches_;
@@ -217,14 +219,28 @@ namespace Opm
             }
             return false;
         }
+        //auto xxxdebug1 = this->get_xxx_debug_variable("1");
+        //if (xxxdebug1) {
+        //    deferred_logger.debug("XXX223: updateWellControl()");
+        //}
+
         bool changed = false;
         if (iog == IndividualOrGroup::Individual) {
             changed = this->checkIndividualConstraints(ws, summaryState, deferred_logger);
+            if (changed) {
+                deferred_logger.debug("XXX231: updateWellControl() : individual changed");
+            }
         } else if (iog == IndividualOrGroup::Group) {
             changed = this->checkGroupConstraints(well_state, group_state, schedule, summaryState, deferred_logger);
+            if (changed) {
+                deferred_logger.debug("XXX-CIC: group changed");
+            }
         } else {
             assert(iog == IndividualOrGroup::Both);
             changed = this->checkConstraints(well_state, group_state, schedule, summaryState, deferred_logger);
+            if (changed) {
+                deferred_logger.debug("XXX-CIC: both changed");
+            }
         }
         Parallel::Communication cc = ebos_simulator.vanguard().grid().comm();
         // checking whether control changed
@@ -252,7 +268,18 @@ namespace Opm
         return changed;
     }
 
-
+    template<typename TypeTag>
+    int
+    WellInterface<TypeTag>::
+    get_xxx_debug_variable(const std::string& name) const {
+        const std::string var = fmt::format("XXX_DEBUG{}", name);
+        if(const char* env_p = std::getenv(var.c_str())) {
+            char *end;
+            auto long_int = strtol(env_p, &end, 10);
+            return static_cast<int>(long_int);
+        }
+        return 0;
+    }
 
     template<typename TypeTag>
     void
@@ -968,6 +995,7 @@ namespace Opm
             }
             case Well::ProducerCMode::THP:
             {
+                deferred_logger.debug("XXX998: updateWellStateWithTarget() : control mode = THP");
                 const bool update_success = updateWellStateWithTHPTargetProd(ebos_simulator, well_state, deferred_logger);
 
                 if (!update_success) {

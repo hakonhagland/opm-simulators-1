@@ -23,6 +23,7 @@
 #include <opm/simulators/wells/WellState.hpp>
 
 #include <opm/common/ErrorMacros.hpp>
+#include <opm/common/OpmLog/OpmLog.hpp>
 #include <opm/input/eclipse/Schedule/MSW/WellSegments.hpp>
 #include <opm/input/eclipse/Schedule/Schedule.hpp>
 #include <opm/input/eclipse/Schedule/Well/Well.hpp>
@@ -490,6 +491,8 @@ WellState::report(const int* globalCellIdxMap,
 
         well.bhp = ws.bhp;
         well.thp = ws.thp;
+        const std::string msg = fmt::format("XXX3: thp = {}", well.thp);
+        OpmLog::debug(msg);
         well.temperature = ws.temperature;
 
         if (pu.phase_used[BlackoilPhases::Aqua]) {
