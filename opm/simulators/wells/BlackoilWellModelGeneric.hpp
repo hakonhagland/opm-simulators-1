@@ -345,6 +345,11 @@ protected:
                              const int reportStepIdx,
                              DeferredLogger& deferred_logger);
 
+    void checkGEconLimits(const Group& group,
+                          const double simulation_time,
+                          const int report_step_idx,
+                          DeferredLogger& deferred_logger);
+
     bool checkGroupHigherConstraints(const Group& group,
                                      DeferredLogger& deferred_logger,
                                      const int reportStepIdx);
