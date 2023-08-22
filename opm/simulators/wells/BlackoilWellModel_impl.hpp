@@ -760,7 +760,11 @@ namespace Opm {
         const int nw = numLocalWells();
 
         well_container_.clear();
-
+        {
+            const std::string msg = fmt::format(
+                "creating well container. num_wells = {}, time_step = {}", nw, time_step);
+            geconDebug(local_deferredLogger, msg);
+        }
         if (nw > 0) {
             well_container_.reserve(nw);
 
@@ -812,16 +816,36 @@ namespace Opm {
                 bool wellIsStopped = false;
                 if (wellTestState().well_is_closed(well_name))
                 {
+                    {
+                        const std::string msg = fmt::format(
+                            "createWellContainer: well {} was closed in a previous step", well_name);
+                        geconDebug(local_deferredLogger, msg);
+                    }
                     if (well_ecl.getAutomaticShutIn()) {
                         // shut wells are not added to the well container
+                        const std::string msg = fmt::format(
+                            "createWellContainer: well {} : auto-shut=true, shutting", well_name);
+                        geconDebug(local_deferredLogger, msg);
                         this->wellState().shutWell(w);
                         continue;
                     } else {
                         if (!well_ecl.getAllowCrossFlow()) {
+                            {
+                                const std::string msg = fmt::format(
+                                    "createWellContainer: well {} : auto-shut=false : crossflow=off : shutting",
+                                     well_name);
+                                geconDebug(local_deferredLogger, msg);
+                            }
                             // stopped wells where cross flow is not allowed
                             // are not added to the well container
                             this->wellState().shutWell(w);
                             continue;
+                        }
+                        {
+                            const std::string msg = fmt::format(
+                                "createWellContainer: well {} : auto-shut=false : crossflow=on : stopping",
+                                 well_name);
+                            geconDebug(local_deferredLogger, msg);
                         }
                         // stopped wells are added to the container but marked as stopped
                         this->wellState().stopWell(w);

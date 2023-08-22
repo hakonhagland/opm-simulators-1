@@ -380,6 +380,15 @@ initializeWellPerfData()
 
 void
 BlackoilWellModelGeneric::
+geconDebug(DeferredLogger &deferred_logger, const std::string &msg) const
+{
+    const std::string msg2 = fmt::format("GECON: {}", msg);
+    deferred_logger.info(msg2);
+}
+
+
+void
+BlackoilWellModelGeneric::
 checkGEconLimits(
         const Group& group,
         const double simulation_time,
@@ -394,17 +403,23 @@ checkGEconLimits(
 
     // check if gecon is used for this group
     if (!schedule()[report_step_idx].gecon().has_group(group.name())) {
+        const std::string msg = fmt::format("group: {} : not activated", group.name());
+        geconDebug(deferred_logger, msg);
         return;
     }
 
     GroupEconomicLimitsChecker checker {
-        *this, group, simulation_time, report_step_idx, deferred_logger
+        *this, wellTestState(), group, simulation_time, report_step_idx, deferred_logger
     };
     if (checker.minOilRate() || checker.minGasRate()) {
         checker.closeWells();
     }
     else if (checker.waterCut() || checker.GOR() || checker.WGR()) {
         checker.doWorkOver();
+    }
+    else {
+        const std::string msg = fmt::format("group: {} : no limits violated", group.name());
+        geconDebug(deferred_logger, msg);
     }
     if (checker.endRun() && (checker.numProducersOpenInitially() >= 1)
                              && (checker.numProducersOpen() == 0))

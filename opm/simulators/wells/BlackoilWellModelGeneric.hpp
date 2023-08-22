@@ -164,6 +164,8 @@ public:
         this->last_valid_wgstate_ = this->active_wgstate_;
     }
 
+    void geconDebug(DeferredLogger& deferred_logger, const std::string &msg) const;
+
     data::GroupAndNetworkValues groupAndNetworkData(const int reportStepIdx) const;
 
     /// Return true if any well has a THP constraint.

@@ -26,7 +26,8 @@ namespace Opm {
 
 GroupEconomicLimitsChecker::
 GroupEconomicLimitsChecker(
-    BlackoilWellModelGeneric &well_model,
+    const BlackoilWellModelGeneric &well_model,
+    WellTestState &well_test_state,
     const Group &group,
     const double simulation_time,
     const int report_step_idx,
@@ -38,7 +39,7 @@ GroupEconomicLimitsChecker(
   , report_step_idx_{report_step_idx}
   , deferred_logger_{deferred_logger}
   , well_state_{well_model.wellState()}
-  , well_test_state_{well_model.wellTestState()}
+  , well_test_state_{well_test_state}
   , schedule_{well_model.schedule()}
   , gecon_props_{schedule_[report_step_idx_].gecon().get_group_prop(
                  schedule_, well_model_.summaryState(), group_.name())}
@@ -69,6 +70,7 @@ void
 GroupEconomicLimitsChecker::
 closeWells()
 {
+    displayDebugMessage("closing wells..");
     closeWellsRecursive(this->group_);
 }
 
@@ -76,7 +78,7 @@ void
 GroupEconomicLimitsChecker::
 doWorkOver()
 {
-
+    displayDebugMessage("do work over..");
 }
 
 bool
@@ -260,29 +262,48 @@ void
 GroupEconomicLimitsChecker::
 displayDebugMessage(const std::string &msg)
 {
-    const std::string msg2 = fmt::format(
-        "GECON: group: {} : {}", this->group_.name(), msg);
-    this->deferred_logger_.info(msg2);
-
+    if (this->debug_) {
+        const std::string msg2 = fmt::format(
+            "GECON: group: {} : {}", this->group_.name(), msg);
+        this->deferred_logger_.debug(msg2);
+    }
 }
 
 void
 GroupEconomicLimitsChecker::
 closeWellsRecursive(Group group)
 {
+    if (this->debug_) {
+        const std::string msg = fmt::format("closing wells recursive : group {} ", group.name());
+        displayDebugMessage(msg);
+    }
     for (const std::string& group_name : group.groups()) {
         auto next_group = this->schedule_.getGroup(group_name, this->report_step_idx_);
         closeWellsRecursive(next_group);
     }
+    if (this->debug_) {
+        const std::string msg = fmt::format("closing wells recursive : group {} has {} wells",
+                          group.name(), group.wells().size());
+        displayDebugMessage(msg);
+    }
 
     for (const std::string& well_name : group.wells()) {
-        if (this->debug_) {
-            const std::string msg = fmt::format(
-                "closing well {}", well_name);
-            displayDebugMessage(msg);
+        if (this->well_test_state_.well_is_closed(well_name)) {
+            if (this->debug_) {
+                const std::string msg = fmt::format(
+                    "well {} is already closed", well_name);
+                displayDebugMessage(msg);
+            }
         }
-        this->well_test_state_.close_well(
-            well_name, WellTestConfig::Reason::ECONOMIC, this->simulation_time_);
+        else {
+            if (this->debug_) {
+                const std::string msg = fmt::format(
+                    "closing well {}", well_name);
+                displayDebugMessage(msg);
+            }
+            this->well_test_state_.close_well(
+                well_name, WellTestConfig::Reason::ECONOMIC, this->simulation_time_);
+        }
     }
 }
 

@@ -34,7 +34,8 @@ namespace Opm
     {
     public:
         GroupEconomicLimitsChecker(
-            BlackoilWellModelGeneric &well_model,
+            const BlackoilWellModelGeneric &well_model,
+            WellTestState &well_test_state,
             const Group &group,
             const double simulation_time,
             const int report_step_idx,
@@ -57,12 +58,12 @@ namespace Opm
         void displayDebugMessage(const std::string &msg);
         void closeWellsRecursive(Group group);
 
-        BlackoilWellModelGeneric &well_model_;
+        const BlackoilWellModelGeneric &well_model_;
         const Group &group_;
         const double simulation_time_;
         const int report_step_idx_;
         DeferredLogger &deferred_logger_;
-        WellState &well_state_;
+        const WellState &well_state_;
         WellTestState &well_test_state_;
         const Schedule &schedule_;
         GroupEconProductionLimits::GEconGroupProp gecon_props_;
