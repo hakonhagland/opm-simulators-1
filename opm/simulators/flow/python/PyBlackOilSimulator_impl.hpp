@@ -1,5 +1,5 @@
 /*
-  Copyright 2020 Equinor ASA.
+  Copyright 2024 Equinor ASA.
 
   This file is part of the Open Porous Media project (OPM).
 
@@ -16,8 +16,8 @@
   You should have received a copy of the GNU General Public License
   along with OPM.  If not, see <http://www.gnu.org/licenses/>.
 */
-
-#include "config.h"
+#ifndef OPM_PY_BLACKOIL_SIMULATOR_IMPL_HEADER_INCLUDED
+#define OPM_PY_BLACKOIL_SIMULATOR_IMPL_HEADER_INCLUDED
 #include <opm/input/eclipse/Deck/Deck.hpp>
 #include <opm/input/eclipse/EclipseState/EclipseState.hpp>
 #include <opm/input/eclipse/Schedule/Schedule.hpp>
@@ -27,38 +27,22 @@
 //#include <opm/simulators/flow/python/PyFluidState.hpp>
 #include <opm/simulators/flow/python/PyMaterialState.hpp>
 #include <opm/simulators/flow/python/PyBlackOilSimulator.hpp>
-// NOTE: This file will be generated at compile time and placed in the build directory
-// See python/generate_docstring_hpp.py, and python/simulators/CMakeLists.txt for details
-#include <PyBlackOilSimulatorDoc.hpp>
 // NOTE: EXIT_SUCCESS, EXIT_FAILURE is defined in cstdlib
 #include <cstdlib>
 #include <stdexcept>
 #include <string>
 
-namespace Opm {
-
-std::unique_ptr<FlowMain<Properties::TTag::FlowProblemTPFA>>
-flowBlackoilTpfaMainInit(int argc, char** argv, bool outputCout, bool outputFiles)
-{
-    // we always want to use the default locale, and thus spare us the trouble
-    // with incorrect locale settings.
-    resetLocale();
-
-    return std::make_unique<FlowMain<Properties::TTag::FlowProblemTPFA>>(
-        argc, argv, outputCout, outputFiles);
-}
-
-}
 
 namespace py = pybind11;
 
 namespace Opm::Pybind {
-PyBlackOilSimulator::PyBlackOilSimulator( const std::string &deck_filename)
+template <class Version>
+PyBlackOilSimulator<Version>::PyBlackOilSimulator( const std::string &deck_filename)
     : deck_filename_{deck_filename}
 {
 }
-
-PyBlackOilSimulator::PyBlackOilSimulator(
+template <class Version>
+PyBlackOilSimulator<Version>::PyBlackOilSimulator(
     std::shared_ptr<Opm::Deck> deck,
     std::shared_ptr<Opm::EclipseState> state,
     std::shared_ptr<Opm::Schedule> schedule,
@@ -74,21 +58,24 @@ PyBlackOilSimulator::PyBlackOilSimulator(
 // Public methods alphabetically sorted
 // ------------------------------------
 
-void PyBlackOilSimulator::advance(int report_step)
+template <class Version>
+void PyBlackOilSimulator<Version>::advance(int report_step)
 {
     while (currentStep() < report_step) {
         step();
     }
 }
 
-bool PyBlackOilSimulator::checkSimulationFinished()
+template <class Version>
+bool PyBlackOilSimulator<Version>::checkSimulationFinished()
 {
     return getFlowMain().getSimTimer()->done();
 }
 
 // This returns the report step number that will be executed next time step()
 //   is called.
-int PyBlackOilSimulator::currentStep()
+template <class Version>
+int PyBlackOilSimulator<Version>::currentStep()
 {
     return getFlowMain().getSimTimer()->currentStepNum();
     // NOTE: this->simulator_->episodeIndex() would also return the current
@@ -97,60 +84,69 @@ int PyBlackOilSimulator::currentStep()
     // See details in runStep() in file SimulatorFullyImplicitBlackoilEbos.hpp
 }
 
-py::array_t<double> PyBlackOilSimulator::getCellVolumes() {
+template <class Version>
+py::array_t<double> PyBlackOilSimulator<Version>::getCellVolumes() {
     auto vector = getMaterialState().getCellVolumes();
     return py::array(vector.size(), vector.data());
 }
 
-double PyBlackOilSimulator::getDT() {
+template <class Version>
+double PyBlackOilSimulator<Version>::getDT() {
     return getFlowMain().getPreviousReportStepSize();
 }
 
-py::array_t<double> PyBlackOilSimulator::getPorosity()
+template <class Version>
+py::array_t<double> PyBlackOilSimulator<Version>::getPorosity()
 {
     auto vector = getMaterialState().getPorosity();
     return py::array(vector.size(), vector.data());
 }
 
+template <class Version>
 py::array_t<double>
-PyBlackOilSimulator::
+PyBlackOilSimulator<Version>::
 getFluidStateVariable(const std::string &name) const
 {
     auto vector = getFluidState().getFluidStateVariable(name);
     return py::array(vector.size(), vector.data());
 }
 
+template <class Version>
 py::array_t<double>
-PyBlackOilSimulator::
+PyBlackOilSimulator<Version>::
 getPrimaryVariable(const std::string &variable) const
 {
     auto vector = getFluidState().getPrimaryVariable(variable);
     return py::array(vector.size(), vector.data());
 }
 
+template <class Version>
 py::array_t<int>
-PyBlackOilSimulator::
+PyBlackOilSimulator<Version>::
 getPrimaryVarMeaning(const std::string &variable) const
 {
     auto vector = getFluidState().getPrimaryVarMeaning(variable);
     return py::array(vector.size(), vector.data());
 }
 
+template <class Version>
 std::map<std::string, int>
-PyBlackOilSimulator::
+PyBlackOilSimulator<Version>::
 getPrimaryVarMeaningMap(const std::string &variable) const
 {
 
     return getFluidState().getPrimaryVarMeaningMap(variable);
 }
 
-int PyBlackOilSimulator::run()
+template <class Version>
+int PyBlackOilSimulator<Version>::run()
 {
     auto main_object = Opm::Main( this->deck_filename_ );
     return main_object.runStatic<Opm::Properties::TTag::FlowProblemTPFA>();
 }
 
-void PyBlackOilSimulator::setPorosity( py::array_t<double,
+template <class Version>
+void PyBlackOilSimulator<Version>::setPorosity( py::array_t<double,
     py::array::c_style | py::array::forcecast> array)
 {
     std::size_t size_ = array.size();
@@ -158,8 +154,9 @@ void PyBlackOilSimulator::setPorosity( py::array_t<double,
     getMaterialState().setPorosity(poro, size_);
 }
 
+template <class Version>
 void
-PyBlackOilSimulator::
+PyBlackOilSimulator<Version>::
 setPrimaryVariable(
     const std::string &variable,
     py::array_t<double,
@@ -171,7 +168,8 @@ setPrimaryVariable(
     getFluidState().setPrimaryVariable(variable, data, size_);
 }
 
-int PyBlackOilSimulator::step()
+template <class Version>
+int PyBlackOilSimulator<Version>::step()
 {
     if (!this->has_run_init_) {
         throw std::logic_error("step() called before step_init()");
@@ -188,13 +186,15 @@ int PyBlackOilSimulator::step()
     return result;
 }
 
-int PyBlackOilSimulator::stepCleanup()
+template <class Version>
+int PyBlackOilSimulator<Version>::stepCleanup()
 {
     this->has_run_cleanup_ = true;
     return getFlowMain().executeStepsCleanup();
 }
 
-int PyBlackOilSimulator::stepInit()
+template <class Version>
+int PyBlackOilSimulator<Version>::stepInit()
 {
 
     if (this->has_run_init_) {
@@ -235,8 +235,9 @@ int PyBlackOilSimulator::stepInit()
 // Private methods alphabetically sorted
 // ------------------------------------
 
-Opm::FlowMain<typename Opm::Pybind::PyBlackOilSimulator::TypeTag>&
-         PyBlackOilSimulator::getFlowMain() const
+template <class Version>
+Opm::FlowMain<typename PyBlackOilSimulator<Version>::TypeTag>&
+         PyBlackOilSimulator<Version>::getFlowMain() const
 {
     if (this->flow_main_) {
         return *this->flow_main_;
@@ -247,8 +248,9 @@ Opm::FlowMain<typename Opm::Pybind::PyBlackOilSimulator::TypeTag>&
     }
 }
 
-PyFluidState<typename PyBlackOilSimulator::TypeTag>&
-PyBlackOilSimulator::
+template <class Version>
+PyFluidState<typename PyBlackOilSimulator<Version>::TypeTag>&
+PyBlackOilSimulator<Version>::
 getFluidState() const
 {
     if (this->fluid_state_) {
@@ -260,8 +262,9 @@ getFluidState() const
     }
 }
 
-PyMaterialState<typename PyBlackOilSimulator::TypeTag>&
-PyBlackOilSimulator::getMaterialState() const
+template <class Version>
+PyMaterialState<typename PyBlackOilSimulator<Version>::TypeTag>&
+PyBlackOilSimulator<Version>::getMaterialState() const
 {
     if (this->material_state_) {
         return *this->material_state_;
@@ -272,43 +275,7 @@ PyBlackOilSimulator::getMaterialState() const
     }
 }
 
-// Exported functions
-void export_PyBlackOilSimulator(py::module& m)
-{
-    using namespace Opm::Pybind::DocStrings;
-
-    py::class_<PyBlackOilSimulator>(m, "BlackOilSimulator")
-        .def(py::init<const std::string&>(),
-             PyBlackOilSimulator_filename_constructor_docstring)
-        .def(py::init<
-             std::shared_ptr<Opm::Deck>,
-             std::shared_ptr<Opm::EclipseState>,
-             std::shared_ptr<Opm::Schedule>,
-             std::shared_ptr<Opm::SummaryConfig>>(),
-             PyBlackOilSimulator_objects_constructor_docstring)
-        .def("advance", &PyBlackOilSimulator::advance, advance_docstring, py::arg("report_step"))
-        .def("check_simulation_finished", &PyBlackOilSimulator::checkSimulationFinished,
-             checkSimulationFinished_docstring)
-        .def("current_step", &PyBlackOilSimulator::currentStep, currentStep_docstring)
-        .def("get_cell_volumes", &PyBlackOilSimulator::getCellVolumes, getCellVolumes_docstring)
-        .def("get_dt", &PyBlackOilSimulator::getDT, getDT_docstring)
-        .def("get_fluidstate_variable", &PyBlackOilSimulator::getFluidStateVariable,
-            py::return_value_policy::copy, py::arg("name"))
-        .def("get_porosity", &PyBlackOilSimulator::getPorosity, getPorosity_docstring)
-        .def("get_primary_variable_meaning", &PyBlackOilSimulator::getPrimaryVarMeaning,
-            py::return_value_policy::copy, py::arg("variable"))
-        .def("get_primary_variable_meaning_map", &PyBlackOilSimulator::getPrimaryVarMeaningMap,
-            py::return_value_policy::copy, py::arg("variable"))
-        .def("get_primary_variable", &PyBlackOilSimulator::getPrimaryVariable,
-            py::return_value_policy::copy, py::arg("variable"))
-        .def("run", &PyBlackOilSimulator::run, run_docstring)
-        .def("set_porosity", &PyBlackOilSimulator::setPorosity, setPorosity_docstring, py::arg("array"))
-        .def("set_primary_variable", &PyBlackOilSimulator::setPrimaryVariable,
-            py::arg("variable"), py::arg("value"))
-        .def("step", &PyBlackOilSimulator::step, step_docstring)
-        .def("step_cleanup", &PyBlackOilSimulator::stepCleanup, stepCleanup_docstring)
-        .def("step_init", &PyBlackOilSimulator::stepInit, stepInit_docstring);
-}
-
 } // namespace Opm::Pybind
 
+
+#endif // OPM_PY_BLACKOIL_SIMULATOR_IMPL_HEADER_INCLUDED

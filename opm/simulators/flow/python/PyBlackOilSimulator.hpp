@@ -24,14 +24,19 @@
 #include <opm/simulators/flow/FlowMain.hpp>
 #include <opm/models/utils/propertysystem.hh>
 #include <opm/models/utils/parametersystem.hh>
-#include <opm/simulators/flow/python/Pybind11Exporter.hpp>
 #include <opm/simulators/flow/python/PyFluidState.hpp>
 #include <opm/simulators/flow/python/PyMaterialState.hpp>
 #include <opm/input/eclipse/EclipseState/EclipseState.hpp>
 #include <opm/input/eclipse/Schedule/Schedule.hpp>
 #include <opm/input/eclipse/EclipseState/SummaryConfig/SummaryConfig.hpp>
 
+#include <pybind11/pybind11.h>
+#include <pybind11/numpy.h>
+#include <pybind11/stl.h>
+namespace py = pybind11;
+
 namespace Opm::Pybind {
+template <class Version>
 class PyBlackOilSimulator
 {
 private:
@@ -91,4 +96,8 @@ private:
 };
 
 } // namespace Opm::Pybind
+
+#ifndef OPM_PY_BLACKOIL_SIMULATOR_IMPL_HEADER_INCLUDED
+#include "PyBlackOilSimulator_impl.hpp"
+#endif
 #endif // OPM_PY_BLACKOIL_SIMULATOR_HEADER_INCLUDED
