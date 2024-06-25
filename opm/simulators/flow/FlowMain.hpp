@@ -47,6 +47,7 @@ namespace Opm::Parameters {
 // Do not merge parallel output files or warn about them
 struct EnableLoggingFalloutWarning { static constexpr bool value = false; };
 struct OutputInterval { static constexpr int value = 1; };
+struct Slave { static constexpr bool value = false; };
 
 } // namespace Opm::Parameters
 
