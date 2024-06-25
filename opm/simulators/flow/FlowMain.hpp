@@ -58,6 +58,10 @@ struct EnableLoggingFalloutWarning<TypeTag, Properties::TTag::FlowProblem>
 template<class TypeTag>
 struct OutputInterval<TypeTag, Properties::TTag::FlowProblem>
 { static constexpr int value = 1; };
+template<class TypeTag>
+struct Slave<TypeTag, TTag::FlowProblem> {
+    static constexpr bool value = false;
+};
 
 } // namespace Opm::Parameters
 
@@ -106,7 +110,9 @@ namespace Opm {
             Parameters::registerParam<TypeTag, Parameters::EnableLoggingFalloutWarning>
                 ("Developer option to see whether logging was on non-root processors. "
                  "In that case it will be appended to the *.DBG or *.PRT files");
-
+            Parameters::registerParam<TypeTag, Properties::Slave>
+                ("Specify if the simulation is a slave simulation in a master-slave simulation");
+            Parameters::hideParam<TypeTag, Properties::Slave>();
             Simulator::registerParameters();
 
             // register the base parameters

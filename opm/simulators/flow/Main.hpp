@@ -699,6 +699,7 @@ private:
                   const std::string& inputSkipMode,
                   const std::size_t numThreads,
                   const int output_param,
+                  const bool slaveMode,
                   const std::string& parameters,
                   std::string_view moduleVersion,
                   std::string_view compileTimestamp);
