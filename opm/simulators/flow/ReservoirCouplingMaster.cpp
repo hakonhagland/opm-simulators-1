@@ -52,7 +52,7 @@ ReservoirCouplingMaster::ReservoirCouplingMaster(
 
 // NOTE: This functions is executed for all ranks, but only rank 0 will spawn
 //   the slave processes
-void ReservoirCouplingMaster::spawnSlaveProcesses(int argc, char **argv) {
+void ReservoirCouplingMaster::spawnSlaveProcesses([[maybe_unused]]int argc, char **argv) {
     const auto& rescoup = this->schedule_[0].rescoup();
     char *flow_program_name = argv[0];
     for (const auto& [slave_name, slave] : rescoup.slaves()) {
