@@ -24,6 +24,9 @@
 
 #include <opm/common/ErrorMacros.hpp>
 
+#include <opm/input/eclipse/Schedule/ResCoup/ReservoirCouplingInfo.hpp>
+#include <opm/input/eclipse/Schedule/ResCoup/MasterGroup.hpp>
+#include <opm/input/eclipse/Schedule/ResCoup/Slaves.hpp>
 #include <opm/input/eclipse/Units/UnitSystem.hpp>
 
 #include <opm/grid/utility/StopWatch.hpp>
@@ -34,6 +37,8 @@
 #include <opm/simulators/flow/ConvergenceOutputConfiguration.hpp>
 #include <opm/simulators/flow/ExtraConvergenceOutputThread.hpp>
 #include <opm/simulators/flow/NonlinearSolver.hpp>
+#include <opm/simulators/flow/ReservoirCouplingMaster.hpp>
+#include <opm/simulators/flow/ReservoirCouplingSlave.hpp>
 #include <opm/simulators/flow/SimulatorReportBanners.hpp>
 #include <opm/simulators/flow/SimulatorSerializer.hpp>
 #include <opm/simulators/timestepping/AdaptiveTimeStepping.hpp>
@@ -59,12 +64,64 @@
 
 namespace Opm::Parameters {
 
+<<<<<<< HEAD
 struct EnableAdaptiveTimeStepping { static constexpr bool value = true; };
 struct OutputExtraConvergenceInfo { static constexpr auto* value = "none"; };
 struct SaveStep { static constexpr auto* value = ""; };
 struct SaveFile { static constexpr auto* value = ""; };
 struct LoadFile { static constexpr auto* value = ""; };
 struct LoadStep { static constexpr int value = -1; };
+=======
+template<class TypeTag, class MyTypeTag>
+struct EnableAdaptiveTimeStepping { using type = Properties::UndefinedProperty; };
+
+template <class TypeTag, class MyTypeTag>
+struct OutputExtraConvergenceInfo { using type = Properties::UndefinedProperty; };
+
+template <class TypeTag, class MyTypeTag>
+struct SaveStep { using type = Properties::UndefinedProperty; };
+
+template <class TypeTag, class MyTypeTag>
+struct LoadStep { using type = Properties::UndefinedProperty; };
+
+template <class TypeTag, class MyTypeTag>
+struct SaveFile { using type = Properties::UndefinedProperty; };
+
+template <class TypeTag, class MyTypeTag>
+struct LoadFile { using type = Properties::UndefinedProperty; };
+
+template<class TypeTag>
+struct EnableAdaptiveTimeStepping<TypeTag, Properties::TTag::FlowProblem>
+{ static constexpr bool value = true; };
+
+template <class TypeTag>
+struct OutputExtraConvergenceInfo<TypeTag, Properties::TTag::FlowProblem>
+{ static constexpr auto* value = "none"; };
+
+template<class TypeTag>
+struct EnableTerminalOutput<TypeTag, Properties::TTag::FlowProblem>
+{ static constexpr bool value = true; };
+
+template <class TypeTag>
+struct SaveStep<TypeTag, Properties::TTag::FlowProblem>
+{ static constexpr auto* value = ""; };
+
+template <class TypeTag>
+struct SaveFile<TypeTag, Properties::TTag::FlowProblem>
+{ static constexpr auto* value = ""; };
+
+template <class TypeTag>
+struct LoadFile<TypeTag, Properties::TTag::FlowProblem>
+{ static constexpr auto* value = ""; };
+
+template <class TypeTag>
+struct LoadStep<TypeTag, Properties::TTag::FlowProblem>
+{ static constexpr int value = -1; };
+template<class TypeTag>
+struct Slave<TypeTag, Properties::TTag::FlowProblem> {
+    static constexpr bool value = false;
+};
+>>>>>>> b215a8893 (Spawn slaves from master)
 
 } // namespace Opm::Parameters
 
@@ -74,6 +131,8 @@ namespace Opm {
 template<class TypeTag>
 class SimulatorFullyImplicitBlackoil : private SerializableSim
 {
+protected:
+    struct MPI_Comm_Deleter;
 public:
     using Simulator = GetPropType<TypeTag, Properties::Simulator>;
     using Grid = GetPropType<TypeTag, Properties::Grid>;
@@ -182,7 +241,14 @@ public:
         Parameters::Register<Parameters::LoadFile>
             ("FileName for .OPMRST file used to load serialized state. "
              "If empty, CASENAME.OPMRST is used.");
+<<<<<<< HEAD
         Parameters::Hide<Parameters::LoadFile>();
+=======
+        Parameters::hideParam<TypeTag, Parameters::LoadFile>();
+        Parameters::registerParam<TypeTag, Parameters::Slave>
+            ("Specify if the simulation is a slave simulation in a master-slave simulation");
+        Parameters::hideParam<TypeTag, Parameters::Slave>();
+>>>>>>> b215a8893 (Spawn slaves from master)
     }
 
     /// Run the simulation.
@@ -191,9 +257,9 @@ public:
     /// \param[in,out] timer       governs the requested reporting timesteps
     /// \param[in,out] state       state of reservoir: pressure, fluxes
     /// \return                    simulation report, with timing data
-    SimulatorReport run(SimulatorTimer& timer)
+    SimulatorReport run(SimulatorTimer& timer, int argc, char** argv)
     {
-        init(timer);
+        init(timer, argc, argv);
         // Make cache up to date. No need for updating it in elementCtx.
         simulator_.model().invalidateAndUpdateIntensiveQuantities(/*timeIdx=*/0);
         // Main simulation loop.
@@ -204,8 +270,32 @@ public:
         return finalize();
     }
 
-    void init(SimulatorTimer &timer)
+    // NOTE: The argc and argv will be used when launching a slave process
+    void init(SimulatorTimer &timer, int argc, char** argv)
     {
+        auto slave_mode = Parameters::get<TypeTag, Properties::Slave>();
+        if (slave_mode) {
+            this->reservoirCouplingSlave_ =
+                std::make_unique<ReservoirCouplingSlave>(
+                    FlowGenericVanguard::comm(),
+                    this->schedule()
+                );
+            this->reservoirCouplingSlave_->sendSimulationStartDateToMasterProcess();
+        }
+        else {
+            // For now, we require that SLAVES and GRUPMAST are defined at the first
+            //  schedule step, so it is enough to check the first step. See the
+            //  keyword handlers in opm-common for more information.
+            auto master_mode = this->schedule()[0].rescoup().masterMode();
+            if (master_mode) {
+                this->reservoirCouplingMaster_ =
+                    std::make_unique<ReservoirCouplingMaster>(
+                        FlowGenericVanguard::comm(),
+                        this->schedule()
+                    );
+                this->reservoirCouplingMaster_->spawnSlaveProcesses(argc, argv);
+            }
+        }
         simulator_.setEpisodeIndex(-1);
 
         // Create timers and file for writing timing info.
@@ -601,6 +691,11 @@ protected:
     std::unique_ptr<time::StopWatch> solverTimer_;
     std::unique_ptr<time::StopWatch> totalTimer_;
     std::unique_ptr<TimeStepper> adaptiveTimeStepping_;
+
+
+    bool slaveMode_{false};
+    std::unique_ptr<ReservoirCouplingMaster> reservoirCouplingMaster_{nullptr};
+    std::unique_ptr<ReservoirCouplingSlave> reservoirCouplingSlave_{nullptr};
 
     std::optional<ConvergenceReportQueue> convergenceOutputQueue_{};
     std::optional<ConvergenceOutputThread> convergenceOutputObject_{};
