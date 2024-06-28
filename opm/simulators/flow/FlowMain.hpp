@@ -356,7 +356,7 @@ namespace Opm {
         // Callback that will be called from runSimulatorInitOrRun_().
         int runSimulatorRunCallback_()
         {
-            SimulatorReport report = simulator_->run(*simtimer_);
+            SimulatorReport report = simulator_->run(*simtimer_, this->argc_, this->argv_);
             runSimulatorAfterSim_(report);
             return report.success.exit_status;
         }
@@ -364,7 +364,7 @@ namespace Opm {
         // Callback that will be called from runSimulatorInitOrRun_().
         int runSimulatorInitCallback_()
         {
-            simulator_->init(*simtimer_);
+            simulator_->init(*simtimer_, this->argc_, this->argv_);
             return EXIT_SUCCESS;
         }
 
