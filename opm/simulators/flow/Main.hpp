@@ -426,6 +426,7 @@ private:
                            Parameters::Get<Parameters::InputSkipMode>(),
                            getNumThreads(),
                            Parameters::Get<Parameters::EclOutputInterval>(),
+                           Parameters::Get<Parameters::Slave>(),
                            cmdline_params,
                            Opm::moduleVersion(),
                            Opm::compileTimestamp());
