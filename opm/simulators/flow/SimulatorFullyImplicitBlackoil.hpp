@@ -210,6 +210,31 @@ public:
 
     void init(SimulatorTimer &timer)
     {
+        auto slave_mode = Parameters::get<TypeTag, Properties::Slave>();
+        if (slave_mode) {
+            this->reservoirCouplingSlave_ =
+                std::make_unique<ReservoirCouplingSlave>(
+                    FlowGenericVanguard::comm(),
+                    this->schedule()
+                );
+            this->reservoirCouplingSlave_->sendSimulationStartDateToMasterProcess();
+        }
+        else {
+            // For now, we require that SLAVES and GRUPMAST are defined at the first
+            //  schedule step, so it is enough to check the first step. See the
+            //  keyword handlers in opm-common for more information.
+            if (!this->schedule()[0].rescoup.empty()) {
+                auto master_mode = this->schedule()[0].rescoup().masterMode();
+                if (master_mode) {
+                    this->reservoirCouplingMaster_ =
+                        std::make_unique<ReservoirCouplingMaster>(
+                            FlowGenericVanguard::comm(),
+                            this->schedule()
+                        );
+                    this->reservoirCouplingMaster_->spawnSlaveProcesses(argc, argv);
+                }
+            }
+        }
         simulator_.setEpisodeIndex(-1);
 
         // Create timers and file for writing timing info.
