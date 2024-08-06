@@ -418,7 +418,6 @@ private:
         try {
             this->readDeck(deckFilename,
                            outputDir,
-<<<<<<< HEAD
                            Parameters::Get<Parameters::OutputMode>(),
                            !Parameters::Get<Parameters::SchedRestart>(),
                            Parameters::Get<Parameters::EnableLoggingFalloutWarning>(),
@@ -427,16 +426,7 @@ private:
                            Parameters::Get<Parameters::InputSkipMode>(),
                            getNumThreads(),
                            Parameters::Get<Parameters::EclOutputInterval>(),
-=======
-                           Parameters::get<PreTypeTag, Properties::OutputMode>(),
-                           !Parameters::get<PreTypeTag, Properties::SchedRestart>(),
-                           Parameters::get<PreTypeTag, Properties::EnableLoggingFalloutWarning>(),
-                           Parameters::get<PreTypeTag, Properties::ParsingStrictness>(),
-                           Parameters::get<PreTypeTag, Properties::InputSkipMode>(),
-                           getNumThreads<PreTypeTag>(),
-                           Parameters::get<PreTypeTag, Properties::EclOutputInterval>(),
-                           Parameters::get<PreTypeTag, Properties::Slave>(),
->>>>>>> f322d7f66 (Add support for GRUPSLAV keyword)
+                           Parameters::Get<Parameters::Slave>(),
                            cmdline_params,
                            Opm::moduleVersion(),
                            Opm::compileTimestamp());
