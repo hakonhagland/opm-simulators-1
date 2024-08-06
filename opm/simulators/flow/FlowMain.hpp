@@ -58,10 +58,6 @@ struct EnableLoggingFalloutWarning<TypeTag, Properties::TTag::FlowProblem>
 template<class TypeTag>
 struct OutputInterval<TypeTag, Properties::TTag::FlowProblem>
 { static constexpr int value = 1; };
-template<class TypeTag>
-struct Slave<TypeTag, TTag::FlowProblem> {
-    static constexpr bool value = false;
-};
 
 } // namespace Opm::Parameters
 

@@ -425,6 +425,7 @@ private:
                            Parameters::get<PreTypeTag, Parameters::InputSkipMode>(),
                            getNumThreads<PreTypeTag>(),
                            Parameters::get<PreTypeTag, Parameters::EclOutputInterval>(),
+                           Parameters::get<PreTypeTag, Parameters::Slave>(),
                            cmdline_params,
                            Opm::moduleVersion(),
                            Opm::compileTimestamp());
