@@ -418,6 +418,7 @@ private:
         try {
             this->readDeck(deckFilename,
                            outputDir,
+<<<<<<< HEAD
                            Parameters::Get<Parameters::OutputMode>(),
                            !Parameters::Get<Parameters::SchedRestart>(),
                            Parameters::Get<Parameters::EnableLoggingFalloutWarning>(),
@@ -425,6 +426,16 @@ private:
                            Parameters::Get<Parameters::InputSkipMode>(),
                            getNumThreads(),
                            Parameters::Get<Parameters::EclOutputInterval>(),
+=======
+                           Parameters::get<PreTypeTag, Parameters::OutputMode>(),
+                           !Parameters::get<PreTypeTag, Parameters::SchedRestart>(),
+                           Parameters::get<PreTypeTag, Parameters::EnableLoggingFalloutWarning>(),
+                           Parameters::get<PreTypeTag, Parameters::ParsingStrictness>(),
+                           Parameters::get<PreTypeTag, Parameters::InputSkipMode>(),
+                           getNumThreads<PreTypeTag>(),
+                           Parameters::get<PreTypeTag, Parameters::EclOutputInterval>(),
+                           Parameters::get<PreTypeTag, Parameters::Slave>(),
+>>>>>>> 9ac5355ea (Remove debug code)
                            cmdline_params,
                            Opm::moduleVersion(),
                            Opm::compileTimestamp());
