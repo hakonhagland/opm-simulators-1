@@ -21,6 +21,7 @@
 #define OPM_RESERVOIR_COUPLING_MASTER_HPP
 
 #include <opm/simulators/utils/ParallelCommunication.hpp>
+#include <opm/simulators/flow/ReservoirCoupling.hpp>
 #include <opm/input/eclipse/Schedule/Schedule.hpp>
 #include <opm/common/OpmLog/OpmLog.hpp>
 
@@ -33,21 +34,13 @@ namespace Opm {
 
 class ReservoirCouplingMaster {
 public:
+    using MPI_Comm_Ptr = ReservoirCoupling::MPI_Comm_Ptr;
+    using MessageTag = ReservoirCoupling::MessageTag;
 
     ReservoirCouplingMaster(const Parallel::Communication &comm, const Schedule &schedule);
 
-    // Custom deleter for MPI_Comm
-    struct MPI_Comm_Deleter {
-        void operator()(MPI_Comm* comm) const {
-            if (*comm != MPI_COMM_NULL) {
-                MPI_Comm_free(comm);
-            }
-            delete comm;
-        }
-    };
-    using MPI_Comm_Ptr = std::unique_ptr<MPI_Comm, MPI_Comm_Deleter>;
-
     void spawnSlaveProcesses(int argc, char **argv);
+    void receiveSimulationStartDateFromSlaves();
 
 
 private:
@@ -61,9 +54,10 @@ private:
 
     const Parallel::Communication &comm_;
     const Schedule& schedule_;
-    // MPI communicators for the slave processes
-    std::vector<MPI_Comm_Ptr> master_slave_comm_;
+    std::size_t num_slaves_ = 0;  // Initially zero, will be updated in spawnSlaveProcesses()
+    std::vector<MPI_Comm_Ptr> master_slave_comm_; // MPI communicators for the slave processes
     std::vector<std::string> slave_names_;
+    std::vector<std::time_t> slave_start_dates_;
 };
 
 } // namespace Opm
