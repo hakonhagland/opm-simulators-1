@@ -210,7 +210,7 @@ public:
 
     void init(SimulatorTimer &timer)
     {
-        auto slave_mode = Parameters::get<TypeTag, Parameters::Slave>();
+        auto slave_mode = Parameters::Get<Parameters::Slave>();
         if (slave_mode) {
             this->reservoirCouplingSlave_ =
                 std::make_unique<ReservoirCouplingSlave>(
