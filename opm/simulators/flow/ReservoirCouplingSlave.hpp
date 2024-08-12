@@ -17,47 +17,35 @@
   along with OPM.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef OPM_RESERVOIR_COUPLING_MASTER_HPP
-#define OPM_RESERVOIR_COUPLING_MASTER_HPP
+#ifndef OPM_RESERVOIR_COUPLING_SLAVE_HPP
+#define OPM_RESERVOIR_COUPLING_SLAVE_HPP
 
-#include <opm/simulators/utils/ParallelCommunication.hpp>
 #include <opm/simulators/flow/ReservoirCoupling.hpp>
 #include <opm/input/eclipse/Schedule/Schedule.hpp>
+#include <opm/simulators/utils/ParallelCommunication.hpp>
 #include <opm/common/OpmLog/OpmLog.hpp>
 
 #include <mpi.h>
 
-#include <filesystem>
 #include <vector>
 
 namespace Opm {
 
-class ReservoirCouplingMaster {
+class ReservoirCouplingSlave {
 public:
     using MPI_Comm_Ptr = ReservoirCoupling::MPI_Comm_Ptr;
     using MessageTag = ReservoirCoupling::MessageTag;
 
-    ReservoirCouplingMaster(const Parallel::Communication &comm, const Schedule &schedule);
-
-    void spawnSlaveProcesses(int argc, char **argv);
-    void receiveSimulationStartDateFromSlaves();
+    ReservoirCouplingSlave(const Parallel::Communication &comm, const Schedule &schedule);
+    void sendSimulationStartDateToMasterProcess();
 
 private:
-    std::vector<char *> getSlaveArgv(
-        int argc,
-        char **argv,
-        const std::filesystem::path &data_file,
-        const std::string &slave_name,
-        std::string &log_filename
-    );
-
     const Parallel::Communication &comm_;
     const Schedule& schedule_;
-    std::size_t num_slaves_ = 0;  // Initially zero, will be updated in spawnSlaveProcesses()
-    std::vector<MPI_Comm_Ptr> master_slave_comm_; // MPI communicators for the slave processes
-    std::vector<std::string> slave_names_;
-    std::vector<std::time_t> slave_start_dates_;
+    // MPI parent communicator for a slave process
+    MPI_Comm_Ptr slave_master_comm_{nullptr};
+
 };
 
 } // namespace Opm
-#endif // OPM_RESERVOIR_COUPLING_MASTER_HPP
+#endif // OPM_RESERVOIR_COUPLING_SLAVE_HPP
