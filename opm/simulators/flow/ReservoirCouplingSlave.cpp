@@ -33,16 +33,35 @@ namespace Opm {
 
 ReservoirCouplingSlave::ReservoirCouplingSlave(
     const Parallel::Communication &comm,
-    const Schedule &schedule
+    const Schedule &schedule,
+    const SimulatorTimer &timer
 ) :
     comm_{comm},
-    schedule_{schedule}
+    schedule_{schedule},
+    timer_{timer}
 {
     this->slave_master_comm_ = MPI_Comm_Ptr(new MPI_Comm(MPI_COMM_NULL));
     MPI_Comm_get_parent(this->slave_master_comm_.get());
     if (*(this->slave_master_comm_) == MPI_COMM_NULL) {
         OPM_THROW(std::runtime_error, "Slave process is not spawned by a master process");
     }
+}
+
+void ReservoirCouplingSlave::sendNextReportDateToMasterProcess() {
+    if (this->comm_.rank() == 0) {
+        double elapsed_time = this->timer_.simulationTimeElapsed();
+        double current_step_length = this->timer_.currentStepLength();
+        double next_report_date = elapsed_time + current_step_length;
+        MPI_Send(
+            &next_report_date,
+            /*count=*/1,
+            /*datatype=*/MPI_DOUBLE,
+            /*dest_rank=*/0,
+            /*tag=*/static_cast<int>(MessageTag::SlaveNextReportDate),
+            *this->slave_master_comm_
+        );
+        OpmLog::info("Sent next report date to master process from rank 0");
+   }
 }
 
 void ReservoirCouplingSlave::sendSimulationStartDateToMasterProcess() {
@@ -56,7 +75,7 @@ void ReservoirCouplingSlave::sendSimulationStartDateToMasterProcess() {
             /*count=*/1,
             /*datatype=*/MPI_LONG,
             /*dest_rank=*/0,
-            /*tag=*/static_cast<int>(MessageTag::SimulationStartDate),
+            /*tag=*/static_cast<int>(MessageTag::SlaveSimulationStartDate),
             *this->slave_master_comm_
         );
         OpmLog::info("Sent simulation start date to master process from rank 0");

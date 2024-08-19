@@ -64,73 +64,13 @@
 
 namespace Opm::Parameters {
 
-<<<<<<< HEAD
 struct EnableAdaptiveTimeStepping { static constexpr bool value = true; };
 struct OutputExtraConvergenceInfo { static constexpr auto* value = "none"; };
 struct SaveStep { static constexpr auto* value = ""; };
 struct SaveFile { static constexpr auto* value = ""; };
 struct LoadFile { static constexpr auto* value = ""; };
 struct LoadStep { static constexpr int value = -1; };
-=======
-template<class TypeTag, class MyTypeTag>
-struct EnableAdaptiveTimeStepping { using type = Properties::UndefinedProperty; };
-
-template <class TypeTag, class MyTypeTag>
-struct OutputExtraConvergenceInfo { using type = Properties::UndefinedProperty; };
-
-template <class TypeTag, class MyTypeTag>
-struct SaveStep { using type = Properties::UndefinedProperty; };
-
-template <class TypeTag, class MyTypeTag>
-struct LoadStep { using type = Properties::UndefinedProperty; };
-
-template <class TypeTag, class MyTypeTag>
-struct SaveFile { using type = Properties::UndefinedProperty; };
-
-template <class TypeTag, class MyTypeTag>
-struct LoadFile { using type = Properties::UndefinedProperty; };
-
-template <class TypeTag, class MyTypeTag>
-struct Slave { using type = Properties::UndefinedProperty; };
-
-template<class TypeTag>
-struct EnableAdaptiveTimeStepping<TypeTag, Properties::TTag::FlowProblem>
-{ static constexpr bool value = true; };
-
-template <class TypeTag>
-struct OutputExtraConvergenceInfo<TypeTag, Properties::TTag::FlowProblem>
-{ static constexpr auto* value = "none"; };
-
-template<class TypeTag>
-struct EnableTerminalOutput<TypeTag, Properties::TTag::FlowProblem>
-{ static constexpr bool value = true; };
-
-template <class TypeTag>
-struct SaveStep<TypeTag, Properties::TTag::FlowProblem>
-{ static constexpr auto* value = ""; };
-
-template <class TypeTag>
-struct SaveFile<TypeTag, Properties::TTag::FlowProblem>
-{ static constexpr auto* value = ""; };
-
-template <class TypeTag>
-struct LoadFile<TypeTag, Properties::TTag::FlowProblem>
-{ static constexpr auto* value = ""; };
-
-template <class TypeTag>
-struct LoadStep<TypeTag, Properties::TTag::FlowProblem>
-{ static constexpr int value = -1; };
-
-template<class TypeTag>
-<<<<<<< HEAD
-struct Slave<TypeTag, Properties::TTag::FlowProblem> {
-    static constexpr bool value = false;
-};
->>>>>>> b215a8893 (Spawn slaves from master)
-=======
-struct Slave<TypeTag, Properties::TTag::FlowProblem>
-{ static constexpr bool value = false; };
->>>>>>> 9ac5355ea (Remove debug code)
+struct Slave { static constexpr bool value = false; };
 
 } // namespace Opm::Parameters
 
@@ -250,14 +190,10 @@ public:
         Parameters::Register<Parameters::LoadFile>
             ("FileName for .OPMRST file used to load serialized state. "
              "If empty, CASENAME.OPMRST is used.");
-<<<<<<< HEAD
         Parameters::Hide<Parameters::LoadFile>();
-=======
-        Parameters::hideParam<TypeTag, Parameters::LoadFile>();
-        Parameters::registerParam<TypeTag, Parameters::Slave>
+        Parameters::Register<Parameters::Slave>
             ("Specify if the simulation is a slave simulation in a master-slave simulation");
-        Parameters::hideParam<TypeTag, Parameters::Slave>();
->>>>>>> b215a8893 (Spawn slaves from master)
+        Parameters::Hide<Parameters::Slave>();
     }
 
     /// Run the simulation.
@@ -282,14 +218,18 @@ public:
     // NOTE: The argc and argv will be used when launching a slave process
     void init(SimulatorTimer &timer, int argc, char** argv)
     {
-        auto slave_mode = Parameters::get<TypeTag, Parameters::Slave>();
+        auto slave_mode = Parameters::Get<Parameters::Slave>();
         if (slave_mode) {
             this->reservoirCouplingSlave_ =
                 std::make_unique<ReservoirCouplingSlave>(
                     FlowGenericVanguard::comm(),
-                    this->schedule()
+                    this->schedule(), timer
                 );
             this->reservoirCouplingSlave_->sendSimulationStartDateToMasterProcess();
+            this->reservoirCouplingSlave_->sendNextReportDateToMasterProcess();
+            this->adaptiveTimeStepping_->setReservoirCouplingSlave(
+                this->reservoirCouplingSlave_.get()
+            );
         }
         else {
             // For now, we require that SLAVES and GRUPMAST are defined at the first
@@ -304,6 +244,10 @@ public:
                     );
                 this->reservoirCouplingMaster_->spawnSlaveProcesses(argc, argv);
                 this->reservoirCouplingMaster_->receiveSimulationStartDateFromSlaves();
+                this->reservoirCouplingMaster_->receiveNextReportDateFromSlaves();
+                adaptiveTimeStepping_->setReservoirCouplingMaster(
+                    this->reservoirCouplingMaster_.get()
+                );
             }
         }
         simulator_.setEpisodeIndex(-1);

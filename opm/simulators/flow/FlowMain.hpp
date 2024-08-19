@@ -48,7 +48,6 @@ namespace Opm::Parameters {
 struct EnableLoggingFalloutWarning { static constexpr bool value = false; };
 
 struct OutputInterval { static constexpr int value = 1; };
-struct Slave { static constexpr bool value = false; };
 
 } // namespace Opm::Parameters
 
@@ -97,9 +96,6 @@ namespace Opm {
             Parameters::Register<Parameters::EnableLoggingFalloutWarning>
                 ("Developer option to see whether logging was on non-root processors. "
                  "In that case it will be appended to the *.DBG or *.PRT files");
-            Parameters::Register<Parameters::Slave>
-                ("Specify if the simulation is a slave simulation in a master-slave simulation");
-            Parameters::hideParam<Parameters::Slave>();
             Simulator::registerParameters();
 
             // register the base parameters
