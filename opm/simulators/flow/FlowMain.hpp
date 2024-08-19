@@ -52,6 +52,7 @@ namespace Opm::Parameters {
 struct EnableLoggingFalloutWarning { static constexpr bool value = false; };
 
 struct OutputInterval { static constexpr int value = 1; };
+
 } // namespace Opm::Parameters
 
 namespace Opm {
