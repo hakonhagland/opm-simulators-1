@@ -504,7 +504,6 @@ Opm::setupLogging(Parallel::Communication& comm,
     }
     logFileStream << ".PRT";
     debugFileStream << ".DBG";
-
     FileOutputMode output;
     {
         static std::map<std::string, FileOutputMode> stringToOutputMode =
@@ -574,7 +573,6 @@ void Opm::readDeck(Opm::Parallel::Communication    comm,
                    const bool                      slaveMode)
 {
     auto errorGuard = std::make_unique<ErrorGuard>();
-
     int parseSuccess = 1; // > 0 is success
     std::string failureMessage;
 

@@ -34,10 +34,12 @@ namespace Opm {
 
 ReservoirCouplingSlave::ReservoirCouplingSlave(
     const Parallel::Communication &comm,
-    const Schedule &schedule
+    const Schedule &schedule,
+    const SimulatorTimer &timer
 ) :
     comm_{comm},
-    schedule_{schedule}
+    schedule_{schedule},
+    timer_{timer}
 {
     this->slave_master_comm_ = MPI_Comm_Ptr(new MPI_Comm(MPI_COMM_NULL));
     MPI_Comm_get_parent(this->slave_master_comm_.get());
@@ -46,8 +48,33 @@ ReservoirCouplingSlave::ReservoirCouplingSlave(
     }
 }
 
-void ReservoirCouplingSlave::sendSimulationStartDateToMasterProcess() {
+void ReservoirCouplingSlave::sendNextReportDateToMasterProcess() {
+    this->comm_.barrier();  // For debugging purposes
+    OpmLog::info("xxx6: comm.size = " + std::to_string(this->comm_.size()));
+    OpmLog::info("xxx5: Rank " + std::to_string(this->comm_.rank()) + " reached the start of the method.");
+    if (this->comm_.rank() == 0) {
+        double elapsed_time = this->timer_.simulationTimeElapsed();
+        double current_step_length = this->timer_.currentStepLength();
+        double next_report_date = elapsed_time + current_step_length;
+        OpmLog::info("xxx2: Sending next report date..");
+        MPI_Send(
+            &next_report_date,
+            /*count=*/1,
+            /*datatype=*/MPI_DOUBLE,
+            /*dest_rank=*/0,
+            /*tag=*/static_cast<int>(MessageTag::SlaveNextReportDate),
+            *this->slave_master_comm_
+        );
+        OpmLog::info("Sent next report date to master process from rank 0");
+   }
+   OpmLog::info("xxx4: Rank " + std::to_string(this->comm_.rank()) + " reached the barrier.");
+   this->comm_.barrier();  // For debugging purposes, to ensure that the master process receives the message
+   OpmLog::info("xxx3: Sent next report date to master process from rank 0");
+}
 
+void ReservoirCouplingSlave::sendSimulationStartDateToMasterProcess() {
+    OpmLog::info("xxx7: Rank " + std::to_string(this->comm_.rank()) + " reached the start of the method.");
+    std::cout << "xxx8: Rank " << this->comm_.rank() << " reached the start of the method." << std::endl;
     if (this->comm_.rank() == 0) {
         // Ensure that std::time_t is of type long since we are sending it over MPI with MPI_LONG
         static_assert(std::is_same<std::time_t, long>::value, "std::time_t is not of type long");
@@ -57,7 +84,7 @@ void ReservoirCouplingSlave::sendSimulationStartDateToMasterProcess() {
             /*count=*/1,
             /*datatype=*/MPI_LONG,
             /*dest_rank=*/0,
-            /*tag=*/static_cast<int>(MessageTag::SimulationStartDate),
+            /*tag=*/static_cast<int>(MessageTag::SlaveSimulationStartDate),
             *this->slave_master_comm_
         );
         OpmLog::info("Sent simulation start date to master process from rank 0");

@@ -26,9 +26,9 @@ namespace Opm {
 namespace ReservoirCoupling {
 
 enum class MessageTag : int {
-    SimulationStartDate,
-    SimulationEndDate,
-    SlaveProcessTermination
+    SlaveSimulationStartDate,
+    SlaveProcessTermination,
+    SlaveNextReportDate,
 };
 
 // Custom deleter for MPI_Comm

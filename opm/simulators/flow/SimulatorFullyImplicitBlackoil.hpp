@@ -221,13 +221,21 @@ public:
     void init(SimulatorTimer &timer, int argc, char** argv)
     {
         auto slave_mode = Parameters::Get<Parameters::Slave>();
+        FlowGenericVanguard::comm().barrier();
+        OpmLog::info(fmt::format("xxx10: Rank {}", FlowGenericVanguard::comm().rank()));
         if (slave_mode) {
+            OpmLog::info(fmt::format("xxx9: Slave rank {}", FlowGenericVanguard::comm().rank()));
             this->reservoirCouplingSlave_ =
                 std::make_unique<ReservoirCouplingSlave>(
                     FlowGenericVanguard::comm(),
-                    this->schedule()
+                    this->schedule(), timer
                 );
             this->reservoirCouplingSlave_->sendSimulationStartDateToMasterProcess();
+            OpmLog::info("xxx1: Slave process sent simulation start date to master process");
+            this->reservoirCouplingSlave_->sendNextReportDateToMasterProcess();
+            this->adaptiveTimeStepping_->setReservoirCouplingSlave(
+                this->reservoirCouplingSlave_.get()
+            );
         }
         else {
             // For now, we require that SLAVES and GRUPMAST are defined at the first
@@ -235,6 +243,8 @@ public:
             //  keyword handlers in opm-common for more information.
             auto master_mode = this->schedule()[0].rescoup().masterMode();
             if (master_mode) {
+                OpmLog::info(fmt::format(
+                    "xxx9: Master rank {}", FlowGenericVanguard::comm().rank()));
                 this->reservoirCouplingMaster_ =
                     std::make_unique<ReservoirCouplingMaster>(
                         FlowGenericVanguard::comm(),
@@ -242,6 +252,11 @@ public:
                     );
                 this->reservoirCouplingMaster_->spawnSlaveProcesses(argc, argv);
                 this->reservoirCouplingMaster_->receiveSimulationStartDateFromSlaves();
+                this->reservoirCouplingMaster_->receiveNextReportDateFromSlaves();
+                adaptiveTimeStepping_->setReservoirCouplingMaster(
+                    this->reservoirCouplingMaster_.get()
+                );
+                OpmLog::info("xxx1: Master process spawned slave processes");
             }
         }
         simulator_.setEpisodeIndex(-1);

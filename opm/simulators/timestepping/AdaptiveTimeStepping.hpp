@@ -31,6 +31,8 @@
 #include <opm/simulators/timestepping/SimulatorTimer.hpp>
 #include <opm/simulators/timestepping/TimeStepControl.hpp>
 #include <opm/simulators/timestepping/TimeStepControlInterface.hpp>
+#include <opm/simulators/flow/ReservoirCouplingMaster.hpp>
+#include <opm/simulators/flow/ReservoirCouplingSlave.hpp>
 
 #include <opm/simulators/utils/phaseUsageFromDeck.hpp>
 
@@ -187,18 +189,21 @@ void registerAdaptiveParameters();
                              const std::vector<int>* fipnum = nullptr,
                              const std::function<bool()> tuningUpdater = [](){return false;})
         {
+            if (reservoirCouplingSlave_) {
+                return stepReservoirCouplingSlave(simulatorTimer, solver, isEvent, fipnum, tuningUpdater);
+            }
             // Maybe update tuning
             tuningUpdater();
-            SimulatorReport report;
-            const double timestep = simulatorTimer.currentStepLength();
+
+            const double originalTimeStep = simulatorTimer.currentStepLength();
 
             // init last time step as a fraction of the given time step
             if (suggestedNextTimestep_ < 0) {
-                suggestedNextTimestep_ = restartFactor_ * timestep;
+                suggestedNextTimestep_ = restartFactor_ * originalTimeStep;
             }
 
             if (fullTimestepInitially_) {
-                suggestedNextTimestep_ = timestep;
+                suggestedNextTimestep_ = originalTimeStep;
             }
 
             // use seperate time step after event
@@ -206,14 +211,76 @@ void registerAdaptiveParameters();
                 suggestedNextTimestep_ = timestepAfterEvent_;
             }
 
-            auto& simulator = solver.model().simulator();
-            auto& problem = simulator.problem();
+            // create adaptive step timer with previously used sub step size
+            AdaptiveSimulatorTimer substepTimer{
+                simulatorTimer.startDateTime(),
+                simulatorTimer.simulationTimeElapsed(),
+                originalTimeStep,
+                simulatorTimer.reportStepNum(),
+                suggestedNextTimestep_,
+                maxTimeStep_
+            };
+
+            return substepsLoop_(
+                solver, simulatorTimer, substepTimer, originalTimeStep, fipnum, tuningUpdater
+            );
+        }
+
+        template <class Solver>
+        SimulatorReport stepReservoirCouplingSlave(const SimulatorTimer& simulatorTimer,
+                             Solver& solver,
+                             const bool isEvent,
+                             const std::vector<int>* fipnum = nullptr,
+                             const std::function<bool()> tuningUpdater = [](){return false;})
+        {
+            // Maybe update tuning
+            tuningUpdater();
+
+            const double originalTimeStep = simulatorTimer.currentStepLength();
+
+            // init last time step as a fraction of the given time step
+            if (suggestedNextTimestep_ < 0) {
+                suggestedNextTimestep_ = restartFactor_ * originalTimeStep;
+            }
+
+            if (fullTimestepInitially_) {
+                suggestedNextTimestep_ = originalTimeStep;
+            }
+
+            // use seperate time step after event
+            if (isEvent && timestepAfterEvent_ > 0) {
+                suggestedNextTimestep_ = timestepAfterEvent_;
+            }
 
             // create adaptive step timer with previously used sub step size
-            AdaptiveSimulatorTimer substepTimer(simulatorTimer, suggestedNextTimestep_, maxTimeStep_);
+            AdaptiveSimulatorTimer substepTimer{
+                simulatorTimer.startDateTime(),
+                simulatorTimer.simulationTimeElapsed(),
+                originalTimeStep,
+                simulatorTimer.reportStepNum(),
+                suggestedNextTimestep_,
+                maxTimeStep_
+            };
 
+            return substepsLoop_(
+                solver, simulatorTimer, substepTimer, originalTimeStep, fipnum, tuningUpdater
+            );
+        }
+
+        template <class Solver>
+        SimulatorReport substepsLoop_(
+            Solver& solver,
+            const SimulatorTimer& simulatorTimer,
+            AdaptiveSimulatorTimer& substepTimer,
+            const double originalTimeStep,
+            const std::vector<int>* fipnum,
+            const std::function<bool()>& tuningUpdater)
+        {
+            auto& simulator = solver.model().simulator();
+            auto& problem = simulator.problem();
             // counter for solver restarts
             int restarts = 0;
+            SimulatorReport report;            // counter for solver restarts
 
             // sub step time loop
             while (!substepTimer.done()) {
@@ -223,6 +290,7 @@ void registerAdaptiveParameters();
                 if (tuningUpdater()) {
                     // Use provideTimeStepEstimate to make we sure don't simulate longer than the report step is.
                     substepTimer.provideTimeStepEstimate(suggestedNextTimestep_);
+                    // tuningUpdater() might change the suggested time step
                     suggestedNextTimestep_ = oldValue;
                 }
                 const double dt = substepTimer.currentStepLength();
@@ -381,7 +449,6 @@ void registerAdaptiveParameters();
                     // The new, chopped timestep.
                     const double newTimeStep = restartFactor_ * dt;
 
-
                     // If we have restarted (i.e. cut the timestep) too
                     // much, we have failed and throw an exception.
                     if (newTimeStep < minTimeStep_) {
@@ -452,18 +519,16 @@ void registerAdaptiveParameters();
                 }
                 problem.setNextTimeStepSize(substepTimer.currentStepLength());
             }
-
             // store estimated time step for next reportStep
             suggestedNextTimestep_ = substepTimer.currentStepLength();
+            if (! std::isfinite(suggestedNextTimestep_)) { // check for NaN
+                suggestedNextTimestep_ = originalTimeStep;
+            }
             if (timestepVerbose_) {
                 std::ostringstream ss;
                 substepTimer.report(ss);
                 ss << "Suggested next step size = " << unit::convert::to(suggestedNextTimestep_, unit::day) << " (days)" << std::endl;
                 OpmLog::debug(ss.str());
-            }
-
-            if (! std::isfinite(suggestedNextTimestep_)) { // check for NaN
-                suggestedNextTimestep_ = timestep;
             }
             return report;
         }
@@ -589,6 +654,16 @@ void registerAdaptiveParameters();
                        rhs.minTimeStepBeforeShuttingProblematicWells_;
         }
 
+        void setReservoirCouplingMaster(ReservoirCouplingMaster *reservoirCouplingMaster)
+        {
+            this->reservoirCouplingMaster_ = reservoirCouplingMaster;
+        }
+
+        void setReservoirCouplingSlave(ReservoirCouplingSlave *reservoirCouplingSlave)
+        {
+            this->reservoirCouplingSlave_ = reservoirCouplingSlave;
+        }
+
     private:
         template<class Controller>
         static AdaptiveTimeStepping<TypeTag> serializationTestObject_()
@@ -706,6 +781,8 @@ void registerAdaptiveParameters();
         double timestepAfterEvent_;          //!< suggested size of timestep after an event
         bool useNewtonIteration_;            //!< use newton iteration count for adaptive time step control
         double minTimeStepBeforeShuttingProblematicWells_; //! < shut problematic wells when time step size in days are less than this
+        ReservoirCouplingMaster *reservoirCouplingMaster_ = nullptr;
+        ReservoirCouplingSlave *reservoirCouplingSlave_ = nullptr;
     };
 }
 
