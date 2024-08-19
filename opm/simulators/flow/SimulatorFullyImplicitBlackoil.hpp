@@ -220,14 +220,22 @@ public:
     // NOTE: The argc and argv will be used when launching a slave process
     void init(SimulatorTimer &timer, int argc, char** argv)
     {
-        auto slave_mode = Parameters::Get<Properties::Slave>();
+        auto slave_mode = Parameters::Get<Parameters::Slave>();
+        FlowGenericVanguard::comm().barrier();
+        std::cout << "xxx10: Rank " << FlowGenericVanguard::comm().rank() << std::endl;
         if (slave_mode) {
+            std::cout << "xxx9: Rank " << FlowGenericVanguard::comm().rank() << std::endl;
             this->reservoirCouplingSlave_ =
                 std::make_unique<ReservoirCouplingSlave>(
                     FlowGenericVanguard::comm(),
-                    this->schedule()
+                    this->schedule(), timer
                 );
             this->reservoirCouplingSlave_->sendSimulationStartDateToMasterProcess();
+            OpmLog::info("xxx1: Slave process sent simulation start date to master process");
+            this->reservoirCouplingSlave_->sendNextReportDateToMasterProcess();
+            this->adaptiveTimeStepping_->setReservoirCouplingSlave(
+                this->reservoirCouplingSlave_.get()
+            );
         }
         else {
             // For now, we require that SLAVES and GRUPMAST are defined at the first
@@ -242,6 +250,11 @@ public:
                     );
                 this->reservoirCouplingMaster_->spawnSlaveProcesses(argc, argv);
                 this->reservoirCouplingMaster_->receiveSimulationStartDateFromSlaves();
+                this->reservoirCouplingMaster_->receiveNextReportDateFromSlaves();
+                adaptiveTimeStepping_->setReservoirCouplingMaster(
+                    this->reservoirCouplingMaster_.get()
+                );
+                OpmLog::info("xxx1: Master process spawned slave processes");
             }
         }
         simulator_.setEpisodeIndex(-1);
