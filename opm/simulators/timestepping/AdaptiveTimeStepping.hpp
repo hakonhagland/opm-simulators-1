@@ -189,16 +189,16 @@ void registerAdaptiveParameters();
         {
             // Maybe update tuning
             tuningUpdater();
-            SimulatorReport report;
-            const double timestep = simulatorTimer.currentStepLength();
+
+            const double originalTimeStep = simulatorTimer.currentStepLength();
 
             // init last time step as a fraction of the given time step
             if (suggestedNextTimestep_ < 0) {
-                suggestedNextTimestep_ = restartFactor_ * timestep;
+                suggestedNextTimestep_ = restartFactor_ * originalTimeStep;
             }
 
             if (fullTimestepInitially_) {
-                suggestedNextTimestep_ = timestep;
+                suggestedNextTimestep_ = originalTimeStep;
             }
 
             // use seperate time step after event
@@ -206,14 +206,36 @@ void registerAdaptiveParameters();
                 suggestedNextTimestep_ = timestepAfterEvent_;
             }
 
+            // create adaptive step timer with previously used sub step size
+            AdaptiveSimulatorTimer substepTimer{
+                simulatorTimer.startDateTime(),
+                simulatorTimer.simulationTimeElapsed(),
+                originalTimeStep,
+                simulatorTimer.reportStepNum(),
+                suggestedNextTimestep_,
+                maxTimeStep_
+            };
+
+
+            return substepsLoop_(
+                solver, simulatorTimer, substepTimer, originalTimeStep, fipnum, tuningUpdater
+            );
+        }
+
+        template <class Solver>
+        SimulatorReport substepsLoop_(
+            Solver& solver,
+            const SimulatorTimer& simulatorTimer,
+            AdaptiveSimulatorTimer& substepTimer,
+            const double originalTimeStep,
+            const std::vector<int>* fipnum,
+            const std::function<bool()>& tuningUpdater)
+        {
             auto& simulator = solver.model().simulator();
             auto& problem = simulator.problem();
-
-            // create adaptive step timer with previously used sub step size
-            AdaptiveSimulatorTimer substepTimer(simulatorTimer, suggestedNextTimestep_, maxTimeStep_);
-
             // counter for solver restarts
             int restarts = 0;
+            SimulatorReport report;
 
             // sub step time loop
             while (!substepTimer.done()) {
@@ -223,6 +245,7 @@ void registerAdaptiveParameters();
                 if (tuningUpdater()) {
                     // Use provideTimeStepEstimate to make we sure don't simulate longer than the report step is.
                     substepTimer.provideTimeStepEstimate(suggestedNextTimestep_);
+                    // tuningUpdater() might change the suggested time step
                     suggestedNextTimestep_ = oldValue;
                 }
                 const double dt = substepTimer.currentStepLength();
@@ -381,7 +404,6 @@ void registerAdaptiveParameters();
                     // The new, chopped timestep.
                     const double newTimeStep = restartFactor_ * dt;
 
-
                     // If we have restarted (i.e. cut the timestep) too
                     // much, we have failed and throw an exception.
                     if (newTimeStep < minTimeStep_) {
@@ -452,18 +474,16 @@ void registerAdaptiveParameters();
                 }
                 problem.setNextTimeStepSize(substepTimer.currentStepLength());
             }
-
             // store estimated time step for next reportStep
             suggestedNextTimestep_ = substepTimer.currentStepLength();
+            if (! std::isfinite(suggestedNextTimestep_)) { // check for NaN
+                suggestedNextTimestep_ = originalTimeStep;
+            }
             if (timestepVerbose_) {
                 std::ostringstream ss;
                 substepTimer.report(ss);
                 ss << "Suggested next step size = " << unit::convert::to(suggestedNextTimestep_, unit::day) << " (days)" << std::endl;
                 OpmLog::debug(ss.str());
-            }
-
-            if (! std::isfinite(suggestedNextTimestep_)) { // check for NaN
-                suggestedNextTimestep_ = timestep;
             }
             return report;
         }
