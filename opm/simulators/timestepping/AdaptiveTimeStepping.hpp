@@ -210,7 +210,14 @@ void registerAdaptiveParameters();
             auto& problem = simulator.problem();
 
             // create adaptive step timer with previously used sub step size
-            AdaptiveSimulatorTimer substepTimer(simulatorTimer, suggestedNextTimestep_, maxTimeStep_);
+            AdaptiveSimulatorTimer substepTimer{
+                simulatorTimer.startDateTime(),
+                simulatorTimer.simulationTimeElapsed(),
+                simulatorTimer.currentStepLength(),
+                simulatorTimer.reportStepNum(),
+                suggestedNextTimestep_,
+                maxTimeStep_
+            };
 
             // counter for solver restarts
             int restarts = 0;
