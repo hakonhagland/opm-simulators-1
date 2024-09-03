@@ -96,25 +96,34 @@ double ReservoirCouplingMaster::maybeChopSubStep(double suggested_timestep, doub
 void ReservoirCouplingMaster::receiveNextReportDateFromSlaves() {
     if (this->comm_.rank() == 0) {
         OpmLog::info("Before receiving next report date from slaves");
+
+        // Create an array of MPI_Request to track each Irecv operation
+        std::vector<MPI_Request> requests(this->master_slave_comm_.size());
+        std::vector<double> slave_next_report_dates(this->master_slave_comm_.size());
+
         for (unsigned int i = 0; i < this->master_slave_comm_.size(); i++) {
-            double slave_next_report_date;
-            int result = MPI_Recv(
-                &slave_next_report_date,
+            OpmLog::info("Posting Irecv for slave process " + std::to_string(i));
+            MPI_Irecv(
+                &slave_next_report_dates[i],
                 /*count=*/1,
                 /*datatype=*/MPI_DOUBLE,
                 /*source_rank=*/0,
                 /*tag=*/static_cast<int>(MessageTag::SlaveNextReportDate),
                 *this->master_slave_comm_[i].get(),
-                MPI_STATUS_IGNORE
+                &requests[i]
             );
-            if (result != MPI_SUCCESS) {
-                OPM_THROW(std::runtime_error, "Failed to receive next report date from slave process");
-            }
-            this->slave_next_report_dates_[i] = slave_next_report_date;
+        }
+
+        // Wait for all Irecv operations to complete
+        MPI_Waitall(this->master_slave_comm_.size(), requests.data(), MPI_STATUS_IGNORE);
+
+        // After all receives are complete, store the received data
+        for (unsigned int i = 0; i < this->master_slave_comm_.size(); i++) {
+            this->slave_next_report_dates_[i] = slave_next_report_dates[i];
             OpmLog::info(
                 fmt::format(
                     "Received simulation slave next report date from slave process with name: {}. "
-                    "Next report date: {}", this->slave_names_[i], slave_next_report_date
+                    "Next report date: {}", this->slave_names_[i], slave_next_report_dates[i]
                 )
             );
         }

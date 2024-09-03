@@ -57,14 +57,21 @@ void ReservoirCouplingSlave::sendNextReportDateToMasterProcess() {
         double current_step_length = this->timer_.currentStepLength();
         double next_report_date = elapsed_time + current_step_length;
         OpmLog::info("xxx2: Sending next report date..");
-        MPI_Send(
+
+        MPI_Request request;
+        MPI_Isend(
             &next_report_date,
             /*count=*/1,
             /*datatype=*/MPI_DOUBLE,
             /*dest_rank=*/0,
             /*tag=*/static_cast<int>(MessageTag::SlaveNextReportDate),
-            *this->slave_master_comm_
+            *this->slave_master_comm_,
+            &request
         );
+
+        // Optionally, you can wait for the send to complete if you need to ensure it was sent before continuing
+        MPI_Wait(&request, MPI_STATUS_IGNORE);
+
         OpmLog::info("Sent next report date to master process from rank 0");
    }
    OpmLog::info("xxx4: Rank " + std::to_string(this->comm_.rank()) + " reached the barrier.");
