@@ -645,7 +645,6 @@ protected:
     std::unique_ptr<time::StopWatch> totalTimer_;
     std::unique_ptr<TimeStepper> adaptiveTimeStepping_;
 
-
 #if HAVE_MPI
     bool slaveMode_{false};
     std::unique_ptr<ReservoirCouplingMaster> reservoirCouplingMaster_{nullptr};
