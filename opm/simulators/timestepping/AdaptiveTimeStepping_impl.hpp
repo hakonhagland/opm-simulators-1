@@ -560,10 +560,15 @@ SimulatorReport
 AdaptiveTimeStepping<TypeTag>::SubStepper<Solver>::
 runStepOriginal_()
 {
+    static int debug_counter = 0;
     maybeUpdateTuning_();
     const double original_time_step = this->simulator_timer_.currentStepLength();
     maybeModifySuggestedTimeStepAtBeginningOfReportStep_(original_time_step);
-
+    debug_counter++;
+    OpmLog::debug(fmt::format("XXX {}: Elapsed: {}, step length: {}",
+                    debug_counter,
+                    this->simulator_timer_.simulationTimeElapsed(),
+                    suggestedNextTimestep_()));
     AdaptiveSimulatorTimer substep_timer{
         this->simulator_timer_.startDateTime(),
         original_time_step,
@@ -731,9 +736,10 @@ run()
     // counter for solver restarts
     int restarts = 0;
     SimulatorReport report;
-
+    static int debug_counter = 0;
     // sub step time loop
     while (!this->substep_timer_.done()) {
+
         auto old_value = suggestedNextTimestep_();
         if (maybeUpdateTuning_()) {
             setTimeStep_(suggestedNextTimestep_());
@@ -745,6 +751,11 @@ run()
             detail::logTimer(this->substep_timer_);
         }
 
+        debug_counter++;
+        OpmLog::debug(fmt::format("XXX2 {}: Elapsed: {}, step length: {}",
+                debug_counter,
+                this->substep_timer_.simulationTimeElapsed(),
+                this->substep_timer_.currentStepLength()));
         auto [substep_report, cause_of_failure] = runSubStep_();
 
         //Pass substep to eclwriter for summary output
@@ -1086,6 +1097,9 @@ runSubStep_()
     };
 
     try {
+        OpmLog::debug(fmt::format("XXX2: Starting substep: step number: {}, step length: {}",
+                    this->substep_timer_.reportStepNum(),
+                    this->substep_timer_.currentStepLength()));
         substep_report = solver_().step(this->substep_timer_);
         if (solverVerbose_()) {
             // report number of linear iterations
