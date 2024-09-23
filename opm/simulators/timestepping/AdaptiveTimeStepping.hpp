@@ -208,7 +208,12 @@ void registerAdaptiveParameters();
 
             auto& simulator = solver.model().simulator();
             auto& problem = simulator.problem();
-
+            static int debug_counter = 0;
+            debug_counter++;
+            OpmLog::debug(fmt::format("XXX {}: Elapsed: {}, step length: {}",
+                            debug_counter,
+                            simulatorTimer.simulationTimeElapsed(),
+                            suggestedNextTimestep_));
             // create adaptive step timer with previously used sub step size
             AdaptiveSimulatorTimer substepTimer(simulatorTimer, suggestedNextTimestep_, maxTimeStep_);
 
@@ -233,6 +238,13 @@ void registerAdaptiveParameters();
                 SimulatorReportSingle substepReport;
                 std::string causeOfFailure;
                 try {
+                    static int debug_counter2 = 0;
+                    debug_counter2++;
+                    OpmLog::debug(fmt::format("XXX2 {}: Elapsed: {}, step length: {}",
+                        debug_counter2,
+                        substepTimer.simulationTimeElapsed(),
+                        substepTimer.currentStepLength()));
+
                     substepReport = solver.step(substepTimer);
 
                     if (solverVerbose_) {
