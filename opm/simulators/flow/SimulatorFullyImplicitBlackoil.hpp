@@ -84,8 +84,6 @@ namespace Opm {
 template<class TypeTag>
 class SimulatorFullyImplicitBlackoil : private SerializableSim
 {
-protected:
-    struct MPI_Comm_Deleter;
 public:
     using Simulator = GetPropType<TypeTag, Properties::Simulator>;
     using Grid = GetPropType<TypeTag, Properties::Grid>;
