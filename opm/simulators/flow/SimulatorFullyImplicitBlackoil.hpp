@@ -74,6 +74,7 @@ struct SaveStep { static constexpr auto* value = ""; };
 struct SaveFile { static constexpr auto* value = ""; };
 struct LoadFile { static constexpr auto* value = ""; };
 struct LoadStep { static constexpr int value = -1; };
+struct Slave { static constexpr bool value = false; };
 
 } // namespace Opm::Parameters
 
@@ -200,7 +201,7 @@ public:
     /// \param[in,out] timer       governs the requested reporting timesteps
     /// \param[in,out] state       state of reservoir: pressure, fluxes
     /// \return                    simulation report, with timing data
-    SimulatorReport run(SimulatorTimer& timer)
+    SimulatorReport run(SimulatorTimer& timer, int argc, char** argv)
     {
         init(timer);
         // Make cache up to date. No need for updating it in elementCtx.
