@@ -272,17 +272,10 @@ BOOST_AUTO_TEST_CASE(FlowGenericProblemFem)
     Opm::EclipseState eclState;
     Opm::Schedule schedule;
     Dune::CpGrid grid;
-#if DUNE_VERSION_GTE(DUNE_FEM, 2, 9)
     using GridPart = Dune::Fem::AdaptiveLeafGridPart<Dune::CpGrid, Dune::PartitionIteratorType(4), false>;
     using GridView = GridPart::GridViewType;
     auto gridPart = GridPart(grid);
     auto gridView = gridPart.gridView();
-#else
-    using GridPart = Dune::Fem::AdaptiveLeafGridPart<Dune::CpGrid, Dune::PartitionIteratorType(4), false>;
-    using GridView = Dune::GridView<Dune::Fem::GridPart2GridViewTraits<GridPart>>;
-    auto gridPart = GridPart(grid);
-    auto gridView = GridView(static_cast<GridView>(gridPart));
-#endif
     auto data_out
         = Opm::FlowGenericProblem<GridView, Opm::BlackOilFluidSystem<double, Opm::BlackOilDefaultIndexTraits>>::
             serializationTestObject(eclState, schedule, gridView);
@@ -332,8 +325,9 @@ public:
         last_valid_wgstate_ = WGState<double>::serializationTestObject(dummy);
         nupcol_wgstate_ = WGState<double>::serializationTestObject(dummy);
         last_glift_opt_time_ = 5.0;
-        switched_prod_groups_ = {{"test4", "test5"}};
-        switched_inj_groups_ = {{{"test4", Phase::SOLVENT}, "test5"}};
+        switched_prod_groups_ = {{"test4", {Group::ProductionCMode::NONE, Group::ProductionCMode::ORAT}}};
+        const auto controls = {Group::InjectionCMode::NONE, Group::InjectionCMode::RATE, Group::InjectionCMode::RATE };
+        switched_inj_groups_ = {{"test4", {controls, {}, controls} }};
         closed_offending_wells_ = {{"test4", {"test5", "test6"}}};
     }
 
@@ -475,17 +469,10 @@ BOOST_AUTO_TEST_CASE(FlowGenericTracerModelFem)
     Opm::EclipseState eclState;
     Dune::CartesianIndexMapper<Dune::CpGrid> mapper(grid);
     auto centroids = [](int) { return std::array<double,Dune::CpGrid::dimensionworld>{}; };
-#if DUNE_VERSION_GTE(DUNE_FEM, 2, 9)
     using GridPart = Dune::Fem::AdaptiveLeafGridPart<Dune::CpGrid, Dune::PartitionIteratorType(4), false>;
     using GridView = GridPart::GridViewType;
     auto gridPart = GridPart(grid);
     auto gridView = gridPart.gridView();
-#else
-    using GridPart = Dune::Fem::AdaptiveLeafGridPart<Dune::CpGrid, Dune::PartitionIteratorType(4), false>;
-    using GridView = Dune::GridView<Dune::Fem::GridPart2GridViewTraits<GridPart>>;
-    auto gridPart = GridPart(grid);
-    auto gridView = GridView(static_cast<GridView>(gridPart));
-#endif
     Dune::MultipleCodimMultipleGeomTypeMapper<GridView> dofMapper(gridView, Dune::mcmgElementLayout());
     auto data_out = GenericTracerModelTest<Dune::CpGrid,
                                            GridView,

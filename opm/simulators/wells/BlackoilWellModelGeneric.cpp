@@ -574,7 +574,8 @@ template<class Scalar>
 bool BlackoilWellModelGeneric<Scalar>::
 checkGroupHigherConstraints(const Group& group,
                             DeferredLogger& deferred_logger,
-                            const int reportStepIdx)
+                            const int reportStepIdx,
+                            const int max_number_of_group_switch)
 {
     // Set up coefficients for RESV <-> surface rate conversion.
     // Use the pvtRegionIdx from the top cell of the first well.
@@ -626,6 +627,36 @@ checkGroupHigherConstraints(const Group& group,
         }
         const Phase all[] = { Phase::WATER, Phase::OIL, Phase::GAS };
         for (Phase phase : all) {
+            bool group_is_oscillating = false;
+            if (auto groupPos = switched_inj_groups_.find(group.name()); groupPos != switched_inj_groups_.end()) {
+                auto& ctrls = groupPos->second[static_cast<std::underlying_type_t<Phase>>(phase)];
+                for (const auto& ctrl : ctrls) {
+                    if (std::count(ctrls.begin(), ctrls.end(), ctrl) <= max_number_of_group_switch) {
+                        continue;
+                    }
+
+                    if (ctrls.back() != *(ctrls.end() - 2)) {
+                        if (comm_.rank() == 0 ) {
+                            std::ostringstream os;
+                            os << phase;
+                            const std::string msg =
+                                fmt::format("Group control for {} injector group {} is oscillating. Group control kept at {}.",
+                                            std::move(os).str(),
+                                            group.name(),
+                                            Group::InjectionCMode2String(ctrl));
+                            deferred_logger.info(msg);
+                        }
+                        ctrls.push_back(ctrl);
+                    }
+                    group_is_oscillating = true;
+                    break;
+                }
+            }
+
+            if (group_is_oscillating) {
+                continue;
+            }
+
             // Check higher up only if under individual (not FLD) control.
             auto currentControl = this->groupState().injection_control(group.name(), phase);
             if (currentControl != Group::InjectionCMode::FLD && group.injectionGroupControlAvailable(phase)) {
@@ -647,7 +678,7 @@ checkGroupHigherConstraints(const Group& group,
                                                                        resv_coeff_inj,
                                                                        deferred_logger);
                 if (is_changed) {
-                    switched_inj_groups_.insert_or_assign({group.name(), phase}, Group::InjectionCMode2String(Group::InjectionCMode::FLD));
+                    switched_inj_groups_[group.name()][static_cast<std::underlying_type_t<Phase>>(phase)].push_back(Group::InjectionCMode::FLD);
                     BlackoilWellModelConstraints(*this).
                         actionOnBrokenConstraints(group, Group::InjectionCMode::FLD,
                                                   phase, this->groupState(),
@@ -671,6 +702,26 @@ checkGroupHigherConstraints(const Group& group,
         // So when checking constraints, current groups rate must also be subtracted it's reduction rate
         const std::vector<Scalar> reduction_rates = this->groupState().production_reduction_rates(group.name());
 
+        if (auto groupPos = switched_prod_groups_.find(group.name()); groupPos != switched_prod_groups_.end()) {
+            auto& ctrls = groupPos->second;
+            for (const auto& ctrl : ctrls) {
+                if (std::count(ctrls.begin(), ctrls.end(), ctrl) <= max_number_of_group_switch) {
+                    continue;
+                }
+
+                if (ctrls.back() != *(ctrls.end() - 2)) {
+                    if (comm_.rank() == 0) {
+                        const std::string msg =
+                        fmt::format("Group control for production group {} is oscillating. Group control kept at {}.",
+                                    group.name(),
+                                    Group::ProductionCMode2String(ctrl));
+                        deferred_logger.info(msg);
+                    }
+                    ctrls.push_back(ctrl);
+                }
+                return false;
+            }
+        }
         for (int phasePos = 0; phasePos < phase_usage_.num_phases; ++phasePos) {
             const Scalar local_current_rate = WellGroupHelpers<Scalar>::sumWellSurfaceRates(group,
                                                                                             schedule(),
@@ -714,8 +765,7 @@ checkGroupHigherConstraints(const Group& group,
                                                   deferred_logger);
 
                 if (changed) {
-                    switched_prod_groups_.insert_or_assign(group.name(),
-                                                           Group::ProductionCMode2String(Group::ProductionCMode::FLD));
+                    switched_prod_groups_[group.name()].push_back(Group::ProductionCMode::FLD);
                     WellGroupHelpers<Scalar>::updateWellRatesFromGroupTargetScale(scaling_factor,
                                                                                   group,
                                                                                   schedule(),
@@ -1185,7 +1235,9 @@ groupAndNetworkData(const int reportStepIdx) const
 template<class Scalar>
 void BlackoilWellModelGeneric<Scalar>::
 updateAndCommunicateGroupData(const int reportStepIdx,
-                              const int iterationIdx)
+                              const int iterationIdx,
+                              const Scalar tol_nupcol,
+                              DeferredLogger& deferred_logger)
 {
     const Group& fieldGroup = schedule().getGroup("FIELD", reportStepIdx);
     const int nupcol = schedule()[reportStepIdx].nupcol();
@@ -1199,8 +1251,53 @@ updateAndCommunicateGroupData(const int reportStepIdx,
     // before we copy to well_state_nupcol_.
     this->wellState().updateGlobalIsGrup(comm_);
 
-    if (iterationIdx < nupcol) {
+    if (iterationIdx <= nupcol) {
         this->updateNupcolWGState();
+    } else {
+        for (const auto& gr_name : schedule().groupNames(reportStepIdx)) {
+            const Phase all[] = { Phase::WATER, Phase::OIL, Phase::GAS };
+            for (Phase phase : all) {
+                if (this->groupState().has_injection_control(gr_name, phase)) {
+                    if (this->groupState().injection_control(gr_name, phase) == Group::InjectionCMode::VREP || 
+                        this->groupState().injection_control(gr_name, phase) == Group::InjectionCMode::REIN) {
+                        const bool is_vrep = this->groupState().injection_control(gr_name, phase) == Group::InjectionCMode::VREP;
+                        const Group& group = schedule().getGroup(gr_name, reportStepIdx);
+                        const int np = this->wellState().numPhases();
+                        Scalar gr_rate_nupcol = 0.0;
+                        for (int phaseIdx = 0; phaseIdx < np; ++phaseIdx) {
+                            gr_rate_nupcol += WellGroupHelpers<Scalar>::sumWellPhaseRates(is_vrep,
+                                                    group,
+                                                    schedule(),
+                                                    this->nupcolWellState(),
+                                                    reportStepIdx,
+                                                    phaseIdx,
+                                                    /*isInjector*/ false);
+                        }
+                        Scalar gr_rate = 0.0;
+                        for (int phaseIdx = 0; phaseIdx < np; ++phaseIdx) {
+                            gr_rate += WellGroupHelpers<Scalar>::sumWellPhaseRates(is_vrep,
+                                                    group,
+                                                    schedule(),
+                                                    this->wellState(),
+                                                    reportStepIdx,
+                                                    phaseIdx,
+                                                    /*isInjector*/ false);
+                        }
+                        Scalar small_rate = 1e-12; // m3/s
+                        Scalar denominator = (0.5*gr_rate_nupcol + 0.5*gr_rate);
+                        Scalar rel_change = denominator > small_rate ? std::abs( (gr_rate_nupcol - gr_rate) / denominator) : 0.0;
+                        if ( rel_change > tol_nupcol) {
+                            this->updateNupcolWGState();
+                            const std::string control_str = is_vrep? "VREP" : "REIN";
+                            const std::string msg = fmt::format("Group prodution relative change {} larger than tolerance {} "
+                                                    "at iteration {}. Update {} for Group {} even if iteration is larger than {} given by NUPCOL." ,
+                                                    rel_change, tol_nupcol, iterationIdx, control_str, gr_name, nupcol);
+                            deferred_logger.debug(msg);
+                        }
+                    }
+                }
+            }
+        }
     }
 
 
@@ -1478,7 +1575,8 @@ calculateEfficiencyFactors(const int reportStepIdx)
 {
     for (auto& well : well_container_generic_) {
         const Well& wellEcl = well->wellEcl();
-        Scalar well_efficiency_factor = wellEcl.getEfficiencyFactor();
+        Scalar well_efficiency_factor = wellEcl.getEfficiencyFactor() *
+                                        wellState()[well->name()].efficiency_scaling_factor;
         WellGroupHelpers<Scalar>::accumulateGroupEfficiencyFactor(schedule().getGroup(wellEcl.groupName(),
                                                                                       reportStepIdx),
                                                                   schedule(),

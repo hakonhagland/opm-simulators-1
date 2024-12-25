@@ -33,6 +33,7 @@
 #include <opm/input/eclipse/Schedule/Network/Balance.hpp>
 #include <opm/input/eclipse/Schedule/Network/ExtNetwork.hpp>
 #include <opm/input/eclipse/Schedule/Well/PAvgDynamicSourceData.hpp>
+#include <opm/input/eclipse/Schedule/Well/WellMatcher.hpp>
 #include <opm/input/eclipse/Schedule/Well/WellTestConfig.hpp>
 
 #include <opm/input/eclipse/Units/UnitSystem.hpp>
@@ -110,8 +111,10 @@ namespace Opm {
                     .cachedIntensiveQuantities(localCell, /*timeIndex = */0);
                 const auto& fs = intQuants->fluidState();
 
-                sourceTerms.set(Item::PoreVol, intQuants->porosity().value() *
-                                this->simulator_.model().dofTotalVolume(localCell));
+                sourceTerms
+                    .set(Item::PoreVol, intQuants->porosity().value() *
+                         this->simulator_.model().dofTotalVolume(localCell))
+                    .set(Item::Depth, this->depth_[localCell]);
 
                 constexpr auto io = FluidSystem::oilPhaseIdx;
                 constexpr auto ig = FluidSystem::gasPhaseIdx;
@@ -177,6 +180,11 @@ namespace Opm {
         const auto& events = this->schedule()[reportStepIdx].wellgroup_events();
         for (auto& wellPtr : this->well_container_) {
             const bool well_opened_this_step = this->report_step_starts_ && events.hasEvent(wellPtr->name(), effective_events_mask);
+            if (well_opened_this_step && this->wellState().well(wellPtr->name()).status == Well::Status::OPEN) {
+                this->well_open_times_.insert_or_assign(wellPtr->name(), this->simulator_.time());
+                this->well_close_times_.erase(wellPtr->name());
+            }
+
             wellPtr->init(&this->phase_usage_, this->depth_, this->gravity_, this->B_avg_, well_opened_this_step);
         }
     }
@@ -472,7 +480,9 @@ namespace Opm {
 
         const int reportStepIdx = simulator_.episodeIndex();
         this->updateAndCommunicateGroupData(reportStepIdx,
-                                            simulator_.model().newtonMethod().numIterations());
+                                            simulator_.model().newtonMethod().numIterations(),
+                                            param_.nupcol_group_rate_tolerance_,
+                                            local_deferredLogger);
 
         this->wellState().updateWellsDefaultALQ(this->schedule(), reportStepIdx, this->summaryState());
         this->wellState().gliftTimeStepInit();
@@ -646,7 +656,8 @@ namespace Opm {
             // some preparation before the well can be used
             well->init(&this->phase_usage_, depth_, gravity_, B_avg_, true);
 
-            Scalar well_efficiency_factor = wellEcl.getEfficiencyFactor();
+            Scalar well_efficiency_factor = wellEcl.getEfficiencyFactor() *
+                                            this->wellState()[well_name].efficiency_scaling_factor;
             WellGroupHelpers<Scalar>::accumulateGroupEfficiencyFactor(this->schedule().getGroup(wellEcl.groupName(),
                                                                                                 timeStepIdx),
                                                                       this->schedule(),
@@ -669,8 +680,8 @@ namespace Opm {
                 GLiftEclWells ecl_well_map;
                 initGliftEclWellMap(ecl_well_map);
                 well->wellTesting(simulator_, simulationTime, this->wellState(),
-                                  this->groupState(), this->wellTestState(), this->phase_usage_, 
-                                  ecl_well_map, deferred_logger);
+                                  this->groupState(), this->wellTestState(), this->phase_usage_,
+                                  ecl_well_map, this->well_open_times_, deferred_logger);
             } catch (const std::exception& e) {
                 const std::string msg = fmt::format("Exception during testing of well: {}. The well will not open.\n Exception message: {}", wellEcl.name(), e.what());
                 deferred_logger.warning("WELL_TESTING_FAILED", msg);
@@ -747,10 +758,11 @@ namespace Opm {
         // report group switching
         if (this->terminal_output_) {
 
-            for (const auto& [name, to] : this->switched_prod_groups_) {
+            for (const auto& [name, ctrls] : this->switched_prod_groups_) {
                 const Group::ProductionCMode& oldControl = this->prevWGState().group_state.production_control(name);
                 std::string from = Group::ProductionCMode2String(oldControl);
-                if (to != from) {
+                std::string to = Group::ProductionCMode2String(ctrls.back());
+                if (ctrls.back() != oldControl) {
                     std::string msg = "    Production Group " + name
                     + " control mode changed from ";
                     msg += from;
@@ -758,18 +770,27 @@ namespace Opm {
                     local_deferredLogger.info(msg);
                 }
             }
-            for (const auto& [key, to] : this->switched_inj_groups_) {
-                const std::string& name = key.first;
-                const Opm::Phase& phase = key.second;
+            for (const auto& [grname, grdata] : this->switched_inj_groups_) {
+                const Phase all[] = {Phase::WATER, Phase::OIL, Phase::GAS};
+                for (Phase phase : all) {
+                    const auto& ctrls = grdata[static_cast<std::underlying_type_t<Phase>>(phase)];
 
-                const Group::InjectionCMode& oldControl = this->prevWGState().group_state.injection_control(name, phase);
-                std::string from = Group::InjectionCMode2String(oldControl);
-                if (to != from) {
-                    std::string msg = "    Injection Group " + name
-                    + " control mode changed from ";
-                    msg += from;
-                    msg += " to " + to;
-                    local_deferredLogger.info(msg);
+                    if (ctrls.empty()) {
+                        continue;
+                    }
+                    if ( !this->prevWGState().group_state.has_injection_control(grname, phase))
+                        continue;
+
+                    const Group::InjectionCMode& oldControl = this->prevWGState().group_state.injection_control(grname, phase);
+                    std::string from = Group::InjectionCMode2String(oldControl);
+                    std::string to = Group::InjectionCMode2String(ctrls.back());
+                    if (ctrls.back() != oldControl) {
+                        std::string msg = "    Injection Group " + grname
+                        + " control mode changed from ";
+                        msg += from;
+                        msg += " to " + to;
+                        local_deferredLogger.info(msg);
+                    }
                 }
             }
         }
@@ -885,7 +906,7 @@ namespace Opm {
         this->wellState().init(cellPressures, cellTemperatures, this->schedule(), this->wells_ecl_,
                                this->local_parallel_well_info_, timeStepIdx,
                                &this->prevWellState(), this->well_perf_data_,
-                               this->summaryState());
+                               this->summaryState(), simulator_.vanguard().enableDistributedWells());
     }
 
 
@@ -905,6 +926,13 @@ namespace Opm {
 
         if (nw > 0) {
             well_container_.reserve(nw);
+
+            const auto& wmatcher = this->schedule().wellMatcher(report_step);
+            const auto& wcycle = this->schedule()[report_step].wcycle.get();
+            const auto cycle_states = wcycle.wellStatus(this->simulator_.time(),
+                                                         wmatcher,
+                                                         this->well_open_times_,
+                                                         this->well_close_times_);
 
             for (int w = 0; w < nw; ++w) {
                 const Well& well_ecl = this->wells_ecl_[w];
@@ -927,6 +955,8 @@ namespace Opm {
                         this->wellState().shutWell(w);
                     }
 
+                    this->well_open_times_.erase(well_name);
+                    this->well_close_times_.erase(well_name);
                     continue;
                 }
 
@@ -944,6 +974,9 @@ namespace Opm {
                         if (!closed_this_step) {
                             this->wellTestState().open_well(well_name);
                             this->wellTestState().open_completions(well_name);
+                            this->well_open_times_.insert_or_assign(well_name,
+                                                                    this->simulator_.time());
+                            this->well_close_times_.erase(well_name);
                         }
                         events.clearEvent(ScheduleEvents::REQUEST_OPEN_WELL);
                     }
@@ -957,12 +990,16 @@ namespace Opm {
                     if (well_ecl.getAutomaticShutIn()) {
                         // shut wells are not added to the well container
                         this->wellState().shutWell(w);
+                        this->well_close_times_.erase(well_name);
+                        this->well_open_times_.erase(well_name);
                         continue;
                     } else {
                         if (!well_ecl.getAllowCrossFlow()) {
                             // stopped wells where cross flow is not allowed
                             // are not added to the well container
                             this->wellState().shutWell(w);
+                            this->well_close_times_.erase(well_name);
+                            this->well_open_times_.erase(well_name);
                             continue;
                         }
                         // stopped wells are added to the container but marked as stopped
@@ -980,19 +1017,55 @@ namespace Opm {
                         // Treat as shut, do not add to container.
                         local_deferredLogger.debug(fmt::format("  Well {} gets shut due to having zero rate constraint and disallowing crossflow ", well_ecl.name()) );
                         this->wellState().shutWell(w);
+                        this->well_close_times_.erase(well_name);
+                        this->well_open_times_.erase(well_name);
                         continue;
                     }
                 }
 
                 if (well_status == Well::Status::STOP) {
                     this->wellState().stopWell(w);
+                    this->well_close_times_.erase(well_name);
+                    this->well_open_times_.erase(well_name);
                     wellIsStopped = true;
+                }
+
+                if (!wcycle.empty()) {
+                    const auto it = cycle_states.find(well_name);
+                    if (it != cycle_states.end()) {
+                        if (!it->second) {
+                            this->wellState().shutWell(w);
+                            continue;
+                        } else {
+                            this->wellState().openWell(w);
+                        }
+                    }
                 }
 
                 well_container_.emplace_back(this->createWellPointer(w, report_step));
 
-                if (wellIsStopped)
+                if (wellIsStopped) {
                     well_container_.back()->stopWell();
+                    this->well_close_times_.erase(well_name);
+                    this->well_open_times_.erase(well_name);
+                }
+            }
+
+            if (!wcycle.empty()) {
+                auto schedule_open = [this, report_step](const std::string& name)
+                {
+                    const auto& wg_events = this->schedule()[report_step].wellgroup_events();
+                    return wg_events.hasEvent(name, ScheduleEvents::REQUEST_OPEN_WELL);
+                };
+                for (const auto& [wname, wscale] : wcycle.efficiencyScale(this->simulator_.time(),
+                                                                          this->simulator_.timeStepSize(),
+                                                                          wmatcher,
+                                                                          this->well_open_times_,
+                                                                          schedule_open))
+                {
+                    this->wellState()[wname].efficiency_scaling_factor = wscale;
+                    this->schedule_.add_event(ScheduleEvents::WELLGROUP_EFFICIENCY_UPDATE, report_step);
+                }
             }
         }
 
@@ -1130,9 +1203,12 @@ namespace Opm {
                 break;
             }
             ++iter;
+            OPM_BEGIN_PARALLEL_TRY_CATCH();
             for (auto& well : this->well_container_) {
                 well->solveEqAndUpdateWellState(simulator_, well_state, deferred_logger);
             }
+            OPM_END_PARALLEL_TRY_CATCH("BlackoilWellModel::doPreStepNetworkRebalance() failed: ",
+                                       this->simulator_.vanguard().grid().comm());
             this->initPrimaryVariablesEvaluation();
         } while (iter < max_iter);
 
@@ -2179,7 +2255,7 @@ namespace Opm {
 
         const int iterationIdx = simulator_.model().newtonMethod().numIterations();
         const auto& comm = simulator_.vanguard().grid().comm();
-        this->updateAndCommunicateGroupData(episodeIdx, iterationIdx);
+        this->updateAndCommunicateGroupData(episodeIdx, iterationIdx, param_.nupcol_group_rate_tolerance_, deferred_logger);
 
         // network related
         bool more_network_update = false;
@@ -2203,13 +2279,9 @@ namespace Opm {
 
         bool changed_well_group = false;
         // Check group individual constraints.
-        const int nupcol = this->schedule()[episodeIdx].nupcol();
-        // don't switch group control when iterationIdx > nupcol
-        // to avoid oscilations between group controls
-        if (iterationIdx <= nupcol) {
-            const Group& fieldGroup = this->schedule().getGroup("FIELD", episodeIdx);
-            changed_well_group = updateGroupControls(fieldGroup, deferred_logger, episodeIdx, iterationIdx);
-        }
+        const Group& fieldGroup = this->schedule().getGroup("FIELD", episodeIdx);
+        changed_well_group = updateGroupControls(fieldGroup, deferred_logger, episodeIdx, iterationIdx);
+
         // Check wells' group constraints and communicate.
         bool changed_well_to_group = false;
         {
@@ -2257,7 +2329,6 @@ namespace Opm {
         }
 
         // update wsolvent fraction for REIN wells
-        const Group& fieldGroup = this->schedule().getGroup("FIELD", episodeIdx);
         this->updateWsolvent(fieldGroup, episodeIdx,  this->nupcolWellState());
 
         return { changed_well_group, more_network_update };
@@ -2321,7 +2392,7 @@ namespace Opm {
     {
         auto wbpResult = data::WellBlockAveragePressures{};
 
-        using Calculated = typename PAvgCalculator<Scalar>::Result::WBPMode;
+        using Calculated = typename PAvgCalculatorResult<Scalar>::WBPMode;
         using Output = data::WellBlockAvgPress::Quantity;
 
         this->wbpCalculationService_.collectDynamicValues();
@@ -2380,7 +2451,9 @@ namespace Opm {
                     sourceTerm
                         .set(Item::Pressure      , 0.0)
                         .set(Item::PoreVol       , 0.0)
-                        .set(Item::MixtureDensity, 0.0);
+                        .set(Item::MixtureDensity, 0.0)
+                        .set(Item::Depth         , 0.0)
+                        ;
                 };
             }
 
@@ -2402,7 +2475,9 @@ namespace Opm {
                 sourceTerm
                     .set(Item::Pressure      , 0.0)
                     .set(Item::PoreVol       , 0.0)
-                    .set(Item::MixtureDensity, rho);
+                    .set(Item::MixtureDensity, rho)
+                    .set(Item::Depth         , 0.0)
+                    ;
             };
         };
     }
@@ -2439,7 +2514,7 @@ namespace Opm {
                          const int iterationIdx,
                          DeferredLogger& deferred_logger)
     {
-        this->updateAndCommunicateGroupData(reportStepIdx, iterationIdx);
+        this->updateAndCommunicateGroupData(reportStepIdx, iterationIdx, param_.nupcol_group_rate_tolerance_, deferred_logger);
 
         // updateWellStateWithTarget might throw for multisegment wells hence we
         // have a parallel try catch here to thrown on all processes.
@@ -2455,7 +2530,7 @@ namespace Opm {
         }
         OPM_END_PARALLEL_TRY_CATCH("BlackoilWellModel::updateAndCommunicate failed: ",
                                    simulator_.gridView().comm())
-        this->updateAndCommunicateGroupData(reportStepIdx, iterationIdx);
+        this->updateAndCommunicateGroupData(reportStepIdx, iterationIdx, param_.nupcol_group_rate_tolerance_, deferred_logger);
     }
 
     template<typename TypeTag>
@@ -2467,7 +2542,10 @@ namespace Opm {
                         const int iterationIdx)
     {
         bool changed = false;
-        bool changed_hc = this->checkGroupHigherConstraints( group, deferred_logger, reportStepIdx);
+        // restrict the number of group switches but only after nupcol iterations.
+        const int nupcol = this->schedule()[reportStepIdx].nupcol();
+        const int max_number_of_group_switches = iterationIdx <= nupcol ? 9999 : param_.max_number_of_group_switches_;
+        bool changed_hc = this->checkGroupHigherConstraints( group, deferred_logger, reportStepIdx, max_number_of_group_switches);
         if (changed_hc) {
             changed = true;
             updateAndCommunicate(reportStepIdx, iterationIdx, deferred_logger);
@@ -2477,6 +2555,7 @@ namespace Opm {
             BlackoilWellModelConstraints(*this).
                 updateGroupIndividualControl(group,
                                              reportStepIdx,
+                                             max_number_of_group_switches,
                                              this->switched_inj_groups_,
                                              this->switched_prod_groups_,
                                              this->closed_offending_wells_,

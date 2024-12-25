@@ -205,6 +205,9 @@ public:
 
     const GuideRate& guideRate() const { return guideRate_; }
 
+    const std::map<std::string, double>& wellOpenTimes() const { return well_open_times_; }
+    const std::map<std::string, double>& wellCloseTimes() const { return well_close_times_; }
+
     bool reportStepStarts() const { return report_step_starts_; }
 
     bool shouldBalanceNetwork(const int reportStepIndex,
@@ -375,10 +378,13 @@ protected:
 
     bool checkGroupHigherConstraints(const Group& group,
                                      DeferredLogger& deferred_logger,
-                                     const int reportStepIdx);
+                                     const int reportStepIdx,
+                                     const int max_number_of_group_switch);
 
     void updateAndCommunicateGroupData(const int reportStepIdx,
-                                       const int iterationIdx);
+                                       const int iterationIdx,
+                                       const Scalar tol_nupcol,
+                                       DeferredLogger& deferred_logger);
 
     void inferLocalShutWells();
 
@@ -464,6 +470,12 @@ protected:
 
     std::vector<Well> wells_ecl_;
     std::vector<std::vector<PerforationData<Scalar>>> well_perf_data_;
+
+    // Times at which wells were opened (for WCYCLE)
+    std::map<std::string, double> well_open_times_;
+
+    // Times at which wells were shut (for WCYCLE)
+    std::map<std::string, double> well_close_times_;
 
     /// Connection index mappings
     class ConnectionIndexMap
@@ -596,8 +608,8 @@ protected:
     bool wellStructureChangedDynamically_{false};
 
     // Store maps of group name and new group controls for output
-    std::map<std::string, std::string> switched_prod_groups_;
-    std::map<std::pair<std::string, Phase>, std::string> switched_inj_groups_;
+    std::map<std::string, std::vector<Group::ProductionCMode>> switched_prod_groups_;
+    std::map<std::string, std::array<std::vector<Group::InjectionCMode>, 3>> switched_inj_groups_;
     // Store map of group name and close offending well for output
     std::map<std::string, std::pair<std::string, std::string>> closed_offending_wells_;
 

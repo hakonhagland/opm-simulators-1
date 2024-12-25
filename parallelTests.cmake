@@ -36,6 +36,34 @@ add_test_compare_parallel_simulation(CASENAME spe9_dist_z
                                      REL_TOL ${rel_tol_parallel}
                                      TEST_ARGS --linear-solver-reduction=1e-7 --tolerance-cnv=5e-6 --tolerance-mb=1e-8 --enable-drift-compensation=false)
 
+# A test for distributed multisegment wells. We load distribute only along the z-axis
+add_test_compare_parallel_simulation(CASENAME msw-simple
+                                     FILENAME MSW-SIMPLE # this file contains one Multisegment well without branches that is distributed across several processes
+                                     DIR msw
+                                     SIMULATOR flow_distribute_z
+                                     ABS_TOL 1e4 # the absolute tolerance is pretty high here, yet in this case, we are only interested in the relative tolerance
+                                     REL_TOL 1e-5
+                                     MPI_PROCS 4
+                                     TEST_ARGS --solver-max-time-step-in-days=10 --allow-distributed-wells=true)
+
+add_test_compare_parallel_simulation(CASENAME msw-3d
+                                     FILENAME MSW-3D # this file contains one Multisegment well with branches that is distributed across several processes
+                                     DIR msw
+                                     SIMULATOR flow_distribute_z
+                                     ABS_TOL 1e4 # the absolute tolerance is pretty high here, yet in this case, we are only interested in the relative tolerance
+                                     REL_TOL 1e-4
+                                     MPI_PROCS 4
+                                     TEST_ARGS --allow-distributed-wells=true)
+
+add_test_compare_parallel_simulation(CASENAME msw-3d-two-producers
+                                     FILENAME MSW-3D-TWO-PRODUCERS # this file contains two Multisegment wells with branches that are distributed across several processes
+                                     DIR msw
+                                     SIMULATOR flow_distribute_z
+                                     ABS_TOL 1e4 # the absolute tolerance is pretty high here, yet in this case, we are only interested in the relative tolerance
+                                     REL_TOL 1e-4
+                                     MPI_PROCS 4
+                                     TEST_ARGS --allow-distributed-wells=true)
+
 add_test_compare_parallel_simulation(CASENAME spe9group
                                      FILENAME SPE9_CP_GROUP
                                      SIMULATOR flow
@@ -49,6 +77,15 @@ add_test_compare_parallel_simulation(CASENAME spe3
                                      ABS_TOL ${abs_tol_parallel}
                                      REL_TOL ${coarse_rel_tol_parallel}
                                      TEST_ARGS --linear-solver-reduction=1e-7 --tolerance-cnv=5e-6 --tolerance-mb=1e-8 --tolerance-wells=1e-7)
+
+add_test_compare_parallel_simulation(CASENAME spe3_partition_method_3
+                                     FILENAME SPE3CASE1
+                                     POSTFIX partition_method_3
+                                     DIR spe3
+                                     SIMULATOR flow
+                                     ABS_TOL ${abs_tol_parallel}
+                                     REL_TOL ${coarse_rel_tol_parallel}
+                                     TEST_ARGS --linear-solver-reduction=1e-7 --tolerance-cnv=5e-6 --tolerance-mb=1e-8 --tolerance-wells=1e-7 --partition-method=3)
 
 add_test_compare_parallel_simulation(CASENAME spe1_solvent
                                      FILENAME SPE1CASE2_SOLVENT

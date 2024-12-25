@@ -35,11 +35,21 @@
 #include <opm/simulators/utils/DamarisOutputModule.hpp>
 #endif
 
+#if HAVE_MPI
 // NOTE: There is no C++ header replacement for these C posix headers (as of C++17)
 #include <fcntl.h>  // for open()
 #include <unistd.h> // for dup2(), close()
-
 #include <iostream>
+#endif
+
+#if HAVE_HYPRE
+#include <HYPRE_config.h>
+#include <HYPRE_utilities.h>
+#endif
+
+#if HAVE_AMGX
+#include <amgx_c.h>
+#endif
 
 namespace Opm {
 
@@ -96,6 +106,14 @@ Main::~Main()
         }
     }
 #endif // HAVE_MPI
+
+#if HAVE_HYPRE
+    HYPRE_Finalize();
+#endif
+
+#if HAVE_AMGX
+    AMGX_SAFE_CALL(AMGX_finalize());
+#endif
 
     if (ownMPI_) {
         FlowGenericVanguard::setCommunication(nullptr);
@@ -220,6 +238,18 @@ void Main::initMPI()
 #endif
 
 #endif // HAVE_MPI
+
+#if HAVE_HYPRE
+#if HYPRE_RELEASE_NUMBER >= 22900
+    HYPRE_Initialize();
+#else
+    HYPRE_Init();
+#endif
+#endif
+
+#if HAVE_AMGX
+    AMGX_SAFE_CALL(AMGX_initialize());
+#endif
 }
 
 void Main::handleVersionCmdLine_(int argc, char** argv,

@@ -4,11 +4,7 @@
 #define OPM_ADAPTIVE_TIME_STEPPING_HPP
 
 #include <dune/common/version.hh>
-#if DUNE_VERSION_NEWER(DUNE_ISTL, 2, 8)
 #include <dune/istl/istlexception.hh>
-#else
-#include <dune/istl/ilu.hh>
-#endif
 
 #include <opm/common/Exceptions.hpp>
 #include <opm/common/ErrorMacros.hpp>
@@ -118,8 +114,7 @@ private:
             const SimulatorTimer& simulator_timer,
             Solver& solver,
             const bool is_event,
-            const std::vector<int>* fipnum,
-            const std::function<bool()>& tuning_updater
+            const std::function<bool(const double, const double, const int)>& tuning_updater
         );
 
         AdaptiveTimeStepping<TypeTag>& getAdaptiveTimerStepper();
@@ -130,7 +125,7 @@ private:
         bool isReservoirCouplingMaster_() const;
         bool isReservoirCouplingSlave_() const;
         void maybeModifySuggestedTimeStepAtBeginningOfReportStep_(const double originalTimeStep);
-        bool maybeUpdateTuning_() const;
+        bool maybeUpdateTuning_(double elapsed, double dt, int sub_step_number) const;
         double maxTimeStep_() const;
         SimulatorReport runStepOriginal_();
 #ifdef RESERVOIR_COUPLING_ENABLED
@@ -145,8 +140,7 @@ private:
         const SimulatorTimer& simulator_timer_;
         Solver& solver_;
         const bool is_event_;
-        const std::vector<int>* fipnum_;
-        const std::function<bool()>& tuning_updater_;
+        const std::function<bool(double elapsed, double dt, int sub_step_number)>& tuning_updater_;
     };
 
     template <class Solver>
@@ -168,14 +162,13 @@ private:
         void chopTimeStep_(const double new_time_step);
         bool chopTimeStepOrCloseFailingWells_(const int new_time_step);
         boost::posix_time::ptime currentDateTime_() const;
-        const std::vector<int> *fipnum_() const;
         int getNumIterations_(const SimulatorReportSingle &substep_report) const;
         double growthFactor_() const;
         bool ignoreConvergenceFailure_() const;
         void maybeReportSubStep_(SimulatorReportSingle substep_report) const;
         double maybeRestrictTimeStepGrowth_(
                                  const double dt, double dt_estimate, const int restarts) const;
-        bool maybeUpdateTuning_() const;
+        void maybeUpdateTuningAndTimeStep_();
         double maxGrowth_() const;
         double minTimeStepBeforeClosingWells_() const;
         double minTimeStep_() const;
@@ -233,8 +226,8 @@ public:
     SimulatorReport step(const SimulatorTimer& simulator_timer,
                          Solver& solver,
                          const bool is_event,
-                         const std::vector<int>* fipnum,
-                         const std::function<bool()> tuning_updater);
+                         const std::function<bool(const double, const double, const int)>
+                            tuning_updater);
 
     void updateTUNING(double max_next_tstep, const Tuning& tuning);
     void updateNEXTSTEP(double max_next_tstep);

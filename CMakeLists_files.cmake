@@ -1171,3 +1171,14 @@ if(USE_MPI)
     opm/simulators/flow/ReservoirCouplingSpawnSlaves.hpp
   )
 endif()
+if(HYPRE_FOUND)
+  list(APPEND PUBLIC_HEADER_FILES
+    opm/simulators/linalg/HyprePreconditioner.hpp
+  )
+endif()
+
+if(AMGX_FOUND)
+  list(APPEND PUBLIC_HEADER_FILES
+    opm/simulators/linalg/AmgxPreconditioner.hpp
+  )
+endif()

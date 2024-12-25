@@ -49,9 +49,6 @@
 
 #if HAVE_DUNE_FEM
 #include <dune/fem/gridpart/adaptiveleafgridpart.hh>
-#if !DUNE_VERSION_GTE(DUNE_FEM, 2, 9)
-#include <dune/fem/gridpart/common/gridpart2gridview.hh>
-#endif
 #include <opm/simulators/flow/FemCpGridCompat.hpp>
 #endif //HAVE_DUNE_FEM
 
@@ -158,7 +155,8 @@ doLoadBalance_(const Dune::EdgeWeightMethod             edgeWeightsMethod,
                FlowGenericVanguard::ParallelWellStruct& parallelWells,
                const int                                numJacobiBlocks)
 {
-    if (partitionMethod == Dune::PartitionMethod::zoltan && !this->zoltanParams().empty())
+    if ((partitionMethod == Dune::PartitionMethod::zoltan
+         || partitionMethod == Dune::PartitionMethod::zoltanGoG) && !this->zoltanParams().empty())
         this->grid_->setPartitioningParams(setupZoltanParams(this->zoltanParams()));
     if (partitionMethod == Dune::PartitionMethod::metis && !this->metisParams().empty())
         this->grid_->setPartitioningParams(setupMetisParams(this->metisParams()));
@@ -677,49 +675,16 @@ INSTANTIATE_TYPE(float)
 #endif
 
 #if HAVE_DUNE_FEM
-#if DUNE_VERSION_GTE(DUNE_FEM, 2, 9)
 using GV = Dune::Fem::AdaptiveLeafGridPart<Dune::CpGrid,
                                            (Dune::PartitionIteratorType)4,
                                            false>;
-#define INSTANTIATE_FEM_TYPE(T)                                                       \
-  template class GenericCpGridVanguard<Dune::MultipleCodimMultipleGeomTypeMapper<GV>, \
-                                       GV,                                            \
-                                       T>;
-#else
-#define INSTANTIATE_FEM_TYPE(T)                         \
-    template class GenericCpGridVanguard<               \
-        Dune::MultipleCodimMultipleGeomTypeMapper<      \
-            Dune::GridView<                             \
-                Dune::Fem::GridPart2GridViewTraits<     \
-                    Dune::Fem::AdaptiveLeafGridPart<    \
-                        Dune::CpGrid,                   \
-                        Dune::PartitionIteratorType(4), \
-                        false>>>>,                      \
-        Dune::GridView<                                 \
-            Dune::Fem::GridPart2GridViewTraits<         \
-                Dune::Fem::AdaptiveLeafGridPart<        \
-                    Dune::CpGrid,                       \
-                    Dune::PartitionIteratorType(4),     \
-                    false>>>,                           \
-        T>;                                             \
-    template class GenericCpGridVanguard<               \
-        Dune::MultipleCodimMultipleGeomTypeMapper<      \
-            Dune::Fem::GridPart2GridViewImpl<           \
-                Dune::Fem::AdaptiveLeafGridPart<        \
-                    Dune::CpGrid,                       \
-                    Dune::PartitionIteratorType(4),     \
-                    false>>>,                           \
-        Dune::Fem::GridPart2GridViewImpl<               \
-            Dune::Fem::AdaptiveLeafGridPart<            \
-                Dune::CpGrid,                           \
-                Dune::PartitionIteratorType(4),         \
-                false> >,                               \
-        T>;
-#endif
-
-INSTANTIATE_FEM_TYPE(double)
+template class GenericCpGridVanguard<Dune::MultipleCodimMultipleGeomTypeMapper<GV>,
+                                     GV,
+                                     double>;
 #if FLOW_INSTANTIATE_FLOAT
-INSTANTIATE_FEM_TYPE(float)
+template class GenericCpGridVanguard<Dune::MultipleCodimMultipleGeomTypeMapper<GV>,
+                                     GV,
+                                     float>;
 #endif
 
 #endif // HAVE_DUNE_FEM
