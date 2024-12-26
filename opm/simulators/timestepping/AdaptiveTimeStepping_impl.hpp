@@ -178,7 +178,7 @@ step(const SimulatorTimer& simulator_timer,
      const bool is_event,
      const std::function<bool(const double /*current_time*/,
                               const double /*dt*/,
-                              const int    /*report_step*/
+                              const int    /*substep_number*/
                              )> tuning_updater
 )
 {
@@ -467,7 +467,7 @@ SubStepper(
     const bool is_event,
     const std::function<bool(const double /*current_time*/,
                              const double /*dt*/,
-                             const int    /*report_step*/
+                             const int    /*substep_number*/
                             )>& tuning_updater
 
 )
