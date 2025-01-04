@@ -19,6 +19,10 @@
 
 #ifndef OPM_ADAPTIVE_TIME_STEPPING_IMPL_HPP
 #define OPM_ADAPTIVE_TIME_STEPPING_IMPL_HPP
+
+// Improve IDE experience
+#ifndef OPM_ADAPTIVE_TIME_STEPPING_HPP
+#include <config.h>
 #include <opm/simulators/timestepping/AdaptiveTimeStepping.hpp>
 #endif
 
@@ -38,6 +42,7 @@
 #include <sstream>
 #include <stdexcept>
 
+#include <boost/date_time/posix_time/posix_time.hpp>
 #include <fmt/format.h>
 #include <fmt/ranges.h>
 
@@ -406,7 +411,7 @@ init_(const UnitSystem& unitSystem)
              time_step_control_,
              use_newton_iteration_) = detail::createController(unitSystem);
     // make sure growth factor is something reasonable
-    if (growthFactor_ < 1.0) {
+    if (this->growth_factor_ < 1.0) {
         OPM_THROW(std::runtime_error,
                   "Growth factor cannot be less than 1.");
     }
@@ -1264,3 +1269,5 @@ double AdaptiveTimeStepping<TypeTag>::SolutionTimeErrorSolverWrapper<Solver>::re
 }
 
 } // namespace Opm
+
+#endif // OPM_ADAPTIVE_TIME_STEPPING_IMPL_HPP
