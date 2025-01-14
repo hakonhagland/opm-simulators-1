@@ -1172,6 +1172,9 @@ if(USE_MPI)
     opm/simulators/flow/ReservoirCouplingSlave.hpp
     opm/simulators/flow/ReservoirCouplingSpawnSlaves.hpp
   )
+  list (APPEND TEST_SOURCE_FILES
+    tests/rescoup/test_chopstep.cpp
+  )
 endif()
 if(HYPRE_FOUND)
   list(APPEND PUBLIC_HEADER_FILES
