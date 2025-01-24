@@ -29,6 +29,10 @@
 #include <opm/simulators/wells/BlackoilWellModel.hpp>
 #endif
 
+#if HAVE_MPI
+#define RESERVOIR_COUPLING_ENABLED
+#endif
+
 #include <opm/grid/utility/cartesianToCompressed.hpp>
 #include <opm/common/utility/numeric/RootFinders.hpp>
 
@@ -457,7 +461,8 @@ namespace Opm {
             const std::string msg = "A zero well potential is returned for output purposes. ";
             local_deferredLogger.warning("WELL_POTENTIAL_CALCULATION_FAILED", msg);
         }
-
+#if RESERVOIR_COUPLING_ENABLED
+        if ()
         //update guide rates
         const auto& comm = simulator_.vanguard().grid().comm();
         std::vector<Scalar> pot(this->numPhases(), 0.0);
