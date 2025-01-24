@@ -43,7 +43,7 @@
 #include <cmath>
 #include <sstream>
 #include <stdexcept>
-
+#include <unistd.h>   // NOTE: Debugging: getpid(), sleep(). Remember to remove this line when done..
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <fmt/format.h>
 #include <fmt/ranges.h>
@@ -630,6 +630,14 @@ runStepReservoirCouplingMaster_()
         current_step_length = reservoirCouplingMaster_().maybeChopSubStep(
                                           current_step_length, current_time);
         reservoirCouplingMaster_().sendNextTimeStepToSlaves(current_step_length);
+        { // DEBUGGING: Remember to remove this block when done...
+            // Attach with GDB here, first print the PID
+            std::cout << "PID: " << getpid() << std::endl;
+            volatile int wait_for_debugger = 1;
+            while (wait_for_debugger) {
+                sleep(1);
+            }
+        }
         if (iteration == 0) {
             maybeModifySuggestedTimeStepAtBeginningOfReportStep_(current_step_length);
         }
@@ -673,6 +681,14 @@ runStepReservoirCouplingSlave_()
     while(!substep_done) {
         reservoirCouplingSlave_().sendNextReportDateToMasterProcess();
         auto timestep = reservoirCouplingSlave_().receiveNextTimeStepFromMaster();
+        { // DEBUGGING: Remember to remove this block when done...
+            // Attach with GDB here, first print the PID
+            std::cout << "PID: " << getpid() << std::endl;
+            volatile int wait_for_debugger = 1;
+            while (wait_for_debugger) {
+                sleep(1);
+            }
+        }
         if (iteration == 0) {
             maybeUpdateTuning_(current_time, original_time_step, /*substep=*/0);
             maybeModifySuggestedTimeStepAtBeginningOfReportStep_(timestep);
