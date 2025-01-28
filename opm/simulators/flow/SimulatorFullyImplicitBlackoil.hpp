@@ -109,9 +109,10 @@ public:
     using PolymerModule = BlackOilPolymerModule<TypeTag>;
     using MICPModule = BlackOilMICPModule<TypeTag>;
 
-    using Model = BlackoilModel<TypeTag>;
+    using Model = GetPropType<TypeTag, Properties::Model>;
+    //using Model = BlackoilModel<TypeTag>;
     using Solver = NonlinearSolver<TypeTag, Model>;
-    using ModelParameters = typename Model::ModelParameters;
+    using ModelParameters = typename BlackoilModel<TypeTag>::ModelParameters;
     using SolverParameters = typename Solver::SolverParameters;
     using WellModel = BlackoilWellModel<TypeTag>;
 
@@ -253,6 +254,7 @@ public:
                     FlowGenericVanguard::comm(),
                     this->schedule(), timer
                 );
+            this->simulator_.setReservoirCouplingSlave(this->reservoirCouplingSlave_.get());
             this->reservoirCouplingSlave_->sendActivationDateToMasterProcess();
             this->reservoirCouplingSlave_->sendSimulationStartDateToMasterProcess();
             this->reservoirCouplingSlave_->receiveMasterGroupNamesFromMasterProcess();
@@ -266,6 +268,7 @@ public:
                         this->schedule(),
                         argc, argv
                     );
+                this->simulator_.setReservoirCouplingMaster(this->reservoirCouplingMaster_.get());
             }
         }
 #else
@@ -287,21 +290,13 @@ public:
             const auto& sched_state = schedule()[timer.currentStepNum()];
             auto max_next_tstep = sched_state.max_next_tstep(enableTUNING);
             if (enableTUNING) {
-                adaptiveTimeStepping_ = std::make_unique<TimeStepper>(max_next_tstep,
-                                                                      sched_state.tuning(),
-                                                                      unitSystem, terminalOutput_);
+                adaptiveTimeStepping_ = std::make_unique<TimeStepper>(
+                    max_next_tstep, sched_state.tuning(), unitSystem, terminalOutput_);
             }
             else {
-                adaptiveTimeStepping_ = std::make_unique<TimeStepper>(unitSystem, max_next_tstep, terminalOutput_);
+                adaptiveTimeStepping_ = std::make_unique<TimeStepper>(
+                    unitSystem, max_next_tstep, terminalOutput_);
             }
-#ifdef RESERVOIR_COUPLING_ENABLED
-            if (this->reservoirCouplingSlave_) {
-                adaptiveTimeStepping_->setReservoirCouplingSlave(this->reservoirCouplingSlave_.get());
-            }
-            else if (this->reservoirCouplingMaster_) {
-                adaptiveTimeStepping_->setReservoirCouplingMaster(this->reservoirCouplingMaster_.get());
-            }
-#endif
             if (isRestart()) {
                 // For restarts the simulator may have gotten some information
                 // about the next timestep size from the OPMEXTRA field

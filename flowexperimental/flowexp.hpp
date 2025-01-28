@@ -46,6 +46,10 @@
 
 #include <opm/simulators/wells/BlackoilWellModel.hpp>
 
+template<class TypeTag>
+struct Model<TypeTag, TTag::FlowBaseProblemBlackoil>
+{ using type = FIBlackOilModel<TypeTag>; };
+
 namespace Opm {
 template <class TypeTag>
 class FlowExpProblem;

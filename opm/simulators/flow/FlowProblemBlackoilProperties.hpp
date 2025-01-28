@@ -34,7 +34,7 @@
 #include <opm/models/utils/propertysystem.hh>
 
 #include <opm/simulators/flow/FlowBaseProblemProperties.hpp>
-#include <opm/simulators/flow/FIBlackoilModel.hpp>
+#include <opm/simulators/flow/BlackoilModel.hpp>
 #include <opm/simulators/flow/NewTranFluxModule.hpp>
 #include <opm/simulators/flow/OutputBlackoilModule.hpp>
 
@@ -63,7 +63,7 @@ struct Problem<TypeTag, TTag::FlowBaseProblemBlackoil>
 
 template<class TypeTag>
 struct Model<TypeTag, TTag::FlowBaseProblemBlackoil>
-{ using type = FIBlackOilModel<TypeTag>; };
+{ using type = BlackoilModel<TypeTag>; };
 
 // Set the material law for fluid fluxes
 template<class TypeTag>
