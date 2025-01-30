@@ -281,6 +281,24 @@ updateMasterGroupNameOrderMap(
 // Private methods
 // ------------------
 
+std::vector<ReservoirCoupling::Potentials>
+ReservoirCouplingMaster::
+deserializePotentials_(const std::vector<double>& data) const
+{
+    std::vector<Potentials> potentials;
+    unsigned int num_phases = Potentials::num_fields;
+    assert(data.size() % num_phases == 0);
+    unsigned int num_slave_groups = data.size() / num_phases;
+    for (unsigned int j = 0; j < num_slave_groups; j++) {
+        Potentials pot;
+        pot.oil_rate = data[j*num_phases + Potentials::OIL_IDX];
+        pot.gas_rate = data[j*num_phases + Potentials::GAS_IDX];
+        pot.water_rate = data[j*num_phases + Potentials::WATER_IDX];
+        potentials.push_back(pot);
+    }
+    return potentials;
+}
+
 double
 ReservoirCouplingMaster::
 getMasterActivationDate_() const

@@ -455,6 +455,7 @@ SubStepper(AdaptiveTimeStepping<TypeTag>& adaptive_time_stepping,
     , solver_{solver}
     , is_event_{is_event}
     , tuning_updater_{tuning_updater}
+    , simulator_{solver.model().simulator()}
 {
 }
 
