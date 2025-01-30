@@ -64,6 +64,7 @@
 #include <string_view>
 #include <utility>
 #include <vector>
+#include <unistd.h>   // NOTE: Debugging: getpid(), sleep(). Remember to remove this line when done..
 
 #include <fmt/format.h>
 
@@ -105,6 +106,7 @@ public:
     using MaterialLawParams = GetPropType<TypeTag, Properties::MaterialLawParams>;
     using AquiferModel = GetPropType<TypeTag, Properties::AquiferModel>;
     using Model = GetPropType<TypeTag, Properties::NonlinearSystem>;
+    using Scalar = GetPropType<TypeTag, Properties::Scalar>;
 
     using TimeStepper = AdaptiveTimeStepping<TypeTag>;
     using PolymerModule = BlackOilPolymerModule<TypeTag>;
@@ -252,7 +254,7 @@ public:
         auto slave_mode = Parameters::Get<Parameters::Slave>();
         if (slave_mode) {
             this->reservoirCouplingSlave_ =
-                std::make_unique<ReservoirCouplingSlave>(
+                std::make_unique<ReservoirCouplingSlave<Scalar>>(
                     FlowGenericVanguard::comm(),
                     this->schedule(), timer
                 );
@@ -264,7 +266,7 @@ public:
             auto master_mode = checkRunningAsReservoirCouplingMaster();
             if (master_mode) {
                 this->reservoirCouplingMaster_ =
-                    std::make_unique<ReservoirCouplingMaster>(
+                    std::make_unique<ReservoirCouplingMaster<Scalar>>(
                         FlowGenericVanguard::comm(),
                         this->schedule(),
                         argc, argv
@@ -449,6 +451,20 @@ public:
             }
             else if (this->reservoirCouplingSlave_) {
                 this->reservoirCouplingSlave_->maybeActivate(timer.currentStepNum());
+            }
+            // DEBUGGING: Remember to remove this block when done...
+            if ((this->reservoirCouplingMaster_ && this->reservoirCouplingMaster_->activated()) ||
+                    (this->reservoirCouplingSlave_ && this->reservoirCouplingSlave_->activated())) {
+                static bool initiate_debugging = true;
+                if (initiate_debugging) {
+                    initiate_debugging = false;
+                    // Attach with GDB here, first print the PID
+                    std::cout << "PID: " << getpid() << std::endl;
+                    volatile int wait_for_debugger = 1;
+                    while (wait_for_debugger) {
+                        sleep(1);
+                    }
+                }
             }
 #endif
             const auto& events = schedule()[timer.currentStepNum()].events();
@@ -650,8 +666,8 @@ protected:
 
 #ifdef RESERVOIR_COUPLING_ENABLED
     bool slaveMode_{false};
-    std::unique_ptr<ReservoirCouplingMaster> reservoirCouplingMaster_{nullptr};
-    std::unique_ptr<ReservoirCouplingSlave> reservoirCouplingSlave_{nullptr};
+    std::unique_ptr<ReservoirCouplingMaster<Scalar>> reservoirCouplingMaster_{nullptr};
+    std::unique_ptr<ReservoirCouplingSlave<Scalar>> reservoirCouplingSlave_{nullptr};
 #endif
 
     SimulatorSerializer serializer_;
