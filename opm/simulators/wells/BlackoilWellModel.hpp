@@ -431,7 +431,10 @@ template<class Scalar> class WellContributions;
             ///         or std::nullopt if not active
             std::optional<ReservoirCoupling::ScopedLoggerGuard>
                 setupRescoupScopedLogger(DeferredLogger& local_logger);
-#endif
+
+            void receiveGroupTargetsFromMaster(const int reportStepIdx);
+            void sendMasterGroupTargetsToSlaves(const int reportStepIdx);
+        #endif
         protected:
             Simulator& simulator_;
 
@@ -572,11 +575,11 @@ template<class Scalar> class WellContributions;
             void calcResvCoeff(const int fipnum,
                                const int pvtreg,
                                const std::vector<Scalar>& production_rates,
-                               std::vector<Scalar>& resv_coeff) override;
+                               std::vector<Scalar>& resv_coeff) const override;
 
             void calcInjResvCoeff(const int fipnum,
                                   const int pvtreg,
-                                  std::vector<Scalar>& resv_coeff) override;
+                                  std::vector<Scalar>& resv_coeff) const override;
 
             void computeWellTemperature();
 
