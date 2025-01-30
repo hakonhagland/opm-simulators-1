@@ -40,6 +40,8 @@ public:
     using Potentials = ReservoirCoupling::Potentials<Scalar>;
     using SlaveGroupProductionData = ReservoirCoupling::SlaveGroupProductionData<Scalar>;
     using SlaveGroupInjectionData = ReservoirCoupling::SlaveGroupInjectionData<Scalar>;
+    using InjectionGroupTarget = ReservoirCoupling::InjectionGroupTarget<Scalar>;
+    using ProductionGroupTarget = ReservoirCoupling::ProductionGroupTarget<Scalar>;
 
     ReservoirCouplingMasterReportStep(
         ReservoirCouplingMaster<Scalar> &master
@@ -64,7 +66,15 @@ public:
     void receiveInjectionDataFromSlaves();
     void receiveProductionDataFromSlaves();
     const Schedule &schedule() const { return this->master_.schedule(); }
-    void sendGroupInfoToSlaves(int report_step_idx);
+    void sendInjectionTargetsToSlave(
+        std::size_t slave_idx, const std::vector<InjectionGroupTarget>& injection_targets
+    ) const;
+    void sendNumGroupTargetsToSlave(
+        std::size_t slave_idx, std::size_t num_injection_targets, std::size_t num_production_targets
+    ) const;
+    void sendProductionTargetsToSlave(
+        std::size_t slave_idx, const std::vector<ProductionGroupTarget>& production_targets
+    ) const;
     void setReportStepIdx(int report_step_idx);
     bool slaveIsActivated(int index) const { return this->master_.slaveIsActivated(index); }
     const std::string &slaveName(int index) const { return this->master_.getSlaveName(index); }

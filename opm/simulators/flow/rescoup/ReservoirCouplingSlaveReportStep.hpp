@@ -41,6 +41,9 @@ public:
     void sendProductionDataToMaster(const std::vector<SlaveGroupProductionData> &production_data) const;
     void sendInjectionDataToMaster(const std::vector<SlaveGroupInjectionData> &injection_data) const;
     const std::string& slaveName() const { return this->slave_.getSlaveName(); }
+    std::pair<std::size_t, std::size_t> receiveNumGroupTargetsFromMaster() const;
+    void receiveInjectionGroupTargetsFromMaster(std::size_t num_targets) const;
+    void receiveProductionGroupTargetsFromMaster(std::size_t num_targets) const;
 
 private:
     ReservoirCouplingSlave<Scalar> &slave_;
