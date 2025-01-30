@@ -253,6 +253,7 @@ public:
                     FlowGenericVanguard::comm(),
                     this->schedule(), timer
                 );
+            this->simulator_.setReservoirCouplingSlave(this->reservoirCouplingSlave_.get());
             this->reservoirCouplingSlave_->sendActivationDateToMasterProcess();
             this->reservoirCouplingSlave_->sendSimulationStartDateToMasterProcess();
             this->reservoirCouplingSlave_->receiveMasterGroupNamesFromMasterProcess();
@@ -266,6 +267,7 @@ public:
                         this->schedule(),
                         argc, argv
                     );
+                this->simulator_.setReservoirCouplingMaster(this->reservoirCouplingMaster_.get());
             }
         }
 #else
@@ -294,14 +296,6 @@ public:
             else {
                 adaptiveTimeStepping_ = std::make_unique<TimeStepper>(unitSystem, report_, max_next_tstep, terminalOutput_);
             }
-#ifdef RESERVOIR_COUPLING_ENABLED
-            if (this->reservoirCouplingSlave_) {
-                adaptiveTimeStepping_->setReservoirCouplingSlave(this->reservoirCouplingSlave_.get());
-            }
-            else if (this->reservoirCouplingMaster_) {
-                adaptiveTimeStepping_->setReservoirCouplingMaster(this->reservoirCouplingMaster_.get());
-            }
-#endif
             if (isRestart()) {
                 // For restarts the simulator may have gotten some information
                 // about the next timestep size from the OPMEXTRA field

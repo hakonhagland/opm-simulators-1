@@ -178,24 +178,6 @@ registerParameters()
     detail::registerAdaptiveParameters();
 }
 
-#ifdef RESERVOIR_COUPLING_ENABLED
-template<class TypeTag>
-void
-AdaptiveTimeStepping<TypeTag>::
-setReservoirCouplingMaster(ReservoirCouplingMaster *reservoir_coupling_master)
-{
-    this->reservoir_coupling_master_ = reservoir_coupling_master;
-}
-
-template<class TypeTag>
-void
-AdaptiveTimeStepping<TypeTag>::
-setReservoirCouplingSlave(ReservoirCouplingSlave *reservoir_coupling_slave)
-{
-    this->reservoir_coupling_slave_ = reservoir_coupling_slave;
-}
-#endif
-
 /** \brief  step method that acts like the solver::step method
             in a sub cycle of time steps
     \param tuningUpdater Function used to update TUNING parameters before each
@@ -463,13 +445,13 @@ SubStepper(
                              const double /*dt*/,
                              const int    /*substep_number*/
                             )>& tuning_updater
-
 )
     : adaptive_time_stepping_{adaptive_time_stepping}
     , simulator_timer_{simulator_timer}
     , solver_{solver}
     , is_event_{is_event}
     , tuning_updater_{tuning_updater}
+    , simulator_{solver.model().simulator()}
 {
 }
 
@@ -514,7 +496,7 @@ bool
 AdaptiveTimeStepping<TypeTag>::SubStepper<Solver>::
 isReservoirCouplingMaster_() const
 {
-    return this->adaptive_time_stepping_.reservoir_coupling_master_ != nullptr;
+    return this->simulator_.reservoirCouplingMaster() != nullptr;
 }
 
 template<class TypeTag>
@@ -523,7 +505,7 @@ bool
 AdaptiveTimeStepping<TypeTag>::SubStepper<Solver>::
 isReservoirCouplingSlave_() const
 {
-    return this->adaptive_time_stepping_.reservoir_coupling_slave_ != nullptr;
+    return this->simulator_.reservoirCouplingSlave() != nullptr;
 }
 
 template<class TypeTag>
@@ -589,7 +571,7 @@ ReservoirCouplingMaster&
 AdaptiveTimeStepping<TypeTag>::SubStepper<Solver>::
 reservoirCouplingMaster_()
 {
-    return *adaptive_time_stepping_.reservoir_coupling_master_;
+    return *(this->simulator_.reservoirCouplingMaster());
 }
 #endif
 
@@ -600,7 +582,7 @@ ReservoirCouplingSlave&
 AdaptiveTimeStepping<TypeTag>::SubStepper<Solver>::
 reservoirCouplingSlave_()
 {
-    return *this->adaptive_time_stepping_.reservoir_coupling_slave_;
+    return *(this->simulator_.reservoirCouplingSlave());
 }
 #endif
 
