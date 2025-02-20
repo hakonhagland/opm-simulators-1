@@ -448,7 +448,8 @@ namespace Opm {
                 well->setPrevSurfaceRates(this->wellState(), this->prevWellState());
             }
         }
-
+        //this->guide_rate_handler
+        //this->guide_rate_handler_.updateWellPotentials();
         // calculate the well potentials
         try {
             this->updateWellPotentials(reportStepIdx,
@@ -459,7 +460,11 @@ namespace Opm {
             const std::string msg = "A zero well potential is returned for output purposes. ";
             local_deferredLogger.warning("WELL_POTENTIAL_CALCULATION_FAILED", msg);
         }
-
+//#ifdef RESERVOIR_COUPLING_ENABLED
+//        if (this->isReservoirCouplingSlave()) {
+//            this->sendSlaveGroupPotentialsToMaster();
+//        }
+//#endif
         //update guide rates
         const auto& comm = simulator_.vanguard().grid().comm();
         std::vector<Scalar> pot(this->numPhases(), 0.0);

@@ -271,6 +271,10 @@ protected:
 
     //! < shut problematic wells when time step size in days are less than this
     double min_time_step_before_shutting_problematic_wells_;
+    // We store a copy of the full simulator run report for output purposes,
+    // so it can be updated and passed to the summary writing code every
+    // substep (not just every report step).
+    SimulatorReport report_;
 };
 
 } // namespace Opm

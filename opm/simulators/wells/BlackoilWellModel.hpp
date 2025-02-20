@@ -24,6 +24,14 @@
 #ifndef OPM_BLACKOILWELLMODEL_HEADER_INCLUDED
 #define OPM_BLACKOILWELLMODEL_HEADER_INCLUDED
 
+#if HAVE_MPI
+#define RESERVOIR_COUPLING_ENABLED
+#endif
+#ifdef RESERVOIR_COUPLING_ENABLED
+#include <opm/simulators/flow/ReservoirCouplingMaster.hpp>
+#include <opm/simulators/flow/ReservoirCouplingSlave.hpp>
+#endif
+
 #include <dune/common/fmatrix.hh>
 #include <dune/istl/bcrsmatrix.hh>
 #include <dune/istl/matrixmatrix.hh>
@@ -500,6 +508,18 @@ template<class Scalar> class WellContributions;
 
             void computeWellTemperature();
 
+            bool isReservoirCouplingMaster() const {
+                return this->simulator_.reservoirCouplingMaster() != nullptr;
+            }
+            bool isReservoirCouplingSlave() const {
+                return this->simulator_.reservoirCouplingSlave() != nullptr;
+            }
+            ReservoirCouplingMaster& reservoirCouplingMaster() {
+                return *(this->simulator_.reservoirCouplingMaster());
+            }
+            ReservoirCouplingSlave& reservoirCouplingSlave() {
+                return *(this->simulator_.reservoirCouplingSlave());
+            }
         private:
             BlackoilWellModel(Simulator& simulator, const PhaseUsage& pu);
 
