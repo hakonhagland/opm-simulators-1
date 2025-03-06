@@ -448,8 +448,6 @@ namespace Opm {
                 well->setPrevSurfaceRates(this->wellState(), this->prevWellState());
             }
         }
-
-        // calculate the well potentials
         try {
             this->updateWellPotentials(reportStepIdx,
                                        /*onlyAfterEvent*/true,
@@ -459,7 +457,6 @@ namespace Opm {
             const std::string msg = "A zero well potential is returned for output purposes. ";
             local_deferredLogger.warning("WELL_POTENTIAL_CALCULATION_FAILED", msg);
         }
-
         //update guide rates
         const auto& comm = simulator_.vanguard().grid().comm();
         std::vector<Scalar> pot(this->numPhases(), 0.0);
@@ -476,7 +473,17 @@ namespace Opm {
                                                    &this->guideRate_,
                                                    pot,
                                                    local_deferredLogger);
-        std::string exc_msg;
+#ifdef RESERVOIR_COUPLING_ENABLED
+        if (this->isReservoirCouplingSlave() || this->isReservoirCouplingMaster()) {
+            this->rescoup_handler_ =
+                std::make_unique<WellModelReservoirCouplingHandler<TypeTag>>(
+                    *this, local_deferredLogger);
+            if (this->isReservoirCouplingSlave()) {
+                this->rescoup_handler_->sendSlaveGroupPotentialsToMaster();
+            }
+        }
+#endif
+std::string exc_msg;
         auto exc_type = ExceptionType::NONE;
         // update gpmaint targets
         if (this->schedule_[reportStepIdx].has_gpmaint()) {
