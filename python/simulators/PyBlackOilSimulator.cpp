@@ -63,12 +63,14 @@ PyBlackOilSimulator::PyBlackOilSimulator(
     std::shared_ptr<Opm::Deck> deck,
     std::shared_ptr<Opm::EclipseState> state,
     std::shared_ptr<Opm::Schedule> schedule,
-    std::shared_ptr<Opm::SummaryConfig> summary_config
+    std::shared_ptr<Opm::SummaryConfig> summary_config,
+    const std::vector<std::string>& args
 )
     : deck_{std::move(deck)}
     , eclipse_state_{std::move(state)}
     , schedule_{std::move(schedule)}
     , summary_config_{std::move(summary_config)}
+    , args_{args}
 {
 }
 
@@ -303,8 +305,11 @@ void export_PyBlackOilSimulator(py::module& m)
              std::shared_ptr<Opm::Deck>,
              std::shared_ptr<Opm::EclipseState>,
              std::shared_ptr<Opm::Schedule>,
-             std::shared_ptr<Opm::SummaryConfig>>(),
-             PyBlackOilSimulator_objects_constructor_docstring)
+             std::shared_ptr<Opm::SummaryConfig>,
+             const std::vector<std::string>&>(),
+             PyBlackOilSimulator_objects_constructor_docstring,
+             py::arg("Deck"), py::arg("EclipseState"), py::arg("Schedule"), py::arg("SummaryConfig"),
+             py::arg("args") = std::vector<std::string>{})
         .def("advance", &PyBlackOilSimulator::advance, advance_docstring, py::arg("report_step"))
         .def("check_simulation_finished", &PyBlackOilSimulator::checkSimulationFinished,
              checkSimulationFinished_docstring)

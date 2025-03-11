@@ -55,7 +55,8 @@ public:
         std::shared_ptr<Opm::Deck> deck,
         std::shared_ptr<Opm::EclipseState> state,
         std::shared_ptr<Opm::Schedule> schedule,
-        std::shared_ptr<Opm::SummaryConfig> summary_config);
+        std::shared_ptr<Opm::SummaryConfig> summary_config,
+        const std::vector<std::string>& args);
     void advance(int report_step);
     bool checkSimulationFinished();
     int currentStep();

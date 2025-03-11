@@ -20,8 +20,8 @@
   You should have received a copy of the GNU General Public License
   along with OPM.  If not, see <http://www.gnu.org/licenses/>.
 */
-#ifndef OPM_PYMAIN_HEADER_INCLUDED
-#define OPM_PYMAIN_HEADER_INCLUDED
+#ifndef OPM_PYMAINGW_HEADER_INCLUDED
+#define OPM_PYMAINGW_HEADER_INCLUDED
 
 #include <opm/simulators/flow/FlowMain.hpp>
 #include <opm/simulators/flow/Main.hpp>
@@ -39,7 +39,7 @@ namespace Opm {
 
 // ----------------- Python Main class -----------------
 // Adds a python-only initialization method
-class PyMain : public Main
+class PyMainGW : public Main
 {
 public:
     using FlowMainType = FlowMain<Properties::TTag::FlowGasWaterProblem>;
@@ -97,4 +97,4 @@ private:
 
 } // namespace Opm
 
-#endif // OPM_PYMAIN_HEADER_INCLUDED
+#endif // OPM_PYMAINGW_HEADER_INCLUDED

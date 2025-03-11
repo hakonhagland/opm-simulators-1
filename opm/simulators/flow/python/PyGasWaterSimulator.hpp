@@ -55,7 +55,8 @@ public:
         std::shared_ptr<Opm::Deck> deck,
         std::shared_ptr<Opm::EclipseState> state,
         std::shared_ptr<Opm::Schedule> schedule,
-        std::shared_ptr<Opm::SummaryConfig> summary_config);
+        std::shared_ptr<Opm::SummaryConfig> summary_config,
+        const std::vector<std::string>& args);
     void advance(int report_step);
     bool checkSimulationFinished();
     int currentStep();
@@ -92,7 +93,7 @@ private:
     // This *must* be declared before other pointers
     // to simulator objects. This in order to deinitialize
     // MPI at the correct time (ie after the other objects).
-    std::unique_ptr<Opm::PyMain> main_;
+    std::unique_ptr<Opm::PyMainGW> main_;
 
     std::unique_ptr<Opm::FlowMain<TypeTag>> flow_main_;
     Simulator* simulator_;

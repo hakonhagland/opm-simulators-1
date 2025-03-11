@@ -88,12 +88,14 @@ PyGasWaterSimulator::PyGasWaterSimulator(
     std::shared_ptr<Opm::Deck> deck,
     std::shared_ptr<Opm::EclipseState> state,
     std::shared_ptr<Opm::Schedule> schedule,
-    std::shared_ptr<Opm::SummaryConfig> summary_config
+    std::shared_ptr<Opm::SummaryConfig> summary_config,
+    const std::vector<std::string>& args
 )
     : deck_{std::move(deck)}
     , eclipse_state_{std::move(state)}
     , schedule_{std::move(schedule)}
     , summary_config_{std::move(summary_config)}
+    , args_{args}
 {
 }
 
@@ -242,7 +244,7 @@ int PyGasWaterSimulator::stepInit()
         }
     }
     if (this->deck_) {
-        this->main_ = std::make_unique<Opm::PyMain>(
+        this->main_ = std::make_unique<Opm::PyMainGW>(
             this->deck_->getDataFile(),
             this->eclipse_state_,
             this->schedule_,
@@ -252,7 +254,7 @@ int PyGasWaterSimulator::stepInit()
         );
     }
     else {
-        this->main_ = std::make_unique<Opm::PyMain>(
+        this->main_ = std::make_unique<Opm::PyMainGW>(
             this->deck_filename_,
             this->mpi_init_,
             this->mpi_finalize_
@@ -328,8 +330,11 @@ void export_PyGasWaterSimulator(py::module& m)
              std::shared_ptr<Opm::Deck>,
              std::shared_ptr<Opm::EclipseState>,
              std::shared_ptr<Opm::Schedule>,
-             std::shared_ptr<Opm::SummaryConfig>>(),
-             PyGasWaterSimulator_objects_constructor_docstring)
+             std::shared_ptr<Opm::SummaryConfig>,
+             const std::vector<std::string>&>(),
+             PyGasWaterSimulator_objects_constructor_docstring,
+             py::arg("Deck"), py::arg("EclipseState"), py::arg("Schedule"), py::arg("SummaryConfig"),  
+             py::arg("args") = std::vector<std::string>{})
         .def("advance", &PyGasWaterSimulator::advance, advance_docstring, py::arg("report_step"))
         .def("check_simulation_finished", &PyGasWaterSimulator::checkSimulationFinished,
              checkSimulationFinished_docstring)
