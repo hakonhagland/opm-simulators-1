@@ -30,7 +30,6 @@
 #ifdef RESERVOIR_COUPLING_ENABLED
 #include <opm/simulators/flow/ReservoirCouplingMaster.hpp>
 #include <opm/simulators/flow/ReservoirCouplingSlave.hpp>
-#include <opm/simulators/wells/WellModelReservoirCouplingHandler.hpp>
 #endif
 
 #include <dune/common/fmatrix.hh>
@@ -63,6 +62,7 @@
 #include <opm/simulators/wells/GasLiftSingleWell.hpp>
 #include <opm/simulators/wells/GasLiftSingleWellGeneric.hpp>
 #include <opm/simulators/wells/GasLiftWellState.hpp>
+#include <opm/simulators/wells/GuideRateHandler.hpp>
 #include <opm/simulators/wells/MultisegmentWell.hpp>
 #include <opm/simulators/wells/ParallelWBPCalculation.hpp>
 #include <opm/simulators/wells/ParallelWellInfo.hpp>
@@ -367,6 +367,28 @@ template<class Scalar> class WellContributions;
             void setNlddAdapter(BlackoilWellModelNldd<TypeTag>* mod)
             { nldd_ = mod; }
 
+#ifdef RESERVOIR_COUPLING_ENABLED
+            ReservoirCouplingMaster& reservoirCouplingMaster() {
+                return *(this->simulator_.reservoirCouplingMaster());
+            }
+            ReservoirCouplingSlave& reservoirCouplingSlave() {
+                return *(this->simulator_.reservoirCouplingSlave());
+            }
+            bool isReservoirCouplingMaster() const {
+                return this->simulator_.reservoirCouplingMaster() != nullptr;
+            }
+            bool isReservoirCouplingSlave() const {
+                return this->simulator_.reservoirCouplingSlave() != nullptr;
+            }
+            void setReservoirCouplingMaster(ReservoirCouplingMaster *master)
+            {
+                this->guide_rate_handler_.setReservoirCouplingMaster(master);
+            }
+            void setReservoirCouplingSlave(ReservoirCouplingSlave *slave)
+            {
+                this->guide_rate_handler_.setReservoirCouplingSlave(slave);
+            }
+        #endif
         protected:
             Simulator& simulator_;
 
@@ -405,6 +427,7 @@ template<class Scalar> class WellContributions;
             std::map<std::string, std::unique_ptr<AverageRegionalPressureType>> regionalAveragePressureCalculator_{};
 
             SimulatorReportSingle last_report_{};
+            GuideRateHandler<Scalar> guide_rate_handler_{};
 
             // Pre-step network solve at static reservoir conditions (group and well states might be updated)
             void doPreStepNetworkRebalance(DeferredLogger& deferred_logger);
@@ -510,21 +533,6 @@ template<class Scalar> class WellContributions;
 
             void computeWellTemperature();
 
-#ifdef RESERVOIR_COUPLING_ENABLED
-            bool isReservoirCouplingMaster() const {
-                return this->simulator_.reservoirCouplingMaster() != nullptr;
-            }
-            bool isReservoirCouplingSlave() const {
-                return this->simulator_.reservoirCouplingSlave() != nullptr;
-            }
-            ReservoirCouplingMaster& reservoirCouplingMaster() {
-                return *(this->simulator_.reservoirCouplingMaster());
-            }
-            ReservoirCouplingSlave& reservoirCouplingSlave() {
-                return *(this->simulator_.reservoirCouplingSlave());
-            }
-            std::unique_ptr<WellModelReservoirCouplingHandler<TypeTag>> rescoup_handler_{nullptr};
-#endif
         private:
             BlackoilWellModel(Simulator& simulator, const PhaseUsage& pu);
 

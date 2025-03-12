@@ -48,7 +48,6 @@
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <fmt/format.h>
 #include <fmt/ranges.h>
-
 namespace Opm {
 /*********************************************
  * Public methods of AdaptiveTimeStepping
@@ -758,7 +757,7 @@ run()
     // sub step time loop
     while (!this->substep_timer_.done()) {
         // if we just chopped the timestep due to convergence i.e. restarts>0
-        // we dont what to update the next timestep based on Tuning
+        // we dont want to update the next timestep based on Tuning
         if (restarts == 0) {
             maybeUpdateTuningAndTimeStep_();
         }

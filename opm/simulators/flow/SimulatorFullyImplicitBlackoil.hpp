@@ -66,6 +66,7 @@
 #include <vector>
 
 #include <fmt/format.h>
+#include <unistd.h>   // NOTE: Debugging: getpid(), sleep(). Remember to remove this line when done..
 
 namespace Opm::Parameters {
 
@@ -254,10 +255,9 @@ public:
                     FlowGenericVanguard::comm(),
                     this->schedule(), timer
                 );
+            this->reservoirCouplingSlave_->sendAndReceiveInitialData();
             this->simulator_.setReservoirCouplingSlave(this->reservoirCouplingSlave_.get());
-            this->reservoirCouplingSlave_->sendActivationDateToMasterProcess();
-            this->reservoirCouplingSlave_->sendSimulationStartDateToMasterProcess();
-            this->reservoirCouplingSlave_->receiveMasterGroupNamesFromMasterProcess();
+            wellModel_().setReservoirCouplingSlave(this->reservoirCouplingSlave_.get());
         }
         else {
             auto master_mode = checkRunningAsReservoirCouplingMaster();
@@ -269,6 +269,7 @@ public:
                         argc, argv
                     );
                 this->simulator_.setReservoirCouplingMaster(this->reservoirCouplingMaster_.get());
+                wellModel_().setReservoirCouplingMaster(this->reservoirCouplingMaster_.get());
             }
         }
 #else
@@ -447,6 +448,19 @@ public:
             }
             else if (this->reservoirCouplingSlave_) {
                 this->reservoirCouplingSlave_->maybeActivate(timer.currentStepNum());
+            }
+            if (   (this->reservoirCouplingMaster_
+                      && (this->reservoirCouplingMaster_->numSlavesStarted() > 0))
+                ||  (this->reservoirCouplingSlave_
+                      && this->reservoirCouplingSlave_->activated()))
+            {
+                // DEBUGGING: Remember to remove this block when done...
+                // Attach with GDB here, first print the PID
+                std::cout << "PID: " << getpid() << std::endl;
+                volatile int wait_for_debugger = 1;
+                while (wait_for_debugger) {
+                    sleep(1);
+                }
             }
 #endif
             const auto& events = schedule()[timer.currentStepNum()].events();
