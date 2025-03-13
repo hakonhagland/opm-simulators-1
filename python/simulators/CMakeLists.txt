@@ -40,6 +40,7 @@ add_custom_command(
 pybind11_add_module(simulators ${PYBIND11_SYSTEM}
   $<TARGET_OBJECTS:moduleVersion>
   Pybind11Exporter.cpp
+  PyBaseSimulator.cpp
   PyBlackOilSimulator.cpp
   PyGasWaterSimulator.cpp
   ${PYTHON_DOCSTRINGS_GENERATED_HPP}  # Include the generated .hpp as a source file

@@ -20,32 +20,17 @@
   You should have received a copy of the GNU General Public License
   along with OPM.  If not, see <http://www.gnu.org/licenses/>.
 */
-#ifndef OPM_PYMAIN_HEADER_INCLUDED
-#define OPM_PYMAIN_HEADER_INCLUDED
+#ifndef OPM_PYBASEMAIN_HEADER_INCLUDED
+#define OPM_PYBASEMAIN_HEADER_INCLUDED
 
-#include <opm/simulators/flow/FlowMain.hpp>
 #include <opm/simulators/flow/Main.hpp>
-#include <opm/simulators/flow/TTagFlowProblemTPFA.hpp>
 
-#include <flow/flow_blackoil.hpp>
-
-#include <cstddef>
-#include <cstdlib>
-#include <memory>
 #include <string>
-#include <vector>
 
 namespace Opm {
-
-// ----------------- Python Main class -----------------
-// Adds a python-only initialization method
-class PyMain : public Main
+class PyBaseMain : public Main
 {
 public:
-    using FlowMainType = FlowMain<Properties::TTag::FlowProblemTPFA>;
-
-    using Main::Main;
-
     void setArguments(const std::vector<std::string>& args)
     {
         if (args.empty()) {
@@ -70,31 +55,9 @@ public:
         this->argv_ = argv_python_.data();
     }
 
-    // To be called from the Python interface code.  Only do the
-    // initialization and then return a pointer to the FlowMain object that
-    // can later be accessed directly from the Python interface to
-    // e.g. advance the simulator one report step
-    std::unique_ptr<FlowMainType> initFlowBlackoil(int& exitCode)
-    {
-        exitCode = EXIT_SUCCESS;
-
-        if (this->initialize_<Properties::TTag::FlowEarlyBird>(exitCode, true)) {
-            // TODO: check that this deck really represents a blackoil
-            // case. E.g. check that number of phases == 3
-            this->setupVanguard();
-
-            return flowBlackoilTpfaMainInit
-                (argc_, argv_, outputCout_, outputFiles_);
-        }
-
-        // NOTE: exitCode was set by initialize_() above;
-        return {}; // nullptr
-    }
-
-private:
+protected:
     std::vector<char*> argv_python_{};
-};
+};  // class PyBaseMain
+}  // namespace Opm
 
-} // namespace Opm
-
-#endif // OPM_PYMAIN_HEADER_INCLUDED
+#endif
