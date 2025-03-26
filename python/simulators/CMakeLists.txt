@@ -49,6 +49,10 @@ pybind11_add_module(GasWater ${PYBIND11_SYSTEM}
   ${PYTHON_GW_DOCSTRINGS_GENERATED_HPP}  # Include the generated .hpp as a source file
   )
 
+find_file(PYTHON_INSTALL_PY install.py
+  PATHS ${opm-common_DIR} ${opm-common_PYTHON_COMMON_DIR}
+  PATH_SUFFIXES python NO_DEFAULT_PATH REQUIRED)
+
 # NOTE: instead of using file( COPY ...) which copies the files at configure time (not at build time)
 #  we should add copying of the files at build time such that running "make" or "make all" will
 #  update the files if they have been modified. We use the install.py script in opm-common, see also
@@ -124,10 +128,6 @@ if(OPM_ENABLE_PYTHON_TESTS)
         -m unittest test/test_${case_name}.py)
   endforeach()
 endif()
-
-find_file(PYTHON_INSTALL_PY install.py
-  PATHS ${opm-common_DIR} ${opm-common_PYTHON_COMMON_DIR}
-  PATH_SUFFIXES python NO_DEFAULT_PATH REQUIRED)
 
 file(COPY ${PROJECT_SOURCE_DIR}/python/opm/CMakeLists.txt DESTINATION ${PROJECT_BINARY_DIR}/python)
 file(COPY ${PROJECT_SOURCE_DIR}/python/requirements.txt DESTINATION ${PROJECT_BINARY_DIR}/python)
