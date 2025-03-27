@@ -15,7 +15,7 @@ git submodule init
 git submodule update
 mkdir build
 cd build
-cmake .. -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=0 -DCMAKE_POSITION_INDEPENDENT_CODE=1
+cmake .. -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=1 -DCMAKE_POSITION_INDEPENDENT_CODE=1
 cmake --build . -- -j${BUILD_JOBS}
 cmake --build . --target install
 popd
@@ -25,7 +25,7 @@ git clone --depth 1 --branch releases/opm/2024.04 https://gitlab.dune-project.or
 pushd dune-common
 mkdir build
 cd build
-cmake .. -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=0 -DCMAKE_POSITION_INDEPENDENT_CODE=1 -DDUNE_ENABLE_PYTHONBINDINGS=0 -DBLA_STATIC=1 -DCMAKE_DISABLE_FIND_PACKAGE_QuadMath=1 -DBLAS_LIBRARIES=/usr/lib64/libblas.a -DLAPACK_LIBRARIES=/usr/lib64/liblapack.a
+cmake .. -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=1 -DCMAKE_POSITION_INDEPENDENT_CODE=1 -DDUNE_ENABLE_PYTHONBINDINGS=0 -DBLA_STATIC=0 -DCMAKE_DISABLE_FIND_PACKAGE_QuadMath=1 -DBLAS_LIBRARIES=/usr/lib64/libblas.so -DLAPACK_LIBRARIES=/usr/lib64/liblapack.so
 cmake --build . -- -j${BUILD_JOBS}
 cmake --build . --target install
 popd
@@ -35,7 +35,7 @@ git clone --depth 1 --branch v2.9.1 https://gitlab.dune-project.org/core/dune-ge
 pushd dune-geometry
 mkdir build
 cd build
-cmake .. -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=0 -DCMAKE_POSITION_INDEPENDENT_CODE=1 -DDUNE_ENABLE_PYTHONBINDINGS=0 -DBLA_STATIC=1 -DCMAKE_DISABLE_FIND_PACKAGE_QuadMath=1  -DBLAS_LIBRARIES=/usr/lib64/libblas.a -DLAPACK_LIBRARIES=/usr/lib64/liblapack.a
+cmake .. -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=1 -DCMAKE_POSITION_INDEPENDENT_CODE=1 -DDUNE_ENABLE_PYTHONBINDINGS=0 -DBLA_STATIC=0 -DCMAKE_DISABLE_FIND_PACKAGE_QuadMath=1  -DBLAS_LIBRARIES=/usr/lib64/libblas.so -DLAPACK_LIBRARIES=/usr/lib64/liblapack.so
 cmake --build . -- -j${BUILD_JOBS}
 cmake --build . --target install
 popd
@@ -45,7 +45,7 @@ git clone --depth 1 --branch releases/opm/2024.04 https://gitlab.dune-project.or
 pushd dune-istl
 mkdir build
 cd build
-cmake .. -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=0 -DCMAKE_POSITION_INDEPENDENT_CODE=1 -DDUNE_ENABLE_PYTHONBINDINGS=0 -DBLA_STATIC=1 -DCMAKE_DISABLE_FIND_PACKAGE_QuadMath=1  -DBLAS_LIBRARIES=/usr/lib64/libblas.a -DLAPACK_LIBRARIES=/usr/lib64/liblapack.a
+cmake .. -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=1 -DCMAKE_POSITION_INDEPENDENT_CODE=1 -DDUNE_ENABLE_PYTHONBINDINGS=0 -DBLA_STATIC=0 -DCMAKE_DISABLE_FIND_PACKAGE_QuadMath=1  -DBLAS_LIBRARIES=/usr/lib64/libblas.so -DLAPACK_LIBRARIES=/usr/lib64/liblapack.so
 cmake --build . -- -j${BUILD_JOBS}
 cmake --build . --target install
 popd
@@ -55,7 +55,7 @@ git clone --depth 1 --branch v2.9.1 https://gitlab.dune-project.org/staging/dune
 pushd dune-uggrid
 mkdir build
 cd build
-cmake .. -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=0 -DCMAKE_POSITION_INDEPENDENT_CODE=1 -DDUNE_ENABLE_PYTHONBINDINGS=0 -DBLA_STATIC=1 -DCMAKE_DISABLE_FIND_PACKAGE_QuadMath=1  -DBLAS_LIBRARIES=/usr/lib64/libblas.a -DLAPACK_LIBRARIES=/usr/lib64/liblapack.a
+cmake .. -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=1 -DCMAKE_POSITION_INDEPENDENT_CODE=1 -DDUNE_ENABLE_PYTHONBINDINGS=0 -DBLA_STATIC=0 -DCMAKE_DISABLE_FIND_PACKAGE_QuadMath=1  -DBLAS_LIBRARIES=/usr/lib64/libblas.so -DLAPACK_LIBRARIES=/usr/lib64/liblapack.so
 cmake --build . -- -j${BUILD_JOBS}
 cmake --build . --target install
 popd
@@ -65,7 +65,7 @@ git clone --depth 1 --branch v2.9.1 https://gitlab.dune-project.org/core/dune-gr
 pushd dune-grid
 mkdir build
 cd build
-cmake .. -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=0 -DCMAKE_POSITION_INDEPENDENT_CODE=1 -DDUNE_ENABLE_PYTHONBINDINGS=0 -DBLA_STATIC=1 -DCMAKE_DISABLE_FIND_PACKAGE_QuadMath=1  -DBLAS_LIBRARIES=/usr/lib64/libblas.a -DLAPACK_LIBRARIES=/usr/lib64/liblapack.a
+cmake .. -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=1 -DCMAKE_POSITION_INDEPENDENT_CODE=1 -DDUNE_ENABLE_PYTHONBINDINGS=0 -DBLA_STATIC=0 -DCMAKE_DISABLE_FIND_PACKAGE_QuadMath=1  -DBLAS_LIBRARIES=/usr/lib64/libblas.so -DLAPACK_LIBRARIES=/usr/lib64/liblapack.so
 cmake --build . -- -j${BUILD_JOBS}
 cmake --build . --target install
 popd
@@ -75,7 +75,7 @@ git clone --depth 1 --branch v2.9.1 https://gitlab.dune-project.org/core/dune-lo
 pushd dune-localfunctions
 mkdir build
 cd build
-cmake .. -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=0 -DCMAKE_POSITION_INDEPENDENT_CODE=1 -DDUNE_ENABLE_PYTHONBINDINGS=0 -DBLA_STATIC=1 -DCMAKE_DISABLE_FIND_PACKAGE_QuadMath=1  -DBLAS_LIBRARIES=/usr/lib64/libblas.a -DLAPACK_LIBRARIES=/usr/lib64/liblapack.a
+cmake .. -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=1 -DCMAKE_POSITION_INDEPENDENT_CODE=1 -DDUNE_ENABLE_PYTHONBINDINGS=0 -DBLA_STATIC=0 -DCMAKE_DISABLE_FIND_PACKAGE_QuadMath=1  -DBLAS_LIBRARIES=/usr/lib64/libblas.so -DLAPACK_LIBRARIES=/usr/lib64/liblapack.so
 cmake --build . -- -j${BUILD_JOBS}
 cmake --build . --target install
 popd
