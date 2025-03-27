@@ -25,14 +25,10 @@ done
 
 DIR=`pwd`
 # Setup opm modules
-#git clone https://github.com/OPM/opm-common -b $VERSION
-#git clone https://github.com/OPM/opm-grid -b $VERSION
-#git clone https://github.com/OPM/opm-simulators -b $VERSION
+git clone https://github.com/OPM/opm-common -b $VERSION
+git clone https://github.com/OPM/opm-grid -b $VERSION
+git clone https://github.com/OPM/opm-simulators -b $VERSION
 git clone https://github.com/OPM/opm-utilities
-VERSION=py_gw
-git clone https://github.com/hakonhagland/opm-common -b $VERSION
-git clone https://github.com/hakonhagland/opm-grid -b $VERSION
-git clone https://github.com/hakonhagland/opm-simulators-1 -b $VERSION opm-simulators
 
 ln -sf opm-utilities/opm-super/CMakeLists.txt CMakeLists.txt
 sed -e 's/add_subdirectory(opm-upscaling)//' -e 's/add_dependencies(opmupscaling opmgrid)//g' -i CMakeLists.txt
@@ -47,7 +43,7 @@ do
     fi
     mkdir $tag && pushd $tag
     cmake -DPYTHON_EXECUTABLE=${python_versions[$tag]} -DWITH_NATIVE=0 -DBoost_USE_STATIC_LIBS=1 \
-    -DOPM_ENABLE_PYTHON=ON -DOPM_PYTHON_PACKAGE_VERSION_TAG=${VERSION_TAG} -DBLA_STATIC=1 -DBLAS_LIBRARIES=/usr/lib64/libblas.a -DSUITESPARSE_USE_STATIC=1 -DCMAKE_DISABLE_FIND_PACKAGE_QuadMath=1 -DBUILD_SHARED_LIBS=ON ..
+    -DOPM_ENABLE_PYTHON=ON -DOPM_PYTHON_PACKAGE_VERSION_TAG=${VERSION_TAG} -DBLA_STATIC=0 -DBLAS_LIBRARIES=/usr/lib64/libblas.so -DSUITESPARSE_USE_STATIC=0 -DCMAKE_DISABLE_FIND_PACKAGE_QuadMath=1 -DBUILD_SHARED_LIBS=ON ..
 
     cmake --build . --target opmcommon_python BlackOil GasWater --parallel ${BUILD_JOBS}
 

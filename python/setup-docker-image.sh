@@ -8,4 +8,4 @@
 
 dnf install -y almalinux-release-devel
 
-dnf install -y blas-static lapack-static suitesparse-static ninja-build
+dnf install -y blas-devel lapack-devel suitesparse-devel ninja-build
