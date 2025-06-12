@@ -124,7 +124,7 @@ sendSlaveGroupPotentialsToMaster()
             // For injection groups, we do not have potentials. In that case,
             //  we will send dummy values (0.0) for the potentials.
             if (this->guide_rate_.hasPotentials(slave_group_name)) {
-                const auto& gr_pot = this->guide_rate_.getPotentials(slave_group_name);
+                const auto& gr_pot = this->groupState().getProductionGroupPotentials(slave_group_name);
                 pot[Potentials::Phase::Oil] = gr_pot.oil_rat;
                 pot[Potentials::Phase::Gas] = gr_pot.gas_rat;
                 pot[Potentials::Phase::Water] = gr_pot.wat_rat;
@@ -607,6 +607,9 @@ updateGuideRatesForProductionGroups_(const Group& group, std::vector<Scalar>& po
     water_pot = this->unit_system_.from_si(UnitSystem::measure::liquid_surface_rate, water_pot);
     gas_pot = this->unit_system_.from_si(UnitSystem::measure::gas_surface_rate, gas_pot);
     this->guideRate().compute(
+        group.name(), this->report_step_idx_, this->sim_time_, oil_pot, gas_pot, water_pot
+    );
+    this->groupState().updateGroupProductionPotentials(
         group.name(), this->report_step_idx_, this->sim_time_, oil_pot, gas_pot, water_pot
     );
 }
