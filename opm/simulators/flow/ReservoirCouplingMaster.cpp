@@ -170,6 +170,20 @@ maybeChopSubStep(double suggested_timestep_original, double elapsed_time) const
     return suggested_timestep;
 }
 
+std::size_t
+ReservoirCouplingMaster::
+numSlaveGroups(unsigned int index)
+{
+    return this->master_group_name_order_[this->slave_names_[index]].size();
+}
+
+std::size_t
+ReservoirCouplingMaster::
+numSlavesStarted() const
+{
+    return this->slave_names_.size();
+}
+
 void
 ReservoirCouplingMaster::
 sendNextTimeStepToSlaves(double timestep)
@@ -192,7 +206,6 @@ sendNextTimeStepToSlaves(double timestep)
         }
    }
 }
-
 
 void
 ReservoirCouplingMaster::
@@ -264,20 +277,6 @@ receivePotentialsFromSlaves()
         this->comm_.broadcast(potentials.data(), /*count=*/num_slave_groups, /*emitter_rank=*/0);
         this->slave_group_potentials_[this->slave_names_[i]] = potentials;
     }
-}
-
-std::size_t
-ReservoirCouplingMaster::
-numSlaveGroups(unsigned int index)
-{
-    return this->master_group_name_order_[this->slave_names_[index]].size();
-}
-
-std::size_t
-ReservoirCouplingMaster::
-numSlavesStarted() const
-{
-    return this->slave_names_.size();
 }
 
 void
