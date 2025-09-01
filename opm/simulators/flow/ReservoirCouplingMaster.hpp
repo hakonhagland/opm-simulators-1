@@ -51,6 +51,7 @@ public:
     void addSlaveNextReportTimeOffset(double offset) {
          this->slave_next_report_time_offsets_.push_back(offset);
     }
+    void addSlaveActivationDate(double date) { this->slave_activation_dates_.push_back(date); }
     void addSlaveStartDate(std::time_t date) { this->slave_start_dates_.push_back(date); }
     void clearDeferredLogger() { logger_.clearDeferredLogger(); }
     double getActivationDate() const { return this->activation_date_; }
@@ -68,6 +69,7 @@ public:
     std::map<std::string, std::string>& getMasterGroupToSlaveNameMap() {
          return this->master_group_slave_names_;
     }
+    double getSlaveActivationDate(int index) const { return this->slave_activation_dates_[index]; }
     double getSimulationStartDate() const { return this->schedule_.getStartTime(); }
     MPI_Comm getSlaveComm(int index) const { return this->master_slave_comm_[index]; }
     const Potentials& getSlaveGroupPotentials(const std::string &master_group_name);
@@ -80,6 +82,7 @@ public:
     std::size_t numSlavesStarted() const;
     void receiveNextReportDateFromSlaves();
     void receivePotentialsFromSlaves();
+    void resizeSlaveActivationDates(int size) { this->slave_activation_dates_.resize(size); }
     void resizeSlaveStartDates(int size) { this->slave_start_dates_.resize(size); }
     void resizeNextReportDates(int size) { this->slave_next_report_time_offsets_.resize(size); }
     void sendNextTimeStepToSlaves(double next_time_step);
@@ -111,6 +114,8 @@ private:
     // which can include milliseconds. The double values are also convenient when we need to
     // to add fractions of seconds for sub steps to the start date.
     std::vector<double> slave_start_dates_;
+    // The activation dates are in whole seconds since the epoch.
+    std::vector<double> slave_activation_dates_;
     // Elapsed time from the beginning of the simulation
     std::vector<double> slave_next_report_time_offsets_;
     double activation_date_{0.0};  // The date when SLAVES is encountered in the schedule
