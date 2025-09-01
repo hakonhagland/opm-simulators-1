@@ -100,6 +100,18 @@ getSlaveGroupPotentials(const std::string &master_group_name)
 
 void
 ReservoirCouplingMaster::
+maybeActivate(int report_step) {
+    if (!this->activated()) {
+        double start_date = this->schedule_.getStartTime();
+        auto current_time = start_date + this->schedule_.seconds(report_step);
+        if (Seconds::compare_gt_or_eq(current_time, this->activation_date_)) {
+            this->activated_ = true;
+        }
+    }
+}
+
+void
+ReservoirCouplingMaster::
 maybeSpawnSlaveProcesses(int report_step)
 {
     if (this->numSlavesStarted() > 0) {  // We have already spawned the slave processes

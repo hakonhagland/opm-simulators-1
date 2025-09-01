@@ -43,7 +43,7 @@ public:
         int argc, char **argv
     );
 
-    bool activated() { return this->numSlavesStarted() > 0; }
+    bool activated() { return this->activated_; }
     void addSlaveCommunicator(MPI_Comm comm) {
          this->master_slave_comm_.push_back(comm);
     }
@@ -70,12 +70,14 @@ public:
          return this->master_group_slave_names_;
     }
     double getSlaveActivationDate(int index) const { return this->slave_activation_dates_[index]; }
+    const double *getSlaveActivationDates() const { return this->slave_activation_dates_.data(); }
     double getSimulationStartDate() const { return this->schedule_.getStartTime(); }
     MPI_Comm getSlaveComm(int index) const { return this->master_slave_comm_[index]; }
     const Potentials& getSlaveGroupPotentials(const std::string &master_group_name);
     const std::string &getSlaveName(int index) const { return this->slave_names_[index]; }
     const double *getSlaveStartDates() { return this->slave_start_dates_.data(); }
     bool isMasterGroup(const std::string &group_name) const;
+    void maybeActivate(int report_step);
     double maybeChopSubStep(double suggested_timestep, double current_time) const;
     void maybeSpawnSlaveProcesses(int report_step);
     std::size_t numSlaveGroups(unsigned int index);
@@ -104,6 +106,8 @@ private:
     const Schedule& schedule_;
     int argc_;
     char **argv_;
+    // Whether the master process has activated the reservoir coupling
+    bool activated_{false};
     // NOTE: MPI_Comm is just an integer handle, so we can just copy it into the vector
     std::vector<MPI_Comm> master_slave_comm_; // MPI communicators for the slave processes
     std::vector<std::string> slave_names_;
