@@ -78,6 +78,7 @@ public:
     const double *getSlaveStartDates() { return this->slave_start_dates_.data(); }
     bool isMasterGroup(const std::string &group_name) const;
     void maybeActivate(int report_step);
+    void maybeReceiveActivationHandshakeFromSlaves(double current_time);
     double maybeChopSubStep(double suggested_timestep, double current_time) const;
     void maybeSpawnSlaveProcesses(int report_step);
     std::size_t numSlaveGroups(unsigned int index);
@@ -96,6 +97,7 @@ public:
     void setSlaveNextReportTimeOffset(int index, double offset) {
          this->slave_next_report_time_offsets_[index] = offset;
     }
+    bool slaveIsActivated(int index) const { return this->slave_activation_status_[index] != 0; }
     void updateMasterGroupNameOrderMap(
         const std::string& slave_name, const std::map<std::string, std::size_t>& master_group_map);
 
@@ -127,6 +129,10 @@ private:
     //  potentials to the master process.
     std::map<std::string, std::map<std::string, std::size_t>> master_group_name_order_;
     ReservoirCoupling::Logger logger_;
+    // Whether the slave has activated. Unfortunatley, we cannot use std::vector<bool> since
+    // it is not supported to get a pointer to the underlying array of bools needed
+    // with MPI broadcast().
+    std::vector<std::uint8_t> slave_activation_status_;
     // Potentials for oil, gas, and water rates for each slave group
     std::map<std::string, std::vector<Potentials>> slave_group_potentials_;
     // A mapping from master group names to slave names
