@@ -121,6 +121,7 @@ public:
             : oil_rate(oil), gas_rate(gas), water_rate(water) {}
     };
 
+    bool has_production_group_potential(const std::string& gname) const;
     void update_group_production_potential(
         const std::string& gname, Scalar oil_rate, Scalar gas_rate, Scalar water_rate
     );

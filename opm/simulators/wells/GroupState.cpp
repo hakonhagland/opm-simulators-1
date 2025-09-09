@@ -556,6 +556,13 @@ gconsump_rates(const std::string& gname) const {
 }
 
 template<class Scalar>
+bool GroupState<Scalar>::has_production_group_potential(const std::string& gname) const
+{
+    auto group_iter = this->production_group_potentials.find(gname);
+    return (group_iter != this->production_group_potentials.end());
+}
+
+template<class Scalar>
 void GroupState<Scalar>::
 update_group_production_potential(const std::string& gname, Scalar oil_rate,
                                   Scalar gas_rate, Scalar water_rate)

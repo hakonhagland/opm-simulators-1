@@ -138,7 +138,7 @@ sendSlaveGroupPotentialsToMaster(const GroupState<Scalar>& group_state)
             Potentials pot;
             // For injection groups, we do not have potentials. In that case,
             //  we will send dummy values (0.0) for the potentials.
-            if (this->guide_rate_.hasPotentials(slave_group_name)) {
+            if (group_state.has_production_group_potential(slave_group_name)) {
                 const auto& gr_pot = group_state.get_production_group_potential(slave_group_name);
                 pot[Potentials::Phase::Oil] = gr_pot.oil_rate;
                 pot[Potentials::Phase::Gas] = gr_pot.gas_rate;
