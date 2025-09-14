@@ -492,8 +492,14 @@ namespace Opm {
         this->updateAndCommunicateGroupData(reportStepIdx,
                                     simulator_.model().newtonMethod().numIterations(),
                                     param_.nupcol_group_rate_tolerance_,
-                                    /*update_wellgrouptarget*/ true,
+                                    /*update_wellgrouptarget=*/false,
                                     local_deferredLogger);
+#ifdef RESERVOIR_COUPLING_ENABLED
+        if (this->isReservoirCouplingMaster()) {
+            this->sendMasterGroupTargetsToSlaves(reportStepIdx);
+        }
+#endif
+        this->updateWellGroupTarget(local_deferredLogger);
         try {
             // Compute initial well solution for new wells and injectors that change injection type i.e. WAG.
             for (auto& well : well_container_) {
@@ -522,11 +528,6 @@ namespace Opm {
         // Catch clauses for all errors setting exc_type and exc_msg
         OPM_PARALLEL_CATCH_CLAUSE(exc_type, exc_msg);
 
-#ifdef RESERVOIR_COUPLING_ENABLED
-        if (this->isReservoirCouplingMaster()) {
-            this->sendMasterGroupTargetsToSlaves(reportStepIdx);
-        }
-#endif
 
         if (exc_type != ExceptionType::NONE) {
             const std::string msg = "Compute initial well solution for new wells failed. Continue with zero initial rates";
