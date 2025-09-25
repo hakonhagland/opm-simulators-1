@@ -60,13 +60,33 @@ enum class MessageTag : int {
 };
 
 // Used to communicate potentials for oil, gas, and water rates between slave and master processes
+template <class Scalar>
 struct Potentials {
     enum class Phase : std::size_t { Oil = 0, Gas, Water, Count };
 
-    std::array<double, static_cast<std::size_t>(Phase::Count)> rate{};
+    std::array<Scalar, static_cast<std::size_t>(Phase::Count)> rate{};
 
-    [[nodiscard]] double& operator[](Phase p)       noexcept { return rate[static_cast<std::size_t>(p)]; }
-    [[nodiscard]] double  operator[](Phase p) const noexcept { return rate[static_cast<std::size_t>(p)]; }
+    [[nodiscard]] Scalar& operator[](Phase p)       noexcept { return rate[static_cast<std::size_t>(p)]; }
+    [[nodiscard]] Scalar  operator[](Phase p) const noexcept { return rate[static_cast<std::size_t>(p)]; }
+};
+
+// Comprehensive slave group data structure for master-slave communication
+template <class Scalar>
+struct SlaveGroupRates {
+    // Group potentials (existing data)
+    Potentials<Scalar> potentials;
+
+    // Production rates (Issues 5 & 6: guide rate fractions and REIN)
+    std::vector<Scalar> production_rates;  // Surface production rates by phase
+
+    // Injection rates (Issues 4 & 7: guide rates and GPMAINT)
+    std::vector<Scalar> injection_surface_rates;    // Surface injection rates by phase
+    std::vector<Scalar> injection_reservoir_rates;  // Reservoir injection rates by phase
+    Scalar injection_vrep_rate{0.0};                // Total voidage replacement rate
+
+    // Metadata
+    std::string group_name;
+    int report_step{0};
 };
 
 
