@@ -52,6 +52,10 @@
 #include <opm/simulators/wells/WellGroupHelpers.hpp>
 #include <opm/simulators/wells/TargetCalculator.hpp>
 
+#ifdef RESERVOIR_COUPLING_ENABLED
+#include <opm/simulators/flow/rescoup/SendSlaveGroupData.hpp>
+#endif
+
 #include <opm/simulators/utils/DeferredLoggingErrorHelpers.hpp>
 #include <opm/simulators/utils/MPIPacker.hpp>
 

@@ -398,6 +398,13 @@ template<class Scalar> class WellContributions;
             {
                 this->guide_rate_handler_.setReservoirCouplingSlave(slave);
             }
+
+            /// \brief Send comprehensive slave group data to master
+            void sendSlaveGroupRatesToMaster(const GroupState<Scalar>& group_state, int report_step);
+
+            /// \brief Receive comprehensive slave group data from slaves
+            void receiveSlavesGroupRates(GroupState<Scalar>& group_state, int report_step);
+
         #endif
         protected:
             Simulator& simulator_;
