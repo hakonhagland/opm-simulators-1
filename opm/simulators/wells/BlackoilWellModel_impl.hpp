@@ -380,6 +380,14 @@ namespace Opm {
             // create the well container
             createWellContainer(reportStepIdx);
 
+#ifdef RESERVOIR_COUPLING_ENABLED
+            // Receive all slave group data early to ensure it's available for any calculations
+            if (this->isReservoirCouplingMaster()) {
+                this->guide_rate_handler_.receiveMasterGroupPotentialsFromSlaves();
+                this->receiveSlavesGroupRates(this->groupState(), reportStepIdx);
+            }
+#endif
+
             // we need to update the group data after the well is created
             // to make sure we get the correct mapping.
             this->updateAndCommunicateGroupData(reportStepIdx,
@@ -459,11 +467,6 @@ namespace Opm {
             local_deferredLogger.warning("WELL_POTENTIAL_CALCULATION_FAILED", msg);
         }
         this->guide_rate_handler_.setLogger(&local_deferredLogger);
-#ifdef RESERVOIR_COUPLING_ENABLED
-        if (this->isReservoirCouplingMaster()) {
-            this->guide_rate_handler_.receiveMasterGroupPotentialsFromSlaves();
-        }
-#endif
         //update guide rates
         this->guide_rate_handler_.updateGuideRates(
             reportStepIdx, simulationTime, this->wellState(), this->groupState()
@@ -471,6 +474,7 @@ namespace Opm {
 #ifdef RESERVOIR_COUPLING_ENABLED
         if (this->isReservoirCouplingSlave()) {
             this->guide_rate_handler_.sendSlaveGroupPotentialsToMaster(this->groupState());
+            this->sendSlaveGroupRatesToMaster(this->groupState(), reportStepIdx);
         }
 #endif
         std::string exc_msg;
