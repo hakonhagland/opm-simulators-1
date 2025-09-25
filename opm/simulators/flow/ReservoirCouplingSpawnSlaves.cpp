@@ -47,9 +47,10 @@ namespace Opm {
 // Public methods
 // ------------------
 
-ReservoirCouplingSpawnSlaves::
+template <class Scalar>
+ReservoirCouplingSpawnSlaves<Scalar>::
 ReservoirCouplingSpawnSlaves(
-    ReservoirCouplingMaster &master,
+    ReservoirCouplingMaster<Scalar> &master,
     const ReservoirCoupling::CouplingInfo &rescoup
 ) :
     master_{master},
@@ -58,8 +59,9 @@ ReservoirCouplingSpawnSlaves(
 {
 }
 
+template <class Scalar>
 void
-ReservoirCouplingSpawnSlaves::
+ReservoirCouplingSpawnSlaves<Scalar>::
 spawn()
 {
     // spawn the slave processes and get the simulation start date from the slaves,
@@ -80,8 +82,9 @@ spawn()
 // Private methods
 // ------------------
 
+template <class Scalar>
 void
-ReservoirCouplingSpawnSlaves::
+ReservoirCouplingSpawnSlaves<Scalar>::
 createMasterGroupNameOrder_()
 {
     // When the slaves send master/slave group potentials to us, we need to know
@@ -115,8 +118,9 @@ createMasterGroupNameOrder_()
         this->master_.updateMasterGroupNameOrderMap(slave_name, master_group_map);
     }
 }
+template <class Scalar>
 void
-ReservoirCouplingSpawnSlaves::
+ReservoirCouplingSpawnSlaves<Scalar>::
 createMasterGroupToSlaveNameMap_()
 {
     // When the slaves send master/slave group potentials to us, we need to know
@@ -129,7 +133,8 @@ createMasterGroupToSlaveNameMap_()
     }
 }
 
-std::vector<char *> ReservoirCouplingSpawnSlaves::
+template <class Scalar>
+std::vector<char *> ReservoirCouplingSpawnSlaves<Scalar>::
 getSlaveArgv_(
     const std::filesystem::path &data_file,
     const std::string &slave_name,
@@ -168,8 +173,9 @@ getSlaveArgv_(
     return slave_argv;
 }
 
+template <class Scalar>
 std::pair<std::vector<char>, std::size_t>
-ReservoirCouplingSpawnSlaves::
+ReservoirCouplingSpawnSlaves<Scalar>::
 getMasterGroupNamesForSlave_(const std::string &slave_name) const
 {
     // For the given slave name, get all pairs of master group names and slave group names
@@ -188,8 +194,9 @@ getMasterGroupNamesForSlave_(const std::string &slave_name) const
     return ReservoirCoupling::serializeStrings(data);
 }
 
+template <class Scalar>
 void
-ReservoirCouplingSpawnSlaves::
+ReservoirCouplingSpawnSlaves<Scalar>::
 prepareTimeStepping_()
 {
     // Prepare the time stepping for the master process
@@ -199,8 +206,9 @@ prepareTimeStepping_()
     this->master_.resizeNextReportDates(num_slaves);
 }
 
+template <class Scalar>
 void
-ReservoirCouplingSpawnSlaves::
+ReservoirCouplingSpawnSlaves<Scalar>::
 receiveActivationDateFromSlaves_()
 {
     // Currently, we only use the activation date to check that no slave process
@@ -241,8 +249,9 @@ receiveActivationDateFromSlaves_()
     this->logger_.info("Broadcasted slave activation dates to all ranks");
 }
 
+template <class Scalar>
 void
-ReservoirCouplingSpawnSlaves::
+ReservoirCouplingSpawnSlaves<Scalar>::
 receiveSimulationStartDateFromSlaves_()
 {
     auto num_slaves = this->master_.numSlavesStarted();
@@ -277,8 +286,9 @@ receiveSimulationStartDateFromSlaves_()
     this->logger_.info("Broadcasted slave start dates to all ranks");
 }
 
+template <class Scalar>
 void
-ReservoirCouplingSpawnSlaves::
+ReservoirCouplingSpawnSlaves<Scalar>::
 sendMasterGroupNamesToSlaves_()
 {
     if (this->comm_.rank() == 0) {
@@ -312,8 +322,9 @@ sendMasterGroupNamesToSlaves_()
    }
 }
 
+template <class Scalar>
 void
-ReservoirCouplingSpawnSlaves::
+ReservoirCouplingSpawnSlaves<Scalar>::
 sendSlaveNamesToSlaves_()
 {
     if (this->comm_.rank() == 0) {
@@ -349,8 +360,9 @@ sendSlaveNamesToSlaves_()
 
 // NOTE: This functions is executed for all ranks, but only rank 0 will spawn
 //   the slave processes
+template <class Scalar>
 void
-ReservoirCouplingSpawnSlaves::
+ReservoirCouplingSpawnSlaves<Scalar>::
 spawnSlaveProcesses_()
 {
     char *flow_program_name = this->master_.getArgv(0);
@@ -406,5 +418,9 @@ spawnSlaveProcesses_()
         this->master_.addSlaveName(slave_name);
     }
 }
+
+// Explicit template instantiations
+template class ReservoirCouplingSpawnSlaves<double>;
+template class ReservoirCouplingSpawnSlaves<float>;
 
 }  // namespace Opm
