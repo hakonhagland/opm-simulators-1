@@ -43,7 +43,8 @@ namespace Opm {
 //   will call MPI_Abort() so there is no need to check the return value of any MPI_Recv()
 //   or MPI_Send() calls below.
 
-ReservoirCouplingMaster::
+template <class Scalar>
+ReservoirCouplingMaster<Scalar>::
 ReservoirCouplingMaster(
     const Parallel::Communication &comm,
     const Schedule &schedule,
@@ -61,24 +62,27 @@ ReservoirCouplingMaster(
 // Public methods
 // ------------------
 
+template <class Scalar>
 bool
-ReservoirCouplingMaster::
+ReservoirCouplingMaster<Scalar>::
 isMasterGroup(const std::string &group_name) const
 {
     return this->master_group_slave_names_.find(group_name) !=
            this->master_group_slave_names_.end();
 }
 
+template <class Scalar>
 std::size_t
-ReservoirCouplingMaster::
+ReservoirCouplingMaster<Scalar>::
 getMasterGroupPotIdx(
     const std::string &slave_name, const std::string &master_group_name) const
 {
     return this->master_group_name_order_.at(slave_name).at(master_group_name);
 }
 
-const ReservoirCoupling::Potentials&
-ReservoirCouplingMaster::
+template <class Scalar>
+const ReservoirCoupling::Potentials<Scalar>&
+ReservoirCouplingMaster<Scalar>::
 getSlaveGroupPotentials(const std::string &master_group_name)
 {
     auto it = this->master_group_slave_names_.find(master_group_name);
@@ -98,8 +102,9 @@ getSlaveGroupPotentials(const std::string &master_group_name)
     }
 }
 
+template <class Scalar>
 void
-ReservoirCouplingMaster::
+ReservoirCouplingMaster<Scalar>::
 maybeActivate(int report_step) {
     if (!this->activated()) {
         double start_date = this->schedule_.getStartTime();
@@ -110,8 +115,9 @@ maybeActivate(int report_step) {
     }
 }
 
+template <class Scalar>
 void
-ReservoirCouplingMaster::
+ReservoirCouplingMaster<Scalar>::
 maybeSpawnSlaveProcesses(int report_step)
 {
     if (this->numSlavesStarted() > 0) {  // We have already spawned the slave processes
@@ -121,13 +127,14 @@ maybeSpawnSlaveProcesses(int report_step)
     auto slave_count = rescoup.slaveCount();
     auto master_group_count = rescoup.masterGroupCount();
     if (slave_count > 0 && master_group_count > 0) {
-        ReservoirCouplingSpawnSlaves spawn_slaves{*this, rescoup};
+        ReservoirCouplingSpawnSlaves<Scalar> spawn_slaves{*this, rescoup};
         spawn_slaves.spawn();
     }
 }
 
+template <class Scalar>
 double
-ReservoirCouplingMaster::
+ReservoirCouplingMaster<Scalar>::
 maybeChopSubStep(double suggested_timestep_original, double elapsed_time) const
 {
     // Check if the suggested timestep needs to be adjusted based on the slave processes'
@@ -173,8 +180,9 @@ maybeChopSubStep(double suggested_timestep_original, double elapsed_time) const
     return suggested_timestep;
 }
 
+template <class Scalar>
 void
-ReservoirCouplingMaster::
+ReservoirCouplingMaster<Scalar>::
 maybeReceiveActivationHandshakeFromSlaves(double current_time)
 {
     // Initialize on first call
@@ -225,22 +233,25 @@ maybeReceiveActivationHandshakeFromSlaves(double current_time)
     );
 }
 
+template <class Scalar>
 std::size_t
-ReservoirCouplingMaster::
+ReservoirCouplingMaster<Scalar>::
 numSlaveGroups(unsigned int index)
 {
     return this->master_group_name_order_[this->slave_names_[index]].size();
 }
 
+template <class Scalar>
 std::size_t
-ReservoirCouplingMaster::
+ReservoirCouplingMaster<Scalar>::
 numSlavesStarted() const
 {
     return this->slave_names_.size();
 }
 
+template <class Scalar>
 void
-ReservoirCouplingMaster::
+ReservoirCouplingMaster<Scalar>::
 sendNextTimeStepToSlaves(double timestep)
 {
     if (this->comm_.rank() == 0) {
@@ -269,8 +280,9 @@ sendNextTimeStepToSlaves(double timestep)
    }
 }
 
+template <class Scalar>
 void
-ReservoirCouplingMaster::
+ReservoirCouplingMaster<Scalar>::
 receiveNextReportDateFromSlaves()
 {
     auto num_slaves = this->numSlavesStarted();
@@ -310,8 +322,9 @@ receiveNextReportDateFromSlaves()
     OpmLog::info("Broadcasted slave next report dates to all ranks");
 }
 
+template <class Scalar>
 void
-ReservoirCouplingMaster::
+ReservoirCouplingMaster<Scalar>::
 receivePotentialsFromSlaves()
 {
     auto num_slaves = this->numSlavesStarted();
@@ -319,11 +332,11 @@ receivePotentialsFromSlaves()
     for (unsigned int i = 0; i < num_slaves; i++) {
         auto num_slave_groups = this->numSlaveGroups(i);
         assert( num_slave_groups > 0 );
-        std::vector<Potentials> potentials(num_slave_groups);
+        std::vector<ReservoirCoupling::Potentials<Scalar>> potentials(num_slave_groups);
         if (this->comm_.rank() == 0) {
             if (this->slaveIsActivated(i)) {
                 // NOTE: See comment about error handling at the top of this file.
-                auto MPI_POTENTIALS_TYPE = Dune::MPITraits<Potentials>::getType();
+                auto MPI_POTENTIALS_TYPE = Dune::MPITraits<ReservoirCoupling::Potentials<Scalar>>::getType();
                 MPI_Recv(
                     potentials.data(),
                     /*count=*/num_slave_groups,
@@ -346,7 +359,7 @@ receivePotentialsFromSlaves()
                         this->slave_names_[i]
                     )
                 );
-                potentials.assign(num_slave_groups, Potentials{}); // Set to zero potentials
+                potentials.assign(num_slave_groups, ReservoirCoupling::Potentials<Scalar>{}); // Set to zero potentials
             }
         }
         // NOTE: The dune broadcast() below will do something like:
@@ -358,8 +371,9 @@ receivePotentialsFromSlaves()
     }
 }
 
+template <class Scalar>
 void
-ReservoirCouplingMaster::
+ReservoirCouplingMaster<Scalar>::
 updateMasterGroupNameOrderMap(
     const std::string& slave_name, const std::map<std::string, std::size_t>& master_group_name_map
 )
@@ -371,8 +385,9 @@ updateMasterGroupNameOrderMap(
 // Private methods
 // ------------------
 
+template <class Scalar>
 double
-ReservoirCouplingMaster::
+ReservoirCouplingMaster<Scalar>::
 getMasterActivationDate_() const
 {
     // Assume master mode is activated when the first SLAVES keyword is encountered in the schedule

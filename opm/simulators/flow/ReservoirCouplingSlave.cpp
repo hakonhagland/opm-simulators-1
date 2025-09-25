@@ -38,7 +38,8 @@ namespace Opm {
 //   will call MPI_Abort() so there is no need to check the return value of any MPI_Recv()
 //   or MPI_Send() calls below.
 
-ReservoirCouplingSlave::
+template <class Scalar>
+ReservoirCouplingSlave<Scalar>::
 ReservoirCouplingSlave(
     const Parallel::Communication &comm,
     const Schedule &schedule,
@@ -59,8 +60,9 @@ ReservoirCouplingSlave(
     ReservoirCoupling::setErrhandler(this->slave_master_comm_, /*is_master=*/false);
 }
 
+template <class Scalar>
 void
-ReservoirCouplingSlave::
+ReservoirCouplingSlave<Scalar>::
 sendAndReceiveInitialData() {
     this->sendActivationDateToMasterProcess_();
     this->sendSimulationStartDateToMasterProcess_();
@@ -68,8 +70,9 @@ sendAndReceiveInitialData() {
     this->receiveMasterGroupNamesFromMasterProcess_();
 }
 
+template <class Scalar>
 double
-ReservoirCouplingSlave::
+ReservoirCouplingSlave<Scalar>::
 receiveNextTimeStepFromMaster() {
     double timestep;
     if (this->comm_.rank() == 0) {
@@ -93,8 +96,9 @@ receiveNextTimeStepFromMaster() {
 }
 
 
+template <class Scalar>
 void
-ReservoirCouplingSlave::
+ReservoirCouplingSlave<Scalar>::
 sendNextReportDateToMasterProcess() const
 {
     if (this->comm_.rank() == 0) {
@@ -117,16 +121,17 @@ sendNextReportDateToMasterProcess() const
 }
 
 
+template <class Scalar>
 void
-ReservoirCouplingSlave::
-sendPotentialsToMaster(const std::vector<Potentials> &potentials) const
+ReservoirCouplingSlave<Scalar>::
+sendPotentialsToMaster(const std::vector<ReservoirCoupling::Potentials<Scalar>> &potentials) const
 {
     // NOTE: The master can determine from the ordering of the potentials in the vector
     //   which slave group for a given slave name the given potentials belong to,
     //   so we do not need to send the slave group names also.
     if (this->comm_.rank() == 0) {
         //auto num_groups = potentials.size();
-        auto MPI_POTENTIALS_TYPE = Dune::MPITraits<Potentials>::getType();
+        auto MPI_POTENTIALS_TYPE = Dune::MPITraits<ReservoirCoupling::Potentials<Scalar>>::getType();
         MPI_Send(
             potentials.data(),
             /*count=*/potentials.size(),
@@ -147,8 +152,9 @@ sendPotentialsToMaster(const std::vector<Potentials> &potentials) const
 // Private methods
 // ------------------
 
+template <class Scalar>
 void
-ReservoirCouplingSlave::
+ReservoirCouplingSlave<Scalar>::
 checkGrupSlavGroupNames_()
 {
     // Validate that each slave group name has a corresponding master group name
@@ -182,8 +188,9 @@ checkGrupSlavGroupNames_()
     }
 }
 
+template <class Scalar>
 double
-ReservoirCouplingSlave::
+ReservoirCouplingSlave<Scalar>::
 getGrupSlavActivationDate_() const
 {
     double start_date = this->schedule_.getStartTime();
@@ -200,8 +207,9 @@ getGrupSlavActivationDate_() const
 // NOTE: It is not legal for a slave to activate before the master has activated. This problem
 //       will be caught by the master when it receives the slave activation date. See:
 //       ReservoirCouplingSpawnSlaves::receiveActivationDateFromSlaves_()
+template <class Scalar>
 void
-ReservoirCouplingSlave::
+ReservoirCouplingSlave<Scalar>::
 maybeActivate(int report_step) {
     if (!this->activated()) {
         auto rescoup = this->schedule_[report_step].rescoup();
@@ -213,8 +221,9 @@ maybeActivate(int report_step) {
     }
 }
 
+template <class Scalar>
 void
-ReservoirCouplingSlave::
+ReservoirCouplingSlave<Scalar>::
 receiveMasterGroupNamesFromMasterProcess_() {
     std::size_t size;
     std::vector<char> group_names;
@@ -252,8 +261,9 @@ receiveMasterGroupNamesFromMasterProcess_() {
     this->checkGrupSlavGroupNames_();
 }
 
+template <class Scalar>
 void
-ReservoirCouplingSlave::
+ReservoirCouplingSlave<Scalar>::
 receiveSlaveNameFromMasterProcess_() {
     std::size_t size;
     std::string slave_name;
@@ -292,8 +302,9 @@ receiveSlaveNameFromMasterProcess_() {
     this->slave_name_ = slave_name;
 }
 
+template <class Scalar>
 void
-ReservoirCouplingSlave::
+ReservoirCouplingSlave<Scalar>::
 saveMasterGroupNamesAsMap_(const std::vector<char>& group_names) {
     // Deserialize the group names vector into a map of slavegroup names -> mastergroup names
     auto total_size = group_names.size();
@@ -308,8 +319,9 @@ saveMasterGroupNamesAsMap_(const std::vector<char>& group_names) {
     }
 }
 
+template <class Scalar>
 void
-ReservoirCouplingSlave::
+ReservoirCouplingSlave<Scalar>::
 sendActivationDateToMasterProcess_() const
 {
     if (this->comm_.rank() == 0) {
@@ -328,8 +340,9 @@ sendActivationDateToMasterProcess_() const
    }
 }
 
+template <class Scalar>
 void
-ReservoirCouplingSlave::
+ReservoirCouplingSlave<Scalar>::
 sendActivationHandshakeToMasterProcess_() const
 {
     if (this->comm_.rank() == 0) {
@@ -349,8 +362,9 @@ sendActivationHandshakeToMasterProcess_() const
     this->comm_.barrier();
 }
 
+template <class Scalar>
 void
-ReservoirCouplingSlave::
+ReservoirCouplingSlave<Scalar>::
 sendSimulationStartDateToMasterProcess_() const
 {
     if (this->comm_.rank() == 0) {
