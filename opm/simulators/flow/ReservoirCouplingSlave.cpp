@@ -369,4 +369,8 @@ sendSimulationStartDateToMasterProcess_() const
    }
 }
 
+// Explicit template instantiations
+template class ReservoirCouplingSlave<double>;
+template class ReservoirCouplingSlave<float>;
+
 } // namespace Opm

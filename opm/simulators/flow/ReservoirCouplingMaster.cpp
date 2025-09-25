@@ -394,6 +394,9 @@ getMasterActivationDate_() const
               "No SLAVES keyword found in schedule");
 }
 
+// Explicit template instantiations
+template class ReservoirCouplingMaster<double>;
+template class ReservoirCouplingMaster<float>;
 
 } // namespace Opm
 

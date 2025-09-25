@@ -32,11 +32,12 @@
 
 namespace Opm {
 
+template <class Scalar>
 class ReservoirCouplingMaster {
 public:
     using MessageTag = ReservoirCoupling::MessageTag;
     using Seconds = ReservoirCoupling::Seconds;
-    using Potentials = ReservoirCoupling::Potentials;
+    using Potentials = ReservoirCoupling::Potentials<Scalar>;
     ReservoirCouplingMaster(
         const Parallel::Communication &comm,
         const Schedule &schedule,
