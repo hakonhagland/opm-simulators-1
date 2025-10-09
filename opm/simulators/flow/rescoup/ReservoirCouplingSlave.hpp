@@ -20,7 +20,7 @@
 #ifndef OPM_RESERVOIR_COUPLING_SLAVE_HPP
 #define OPM_RESERVOIR_COUPLING_SLAVE_HPP
 
-#include <opm/simulators/flow/ReservoirCoupling.hpp>
+#include <opm/simulators/flow/rescoup/ReservoirCoupling.hpp>
 #include <opm/input/eclipse/Schedule/Schedule.hpp>
 #include <opm/simulators/utils/ParallelCommunication.hpp>
 #include <opm/simulators/timestepping/SimulatorTimer.hpp>
@@ -44,9 +44,17 @@ public:
     bool activated() const { return activated_; }
     void clearDeferredLogger() { logger_.clearDeferredLogger(); }
     const Parallel::Communication& getComm() const { return comm_; }
+    ReservoirCoupling::Logger& getLogger() { return this->logger_; }
     const std::map<std::string, std::string>& getSlaveToMasterGroupNameMap() const {
         return slave_to_master_group_map_; }
+    bool masterGroupIsProducer(std::size_t group_idx) const {
+        return this->master_group_is_producer_[this->slaveGroupIdxToGroupName(group_idx)];
+    }
+    bool masterGroupIsInjector(std::size_t group_idx) const {
+        return this->master_group_is_injector_[this->slaveGroupIdxToGroupName(group_idx)];
+    }
     void maybeActivate(int report_step);
+    std::size_t numSlaveGroups() const { return this->slave_group_order_.size(); }
     double receiveNextTimeStepFromMaster();
     void sendAndReceiveInitialData();
     void sendNextReportDateToMasterProcess() const;
@@ -54,13 +62,22 @@ public:
     void setDeferredLogger(DeferredLogger *deferred_logger) {
         this->logger_.setDeferredLogger(deferred_logger);
     }
+    const std::string& slaveGroupIdxToGroupName(std::size_t group_idx) const {
+        return this->slave_group_order_[group_idx];
+    }
 
 private:
     void checkGrupSlavGroupNames_();
     double getGrupSlavActivationDate_() const;
+    const std::map<std::string, std::uint8_t>& getMasterGroupIsProducerMap_() const {
+        return this->master_group_is_producer_;
+    }
+    const std::map<std::string, std::uint8_t>& getMasterGroupIsInjectorMap_() const {
+        return this->master_group_is_injector_;
+    }
     void receiveMasterGroupNamesFromMasterProcess_();
     void receiveSlaveNameFromMasterProcess_();
-    void saveMasterGroupNamesAsMap_(const std::vector<char>& group_names);
+    void saveMasterGroupNamesAsMapAndEstablishOrder_(const std::vector<char>& group_names);
     void sendActivationDateToMasterProcess_() const;
     void sendActivationHandshakeToMasterProcess_() const;
     void sendSimulationStartDateToMasterProcess_() const;
@@ -74,6 +91,15 @@ private:
     bool activated_{false};
     std::string slave_name_;  // This is the slave name as defined in the master process
     ReservoirCoupling::Logger logger_;
+    // Order of the slave groups. A mapping from slave group index to slave group name.
+    // The indices are determined by the order the master process sends us the group names, see
+    // receiveMasterGroupNamesFromMasterProcess_()
+    // Later, the master process will send us group name indices, and not the group names themselves,
+    // so we use this mapping to recover the slave group names from the indices.
+    std::map<std::size_t, std::string> slave_group_order_;
+    // Whether the master group is a producer or an injector. The keys are the corresponding slave group names.
+    std::map<std::string, std::uint8_t> master_group_is_producer_;
+    std::map<std::string, std::uint8_t> master_group_is_injector_;
 };
 
 } // namespace Opm

@@ -207,7 +207,7 @@ public:
      */
     void debugDumpGuideRates(const int report_step_idx, const double sim_time);
     const Parallel::Communication& getComm() const { return comm_; }
-    void setLogger(DeferredLogger *deferred_logger);
+    void setLogger(DeferredLogger *deferred_logger) { deferred_logger_ = deferred_logger; }
     const Schedule& schedule() const { return schedule_; }
     /**
      * @brief Updates guide rates for the current simulation step.

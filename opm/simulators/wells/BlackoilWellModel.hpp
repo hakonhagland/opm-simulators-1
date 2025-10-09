@@ -81,6 +81,7 @@
 #include <cstddef>
 #include <map>
 #include <memory>
+#include <optional>
 #include <string>
 #include <tuple>
 #include <vector>
@@ -404,6 +405,17 @@ template<class Scalar> class WellContributions;
 
             /// \brief Receive comprehensive slave group data from slaves
             void receiveSlavesGroupRates(GroupState<Scalar>& group_state, int report_step);
+
+            /// \brief Setup RAII guard for reservoir coupling logger
+            ///
+            /// Creates a scoped logger guard that automatically clears the logger
+            /// when it goes out of scope. This eliminates the need for manual cleanup.
+            ///
+            /// @param local_logger The local DeferredLogger to bind to the reservoir coupling logger
+            /// @return An optional containing the ScopedLoggerGuard if reservoir coupling is active,
+            ///         or std::nullopt if not active
+            std::optional<ReservoirCoupling::ScopedLoggerGuard>
+                setupRescoupScopedLogger(DeferredLogger& local_logger);
 
         #endif
         protected:

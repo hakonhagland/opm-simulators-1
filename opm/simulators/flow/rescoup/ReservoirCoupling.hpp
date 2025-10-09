@@ -20,6 +20,7 @@
 #ifndef OPM_RESERVOIR_COUPLING_HPP
 #define OPM_RESERVOIR_COUPLING_HPP
 #include <opm/simulators/utils/DeferredLogger.hpp>
+#include <opm/input/eclipse/Schedule/Group/GuideRate.hpp>
 
 #include <dune/common/parallel/mpitraits.hh>
 
@@ -44,19 +45,97 @@ private:
     DeferredLogger *deferred_logger_ = nullptr;
 };
 
+/// @brief RAII guard for managing DeferredLogger lifecycle in ReservoirCoupling
+///
+/// @details This class ensures that a DeferredLogger pointer is properly set and cleared
+/// in the ReservoirCoupling logger. It follows the RAII (Resource Acquisition Is Initialization)
+/// pattern to prevent dangling pointer issues when local DeferredLogger objects go out of scope.
+///
+/// Key design decisions:
+/// - Uses a pointer instead of a reference to enable move semantics
+/// - Implements move constructor/assignment to allow returning from functions and use in std::optional
+/// - Deletes copy constructor/assignment to ensure single ownership
+/// - The moved-from object is "nullified" so only the final owner clears the logger
+///
+/// Lifecycle guarantees:
+/// - Constructor: Sets the DeferredLogger pointer in the ReservoirCoupling logger
+/// - Destructor: Clears the pointer (only if not moved-from)
+/// - Move: Transfers ownership; moved-from object becomes inactive (logger_ = nullptr)
+///
+/// @param logger The ReservoirCoupling logger (either master or slave)
+/// @param deferred_logger The DeferredLogger to bind to the ReservoirCoupling logger
+///
+/// Example usage:
+/// @code
+///   DeferredLogger local_logger;
+///   {
+///       ReservoirCoupling::ScopedLoggerGuard guard{rc_logger, &local_logger};
+///       // logger is active here
+///   } // guard destructor automatically clears the logger
+/// @endcode
+class ScopedLoggerGuard {
+public:
+    explicit ScopedLoggerGuard(Logger& logger, DeferredLogger* deferred_logger)
+        : logger_(&logger)
+    {
+        logger_->setDeferredLogger(deferred_logger);
+    }
+
+    ~ScopedLoggerGuard() {
+        // Only clear if we still own the logger (not moved-from)
+        if (logger_) {
+            logger_->clearDeferredLogger();
+        }
+    }
+
+    // Prevent copying to ensure single ownership
+    ScopedLoggerGuard(const ScopedLoggerGuard&) = delete;
+    ScopedLoggerGuard& operator=(const ScopedLoggerGuard&) = delete;
+
+    // Enable moving - required for returning from functions and std::optional
+    ScopedLoggerGuard(ScopedLoggerGuard&& other) noexcept
+        : logger_(other.logger_)
+    {
+        // Transfer ownership: moved-from object becomes inactive and won't clear the logger
+        other.logger_ = nullptr;
+    }
+
+    ScopedLoggerGuard& operator=(ScopedLoggerGuard&& other) noexcept {
+        if (this != &other) {
+            // Clean up current logger before taking ownership of new one
+            if (logger_) {
+                logger_->clearDeferredLogger();
+            }
+            // Transfer ownership from other
+            logger_ = other.logger_;
+            other.logger_ = nullptr;
+        }
+        return *this;
+    }
+
+private:
+    // Use pointer instead of reference to enable move semantics
+    // (references cannot be reassigned, which is required for move operations)
+    Logger* logger_;
+};
+
 enum class MessageTag : int {
+    MasterGroupInfo,
     MasterGroupNames,
     MasterGroupNamesSize,
+    MasterStartOfReportStep,
     Potentials,
     PotentialsSize,
     SlaveSimulationStartDate,
     SlaveActivationDate,
     SlaveActivationHandshake,
+    SlaveGroupInfo,
     SlaveProcessTermination,
     SlaveName,
     SlaveNameSize,
     SlaveNextReportDate,
     SlaveNextTimeStep,
+    SlaveStartOfReportStep,
 };
 
 // Used to communicate potentials for oil, gas, and water rates between slave and master processes
@@ -70,23 +149,42 @@ struct Potentials {
     [[nodiscard]] Scalar  operator[](Phase p) const noexcept { return rate[static_cast<std::size_t>(p)]; }
 };
 
-// Comprehensive slave group data structure for master-slave communication
 template <class Scalar>
-struct SlaveGroupRates {
-    // Group potentials (existing data)
+struct ProductionRates {
+    enum class Phase : std::size_t { Oil = 0, Gas, Water, Count };
+
+    ProductionRates() = default;
+
+    explicit ProductionRates(const GuideRate::RateVector& rate_vector)
+        : rate{static_cast<Scalar>(rate_vector.oil_rat),
+               static_cast<Scalar>(rate_vector.gas_rat),
+               static_cast<Scalar>(rate_vector.wat_rat)}
+    {}
+
+    std::array<Scalar, static_cast<std::size_t>(Phase::Count)> rate{};
+    [[nodiscard]] Scalar& operator[](Phase p)       noexcept { return rate[static_cast<std::size_t>(p)]; }
+    [[nodiscard]] Scalar  operator[](Phase p) const noexcept { return rate[static_cast<std::size_t>(p)]; }
+};
+
+// Slave group production data sent to the corresponding master group for target calculation.
+// This data is only sent from a slave group producer if the master group is also a producer.
+template <class Scalar>
+struct SlaveGroupProductionData {
+    // Group production potentials are used by the master group for guiderate calculations
     Potentials<Scalar> potentials;
+    // Production rates are used by the master group in guiderate calculations
+    // when converting the guide rate target to the phase of the master group.
+    ProductionRates<Scalar> production_rates;  // Surface production rates by phase
+};
 
-    // Production rates (Issues 5 & 6: guide rate fractions and REIN)
-    std::vector<Scalar> production_rates;  // Surface production rates by phase
-
-    // Injection rates (Issues 4 & 7: guide rates and GPMAINT)
+// Slave group injection data sent to the corresponding master group for target calculation.
+// This data is only sent from a slave group injector if the master group is also an injector.
+template <class Scalar>
+struct SlaveGroupInjectionData {
+    // Injection rates
     std::vector<Scalar> injection_surface_rates;    // Surface injection rates by phase
     std::vector<Scalar> injection_reservoir_rates;  // Reservoir injection rates by phase
     Scalar injection_vrep_rate{0.0};                // Total voidage replacement rate
-
-    // Metadata
-    std::string group_name;
-    int report_step{0};
 };
 
 
