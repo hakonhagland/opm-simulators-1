@@ -31,8 +31,8 @@
 #include <opm/input/eclipse/Schedule/ResCoup/ReservoirCouplingInfo.hpp>
 #include <opm/input/eclipse/Schedule/ResCoup/MasterGroup.hpp>
 #include <opm/input/eclipse/Schedule/ResCoup/Slaves.hpp>
-#include <opm/simulators/flow/ReservoirCouplingMaster.hpp>
-#include <opm/simulators/flow/ReservoirCouplingSlave.hpp>
+#include <opm/simulators/flow/rescoup/ReservoirCouplingMaster.hpp>
+#include <opm/simulators/flow/rescoup/ReservoirCouplingSlave.hpp>
 #include <opm/common/Exceptions.hpp>
 #endif
 
@@ -105,6 +105,7 @@ public:
     using MaterialLawParams = GetPropType<TypeTag, Properties::MaterialLawParams>;
     using AquiferModel = GetPropType<TypeTag, Properties::AquiferModel>;
     using Model = GetPropType<TypeTag, Properties::NonlinearSystem>;
+    using Scalar = GetPropType<TypeTag, Properties::Scalar>;
 
     using TimeStepper = AdaptiveTimeStepping<TypeTag>;
     using PolymerModule = BlackOilPolymerModule<TypeTag>;
