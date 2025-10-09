@@ -53,7 +53,8 @@
 #include <opm/simulators/wells/TargetCalculator.hpp>
 
 #ifdef RESERVOIR_COUPLING_ENABLED
-#include <opm/simulators/flow/rescoup/SendSlaveGroupData.hpp>
+#include <opm/simulators/wells/rescoup/RescoupSendSlaveGroupData.hpp>
+#include <opm/simulators/wells/rescoup/RescoupReceiveSlaveGroupData.hpp>
 #endif
 
 #include <opm/simulators/utils/DeferredLoggingErrorHelpers.hpp>
@@ -337,6 +338,9 @@ namespace Opm {
 
         DeferredLogger local_deferredLogger;
 
+#ifdef RESERVOIR_COUPLING_ENABLED
+        auto rescoup_logger_guard = this->setupRescoupScopedLogger(local_deferredLogger);
+#endif
         this->switched_prod_groups_.clear();
         this->switched_inj_groups_.clear();
 
@@ -382,8 +386,7 @@ namespace Opm {
 #ifdef RESERVOIR_COUPLING_ENABLED
             // Receive all slave group data early to ensure it's available for any calculations
             if (this->isReservoirCouplingMaster()) {
-                this->guide_rate_handler_.receiveMasterGroupPotentialsFromSlaves();
-                this->receiveSlavesGroupRates(this->groupState(), reportStepIdx);
+                this->receiveSlaveGroupData();
             }
 #endif
 
@@ -472,8 +475,7 @@ namespace Opm {
         );
 #ifdef RESERVOIR_COUPLING_ENABLED
         if (this->isReservoirCouplingSlave()) {
-            this->guide_rate_handler_.sendSlaveGroupPotentialsToMaster(this->groupState());
-            this->sendSlaveGroupRatesToMaster(this->groupState(), reportStepIdx);
+            this->sendSlaveGroupDataToMaster();
         }
 #endif
         std::string exc_msg;
@@ -538,6 +540,57 @@ namespace Opm {
                                          exc_type, "beginTimeStep() failed: " + exc_msg, this->terminal_output_, comm);
 
     }
+
+#ifdef RESERVOIR_COUPLING_ENABLED
+    // Automatically manages the lifecycle of the DeferredLogger pointer
+    // in the reservoir coupling logger. Ensures the logger is properly
+    // cleared when it goes out of scope, preventing dangling pointer issues:
+    //
+    // - The ScopedLoggerGuard constructor sets the logger pointer
+    // - When the guard goes out of scope, the destructor clears the pointer
+    // - Move semantics transfer ownership safely when returning from this function
+    //    - The moved-from guard is "nullified" and its destructor does nothing
+    //    - Only the final guard in the caller will clear the logger
+    template<typename TypeTag>
+    std::optional<ReservoirCoupling::ScopedLoggerGuard>
+    BlackoilWellModel<TypeTag>::
+    setupRescoupScopedLogger(DeferredLogger& local_logger) {
+        if (this->isReservoirCouplingMaster()) {
+            return ReservoirCoupling::ScopedLoggerGuard{
+                this->reservoirCouplingMaster().getLogger(),
+                &local_logger
+            };
+        } else if (this->isReservoirCouplingSlave()) {
+            return ReservoirCoupling::ScopedLoggerGuard{
+                this->reservoirCouplingSlave().getLogger(),
+                &local_logger
+            };
+        }
+        return std::nullopt;
+    }
+
+    template<typename TypeTag>
+    void
+    BlackoilWellModel<TypeTag>::
+    receiveSlaveGroupData()
+    {
+        assert(this->isReservoirCouplingMaster());
+        RescoupReceiveSlaveGroupData<Scalar, IndexTraits> slave_group_data_receiver{
+            this->wgHelper(),
+        };
+        slave_group_data_receiver.receiveSlaveGroupData();
+    }
+
+    template<typename TypeTag>
+    void
+    BlackoilWellModel<TypeTag>::
+    sendSlaveGroupDataToMaster()
+    {
+        assert(this->isReservoirCouplingSlave());
+        RescoupSendSlaveGroupData<Scalar, IndexTraits> slave_group_data_sender{this->wgHelper()};
+        slave_group_data_sender.sendSlaveGroupDataToMaster();
+    }
+#endif // RESERVOIR_COUPLING_ENABLED
 
     template<typename TypeTag>
     void

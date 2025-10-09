@@ -22,7 +22,7 @@
 
 #include <dune/common/parallel/mpitraits.hh>
 
-#include <opm/simulators/flow/ReservoirCoupling.hpp>
+#include <opm/simulators/flow/rescoup/ReservoirCoupling.hpp>
 
 #include <array>
 #include <mutex>  // For std::call_once
@@ -152,26 +152,25 @@ using StructMPITraits = StructMPITraitsImpl<Struct, Members...>;
 
 } // namespace Dune::detail
 
-// Trait for Potentials (now templated with Scalar)
+// Trait for SlaveGroupProductionData
 template<class Scalar>
-struct MPITraits<::Opm::ReservoirCoupling::Potentials<Scalar>>
+struct MPITraits<::Opm::ReservoirCoupling::SlaveGroupProductionData<Scalar>>
     : detail::StructMPITraits<
-          ::Opm::ReservoirCoupling::Potentials<Scalar>,
-          &::Opm::ReservoirCoupling::Potentials<Scalar>::rate>  { };
+          ::Opm::ReservoirCoupling::SlaveGroupProductionData<Scalar>,
+          &::Opm::ReservoirCoupling::SlaveGroupProductionData<Scalar>::potentials,
+          &::Opm::ReservoirCoupling::SlaveGroupProductionData<Scalar>::surface_rates,
+          &::Opm::ReservoirCoupling::SlaveGroupProductionData<Scalar>::voidage_rate,
+          &::Opm::ReservoirCoupling::SlaveGroupProductionData<Scalar>::gas_reinjection_rate
+        >  { };
 
-// Trait for SlaveGroupRates
+// Trait for SlaveGroupInjectionData
 template<class Scalar>
-struct MPITraits<::Opm::ReservoirCoupling::SlaveGroupRates<Scalar>>
+struct MPITraits<::Opm::ReservoirCoupling::SlaveGroupInjectionData<Scalar>>
     : detail::StructMPITraits<
-          ::Opm::ReservoirCoupling::SlaveGroupRates<Scalar>,
-          &::Opm::ReservoirCoupling::SlaveGroupRates<Scalar>::potentials,
-          &::Opm::ReservoirCoupling::SlaveGroupRates<Scalar>::production_rates,
-          &::Opm::ReservoirCoupling::SlaveGroupRates<Scalar>::injection_surface_rates,
-          &::Opm::ReservoirCoupling::SlaveGroupRates<Scalar>::injection_reservoir_rates,
-          &::Opm::ReservoirCoupling::SlaveGroupRates<Scalar>::injection_vrep_rate,
-          &::Opm::ReservoirCoupling::SlaveGroupRates<Scalar>::group_name,
-          &::Opm::ReservoirCoupling::SlaveGroupRates<Scalar>::report_step>  { };
-
+          ::Opm::ReservoirCoupling::SlaveGroupInjectionData<Scalar>,
+          &::Opm::ReservoirCoupling::SlaveGroupInjectionData<Scalar>::surface_rates,
+          &::Opm::ReservoirCoupling::SlaveGroupInjectionData<Scalar>::reservoir_rates
+        >  { };
 } // namespace Dune
 
 #endif // OPM_RESERVOIR_COUPLING_MPI_TRAITS_HPP

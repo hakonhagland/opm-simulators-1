@@ -18,9 +18,10 @@
 */
 
 #include <config.h>
-#include <opm/simulators/flow/ReservoirCoupling.hpp>
-#include <opm/simulators/flow/ReservoirCouplingMpiTraits.hpp>
-#include <opm/simulators/flow/ReservoirCouplingSlave.hpp>
+#include <opm/simulators/flow/rescoup/ReservoirCoupling.hpp>
+#include <opm/simulators/flow/rescoup/ReservoirCouplingMpiTraits.hpp>
+#include <opm/simulators/flow/rescoup/ReservoirCouplingSlaveReportStep.hpp>
+#include <opm/simulators/flow/rescoup/ReservoirCouplingSlave.hpp>
 
 #include <opm/input/eclipse/Schedule/ResCoup/ReservoirCouplingInfo.hpp>
 #include <opm/input/eclipse/Schedule/ResCoup/MasterGroup.hpp>
@@ -63,11 +64,27 @@ ReservoirCouplingSlave(
 template <class Scalar>
 void
 ReservoirCouplingSlave<Scalar>::
-sendAndReceiveInitialData() {
-    this->sendActivationDateToMasterProcess_();
-    this->sendSimulationStartDateToMasterProcess_();
-    this->receiveSlaveNameFromMasterProcess_();
-    this->receiveMasterGroupNamesFromMasterProcess_();
+initTimeStepping()
+{
+    assert(!this->report_step_data_);
+    this->report_step_data_ = std::make_unique<ReservoirCouplingSlaveReportStep<Scalar>>(*this);
+}
+
+// NOTE: It is not legal for a slave to activate before the master has activated. This problem
+//       will be caught by the master when it receives the slave activation date. See:
+//       ReservoirCouplingSpawnSlaves::receiveActivationDateFromSlaves_()
+template <class Scalar>
+void
+ReservoirCouplingSlave<Scalar>::
+maybeActivate(int report_step) {
+    if (!this->activated()) {
+        auto rescoup = this->schedule_[report_step].rescoup();
+        if (rescoup.grupSlavCount() > 0) {
+            this->activated_ = true;
+            // Send a handshake to the master process to indicate that the slave has activated
+            this->sendActivationHandshakeToMasterProcess_();
+        }
+    }
 }
 
 template <class Scalar>
@@ -86,15 +103,35 @@ receiveNextTimeStepFromMaster() {
             this->slave_master_comm_,
             MPI_STATUS_IGNORE
         );
-        OpmLog::info(
+        this->logger_.info(
             fmt::format("Slave rank 0 received next timestep {} from master.", timestep)
         );
     }
     this->comm_.broadcast(&timestep, /*count=*/1, /*emitter_rank=*/0);
-    OpmLog::info("Broadcasted slave next time step to all ranks");
+    this->logger_.info("Broadcasted slave next time step to all ranks");
     return timestep;
 }
 
+template <class Scalar>
+void
+ReservoirCouplingSlave<Scalar>::
+sendAndReceiveInitialData() {
+    this->sendActivationDateToMasterProcess_();
+    this->sendSimulationStartDateToMasterProcess_();
+    this->receiveSlaveNameFromMasterProcess_();
+    this->receiveMasterGroupNamesFromMasterProcess_();
+}
+
+template <class Scalar>
+void
+ReservoirCouplingSlave<Scalar>::
+sendInjectionDataToMaster(
+    const std::vector<ReservoirCoupling::SlaveGroupInjectionData<Scalar>> &injection_data
+) const
+{
+    assert(this->report_step_data_);
+    this->report_step_data_->sendInjectionDataToMaster(injection_data);
+}
 
 template <class Scalar>
 void
@@ -116,37 +153,20 @@ sendNextReportDateToMasterProcess() const
             /*tag=*/static_cast<int>(MessageTag::SlaveNextReportDate),
             this->slave_master_comm_
         );
-        OpmLog::info("Sent next report date to master process from rank 0");
+        this->logger_.info("Sent next report date to master process from rank 0");
    }
 }
-
 
 template <class Scalar>
 void
 ReservoirCouplingSlave<Scalar>::
-sendPotentialsToMaster(const std::vector<ReservoirCoupling::Potentials<Scalar>> &potentials) const
+sendProductionDataToMaster(
+    const std::vector<ReservoirCoupling::SlaveGroupProductionData<Scalar>> &production_data
+) const
 {
-    // NOTE: The master can determine from the ordering of the potentials in the vector
-    //   which slave group for a given slave name the given potentials belong to,
-    //   so we do not need to send the slave group names also.
-    if (this->comm_.rank() == 0) {
-        //auto num_groups = potentials.size();
-        auto MPI_POTENTIALS_TYPE = Dune::MPITraits<ReservoirCoupling::Potentials<Scalar>>::getType();
-        MPI_Send(
-            potentials.data(),
-            /*count=*/potentials.size(),
-            /*datatype=*/MPI_POTENTIALS_TYPE,
-            /*dest_rank=*/0,
-            /*tag=*/static_cast<int>(MessageTag::Potentials),
-            this->slave_master_comm_
-        );
-        this->logger_.info(
-            "Sent potentials to master process from rank 0, slave name: " + this->slave_name_
-        );
-    }
+    assert(this->report_step_data_);
+    this->report_step_data_->sendProductionDataToMaster(production_data);
 }
-
-
 
 // ------------------
 // Private methods
@@ -204,23 +224,6 @@ getGrupSlavActivationDate_() const
               "No GRUPSLAV keyword found in schedule");
 }
 
-// NOTE: It is not legal for a slave to activate before the master has activated. This problem
-//       will be caught by the master when it receives the slave activation date. See:
-//       ReservoirCouplingSpawnSlaves::receiveActivationDateFromSlaves_()
-template <class Scalar>
-void
-ReservoirCouplingSlave<Scalar>::
-maybeActivate(int report_step) {
-    if (!this->activated()) {
-        auto rescoup = this->schedule_[report_step].rescoup();
-        if (rescoup.grupSlavCount() > 0) {
-            this->activated_ = true;
-            // Send a handshake to the master process to indicate that the slave has activated
-            this->sendActivationHandshakeToMasterProcess_();
-        }
-    }
-}
-
 template <class Scalar>
 void
 ReservoirCouplingSlave<Scalar>::
@@ -239,7 +242,7 @@ receiveMasterGroupNamesFromMasterProcess_() {
             this->slave_master_comm_,
             MPI_STATUS_IGNORE
         );
-        OpmLog::info("Received master group names size from master process rank 0");
+        this->logger_.info("Received master group names size from master process rank 0");
         group_names.resize(size);
         MPI_Recv(
             group_names.data(),
@@ -250,14 +253,14 @@ receiveMasterGroupNamesFromMasterProcess_() {
             this->slave_master_comm_,
             MPI_STATUS_IGNORE
         );
-        OpmLog::info("Received master group names from master process rank 0");
+        this->logger_.info("Received master group names from master process rank 0");
     }
     this->comm_.broadcast(&size, /*count=*/1, /*emitter_rank=*/0);
     if (this->comm_.rank() != 0) {
         group_names.resize(size);
     }
     this->comm_.broadcast(group_names.data(), /*count=*/size, /*emitter_rank=*/0);
-    this->saveMasterGroupNamesAsMap_(group_names);
+    this->saveMasterGroupNamesAsMapAndEstablishOrder_(group_names);
     this->checkGrupSlavGroupNames_();
 }
 
@@ -279,7 +282,7 @@ receiveSlaveNameFromMasterProcess_() {
             this->slave_master_comm_,
             MPI_STATUS_IGNORE
         );
-        OpmLog::info("Received slave name size from master process rank 0");
+        this->logger_.info("Received slave name size from master process rank 0");
         slave_name.resize(size+1); // +1 for the null terminator
         MPI_Recv(
             slave_name.data(),
@@ -291,24 +294,29 @@ receiveSlaveNameFromMasterProcess_() {
             MPI_STATUS_IGNORE
         );
         slave_name[size] = '\0';  // Add null terminator
-        OpmLog::info("Received slave name from master process rank 0");
+        this->logger_.info("Received slave name from master process rank 0");
     }
     this->comm_.broadcast(&size, /*count=*/1, /*emitter_rank=*/0);
     if (this->comm_.rank() != 0) {
         slave_name.resize(size+1); // +1 for the null terminator
     }
     this->comm_.broadcast(slave_name.data(), /*count=*/size+1, /*emitter_rank=*/0);
-    OpmLog::info(fmt::format("Received slave name: {}", slave_name));
+    this->logger_.info(fmt::format("Received slave name: {}", slave_name));
     this->slave_name_ = slave_name;
 }
 
 template <class Scalar>
 void
 ReservoirCouplingSlave<Scalar>::
-saveMasterGroupNamesAsMap_(const std::vector<char>& group_names) {
+saveMasterGroupNamesAsMapAndEstablishOrder_(const std::vector<char>& group_names) {
     // Deserialize the group names vector into a map of slavegroup names -> mastergroup names
+    // and establish the order the master process sends us the group data. This will enable the
+    // master to send group data without the need to send the group names themselves.
+    //
+    // Call chain: sendAndReceiveInitialData() -> receiveMasterGroupNamesFromMasterProcess_()
     auto total_size = group_names.size();
     std::size_t offset = 0;
+    std::size_t idx = 0;
     while (offset < total_size) {
         std::string master_group{group_names.data() + offset};
         offset += master_group.size() + 1;
@@ -316,6 +324,8 @@ saveMasterGroupNamesAsMap_(const std::vector<char>& group_names) {
         std::string slave_group{group_names.data() + offset};
         offset += slave_group.size() + 1;
         this->slave_to_master_group_map_[slave_group] = master_group;
+        this->slave_group_order_[idx] = slave_group;
+        idx++;
     }
 }
 
@@ -336,7 +346,7 @@ sendActivationDateToMasterProcess_() const
             /*tag=*/static_cast<int>(MessageTag::SlaveActivationDate),
             this->slave_master_comm_
         );
-        OpmLog::info("Sent simulation activation date to master process from rank 0");
+        this->logger_.info("Sent simulation activation date to master process from rank 0");
    }
 }
 
@@ -357,7 +367,7 @@ sendActivationHandshakeToMasterProcess_() const
             /*tag=*/static_cast<int>(MessageTag::SlaveActivationHandshake),
             this->slave_master_comm_
         );
-        OpmLog::info("Sent simulation activation handshake to master process from rank 0");
+        this->logger_.info("Sent simulation activation handshake to master process from rank 0");
     }
     this->comm_.barrier();
 }
@@ -379,12 +389,14 @@ sendSimulationStartDateToMasterProcess_() const
             /*tag=*/static_cast<int>(MessageTag::SlaveSimulationStartDate),
             this->slave_master_comm_
         );
-        OpmLog::info("Sent simulation start date to master process from rank 0");
+        this->logger_.info("Sent simulation start date to master process from rank 0");
    }
 }
 
 // Explicit template instantiations
 template class ReservoirCouplingSlave<double>;
+#if FLOW_INSTANTIATE_FLOAT
 template class ReservoirCouplingSlave<float>;
+#endif
 
 } // namespace Opm
