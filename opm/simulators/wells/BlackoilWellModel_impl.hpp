@@ -49,7 +49,7 @@
 #include <opm/simulators/wells/VFPProperties.hpp>
 #include <opm/simulators/wells/WellBhpThpCalculator.hpp>
 #include <opm/simulators/wells/WellGroupControls.hpp>
-#include <opm/simulators/wells/WellGroupHelpers.hpp>
+#include <opm/simulators/wells/WellGroupHelper.hpp>
 #include <opm/simulators/wells/TargetCalculator.hpp>
 
 #include <opm/simulators/utils/DeferredLoggingErrorHelpers.hpp>
@@ -195,6 +195,13 @@ namespace Opm {
     {
         DeferredLogger local_deferredLogger{};
 
+        this->wgHelper().updateState(
+            this->wellState(),
+            this->nupcolWellState(),
+            this->groupState(),
+            timeStepIdx
+        );
+        this->wgHelper().setLogger(&local_deferredLogger);
         this->report_step_starts_ = true;
         this->report_step_start_events_ = this->schedule()[timeStepIdx].wellgroup_events();
 
@@ -299,20 +306,16 @@ namespace Opm {
             const auto& fieldGroup =
                 this->schedule().getGroup("FIELD", reportStepIdx);
 
-            WellGroupHelpersType::setCmodeGroup(fieldGroup,
-                                                this->schedule(),
-                                                this->summaryState(),
-                                                reportStepIdx,
-                                                this->groupState());
+            this->wgHelper().setCmodeGroup(fieldGroup);
 
             // Define per region average pressure calculators for use by
             // pressure maintenance groups (GPMAINT keyword).
             if (this->schedule()[reportStepIdx].has_gpmaint()) {
-                WellGroupHelpersType::setRegionAveragePressureCalculator(fieldGroup,
-                                                                         this->schedule(),
-                                                                         reportStepIdx,
-                                                                         this->eclState_.fieldProps(),
-                                                                         this->regionalAveragePressureCalculator_);
+                this->wgHelper().setRegionAveragePressureCalculator(
+                    fieldGroup,
+                    this->eclState_.fieldProps(),
+                    this->regionalAveragePressureCalculator_
+                );
             }
         }
         OPM_END_PARALLEL_TRY_CATCH_LOG(local_deferredLogger,
@@ -364,9 +367,14 @@ namespace Opm {
         }
 
         this->resetWGState();
-
         const int reportStepIdx = simulator_.episodeIndex();
-
+        this->wgHelper().updateState(
+            this->wellState(),
+            this->nupcolWellState(),
+            this->groupState(),
+            reportStepIdx
+        );
+        this->wgHelper().setLogger(&local_deferredLogger);
 
         this->wellState().updateWellsDefaultALQ(this->schedule(), reportStepIdx, this->summaryState());
         this->wellState().gliftTimeStepInit();
@@ -482,13 +490,9 @@ namespace Opm {
             }
             const double dt = simulator_.timeStepSize();
             const Group& fieldGroup = this->schedule().getGroup("FIELD", reportStepIdx);
-            WellGroupHelpers<Scalar, IndexTraits>::updateGpMaintTargetForGroups(fieldGroup,
-                                                                                this->schedule_,
-                                                                                regionalAveragePressureCalculator_,
-                                                                                reportStepIdx,
-                                                                                dt,
-                                                                                this->wellState(),
-                                                                                this->groupState());
+            this->wgHelper().updateGpMaintTargetForGroups(fieldGroup,
+                                                          regionalAveragePressureCalculator_,
+                                                          dt);
         }
 
         this->updateAndCommunicateGroupData(reportStepIdx,
@@ -554,11 +558,10 @@ namespace Opm {
 
             Scalar well_efficiency_factor = wellEcl.getEfficiencyFactor() *
                                             this->wellState().getGlobalEfficiencyScalingFactor(well_name);
-            WellGroupHelpersType::accumulateGroupEfficiencyFactor(this->schedule().getGroup(wellEcl.groupName(),
-                                                                  timeStepIdx),
-                                                                  this->schedule(),
-                                                                  timeStepIdx,
-                                                                  well_efficiency_factor);
+            this->wgHelper().accumulateGroupEfficiencyFactor(
+                this->schedule().getGroup(wellEcl.groupName(), timeStepIdx),
+                well_efficiency_factor
+            );
 
             well->setWellEfficiencyFactor(well_efficiency_factor);
             well->setVFPProperties(this->vfp_properties_.get());
@@ -1140,6 +1143,7 @@ namespace Opm {
         OPM_TIMEFUNCTION();
         DeferredLogger local_deferredLogger;
 
+        this->wgHelper().setLogger(&local_deferredLogger);
         this->guide_rate_handler_.setLogger(&local_deferredLogger);
         if constexpr (BlackoilWellModelGasLift<TypeTag>::glift_debug) {
             if (gaslift_.terminalOutput()) {
@@ -1980,7 +1984,6 @@ namespace Opm {
                                              this->switched_prod_groups_,
                                              this->closed_offending_wells_,
                                              this->groupState(),
-                                             this->wellState(),
                                              deferred_logger);
 
         if (changed_individual) {
