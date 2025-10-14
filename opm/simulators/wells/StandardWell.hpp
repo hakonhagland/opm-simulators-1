@@ -77,6 +77,7 @@ namespace Opm
         using typename Base::SparseMatrixAdapter;
         using typename Base::FluidState;
         using typename Base::RateVector;
+        using typename Base::WellGroupHelperType;
 
         using Base::has_solvent;
         using Base::has_zFraction;
@@ -197,8 +198,7 @@ namespace Opm
                                       const double dt,
                                       const Well::InjectionControls& inj_controls,
                                       const Well::ProductionControls& prod_controls,
-                                      WellStateType& well_state,
-                                      const GroupState<Scalar>& group_state,
+                                      const WellGroupHelperType& wgHelper,
                                       DeferredLogger& deferred_logger) override;
 
         // iterate well equations including control switching
@@ -206,8 +206,7 @@ namespace Opm
                                         const double dt,
                                         const Well::InjectionControls& inj_controls,
                                         const Well::ProductionControls& prod_controls,
-                                        WellStateType& well_state,
-                                        const GroupState<Scalar>& group_state,
+                                        const WellGroupHelperType& wgHelper,
                                         DeferredLogger& deferred_logger,
                                         const bool fixed_control = false,
                                         const bool fixed_status = false) override;

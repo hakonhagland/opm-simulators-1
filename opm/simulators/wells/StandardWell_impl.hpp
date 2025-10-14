@@ -2388,12 +2388,13 @@ namespace Opm
                                const double dt,
                                const Well::InjectionControls& inj_controls,
                                const Well::ProductionControls& prod_controls,
-                               WellStateType& well_state,
-                               const GroupState<Scalar>& group_state,
+                               const WellGroupHelperType& wgHelper,
                                DeferredLogger& deferred_logger,
                                const bool fixed_control /*false*/,
                                const bool fixed_status /*false*/)
     {
+        auto& well_state = const_cast<WellGroupHelperType&>(wgHelper).wellState();
+        const auto& group_state = wgHelper.groupState();
         updatePrimaryVariables(simulator, well_state, deferred_logger);
 
         const int max_iter = this->param_.max_inner_iter_wells_;
@@ -2432,7 +2433,7 @@ namespace Opm
             its_since_last_switch++;
             if (allow_switching && its_since_last_switch >= min_its_after_switch && status_switch_count < max_status_switch){
                 const Scalar wqTotal = this->primary_variables_.eval(WQTotal).value();
-                changed = this->updateWellControlAndStatusLocalIteration(simulator, well_state, group_state,
+                changed = this->updateWellControlAndStatusLocalIteration(simulator, wgHelper,
                                                                          inj_controls, prod_controls, wqTotal,
                                                                          deferred_logger, fixed_control, fixed_status);
                 if (changed){

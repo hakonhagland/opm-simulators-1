@@ -71,7 +71,7 @@ checkGroupConstraintsInj(const std::string& name,
                          const Phase injection_phase,
                          const Scalar efficiency_factor,
                          const std::vector<Scalar>& resv_coeff,
-                         const bool check_guide_rate)
+                         const bool check_guide_rate) const
 {
     // When called for a well ('name' is a well name), 'parent'
     // will be the name of 'group'. But if we recurse, 'name' and
@@ -134,8 +134,7 @@ checkGroupConstraintsInj(const std::string& name,
 
     WGHelpers::FractionCalculator fcalc{
         this->schedule_,
-        this->wellState(),
-        this->groupState(),
+        *this,
         this->summary_state_,
         this->report_step_,
         &this->guide_rate_,
@@ -160,13 +159,13 @@ checkGroupConstraintsInj(const std::string& name,
         return tcalc.calcModeRateFromRates(group_surface_rates);
     };
 
-    const auto chain = this->groupChainTopBot_(name, group.name());
+    const auto chain = this->groupChainTopBot(name, group.name());
     // Because 'name' is the last of the elements, and not an ancestor, we subtract one below.
     const std::size_t num_ancestors = chain.size() - 1;
     // we need to find out the level where the current well is applied to the local reduction
     std::size_t local_reduction_level = 0;
     for (std::size_t ii = 1; ii < num_ancestors; ++ii) {
-        const int num_gr_ctrl = this->groupControlledWells_(
+        const int num_gr_ctrl = this->groupControlledWells(
             chain[ii],
             /*always_included_child=*/"",
             /*is_production_group=*/false,
@@ -254,7 +253,7 @@ checkGroupConstraintsProd(const std::string& name,
                           const Scalar* rates,
                           const Scalar efficiency_factor,
                           const std::vector<Scalar>& resv_coeff,
-                          const bool check_guide_rate)
+                          const bool check_guide_rate) const
 {
     // When called for a well ('name' is a well name), 'parent'
     // will be the name of 'group'. But if we recurse, 'name' and
@@ -312,8 +311,7 @@ checkGroupConstraintsProd(const std::string& name,
 
     WGHelpers::FractionCalculator<Scalar, IndexTraits> fcalc{
         this->schedule_,
-        this->wellState(),
-        this->groupState(),
+        *this,
         this->summary_state_,
         this->report_step_,
         &this->guide_rate_,
@@ -348,7 +346,7 @@ checkGroupConstraintsProd(const std::string& name,
     // TODO finish explanation.
     const Scalar current_rate_available
         = -tcalc.calcModeRateFromRates(rates); // Switch sign since 'rates' are negative for producers.
-    const auto chain = this->groupChainTopBot_(name, group.name());
+    const auto chain = this->groupChainTopBot(name, group.name());
     // Because 'name' is the last of the elements, and not an ancestor, we subtract one below.
     const std::size_t num_ancestors = chain.size() - 1;
 
@@ -389,7 +387,7 @@ checkGroupConstraintsProd(const std::string& name,
     // we need to find out the level where the current well is applied to the local reduction
     std::size_t local_reduction_level = 0;
     for (std::size_t ii = 1; ii < num_ancestors; ++ii) {
-        const int num_gr_ctrl = this->groupControlledWells_(
+        const int num_gr_ctrl = this->groupControlledWells(
              chain[ii],
              /*always_included_child=*/"",
              /*is_producer=*/true,
@@ -582,6 +580,68 @@ computeNetworkPressures(const Network::ExtNetwork& network,
 }
 
 template<typename Scalar, typename IndexTraits>
+Scalar
+WellGroupHelper<Scalar, IndexTraits>::
+getGuideRate(const std::string& name, const GuideRateModel::Target target) const
+{
+    if (this->schedule_.hasWell(name, this->report_step_)) {
+        if (this->guide_rate_.has(name) || this->guide_rate_.hasPotentials(name)) {
+            return this->guide_rate_.get(name, target, this->getWellRateVector(name));
+        } else {
+            return 0.0;
+        }
+    }
+
+    if (this->guide_rate_.has(name)) {
+        return this->guide_rate_.get(name, target, this->getProductionGroupRateVector(name));
+    }
+
+    Scalar total_guide_rate = 0.0;
+    const Group& group = this->schedule_.getGroup(name, this->report_step_);
+
+    for (const std::string& group_name : group.groups()) {
+        const Group::ProductionCMode& current_group_control
+                = this->groupState().production_control(group_name);
+        if (current_group_control == Group::ProductionCMode::FLD
+            || current_group_control == Group::ProductionCMode::NONE) {
+            // accumulate from sub wells/groups
+            total_guide_rate += this->getGuideRate(group_name, target);
+        }
+    }
+
+    for (const std::string& well_name : group.wells()) {
+        const auto& well_tmp = this->schedule_.getWell(well_name, this->report_step_);
+
+        if (well_tmp.isInjector())
+            continue;
+
+        const auto well_index = this->wellState().index(well_name);
+        if (!well_index.has_value())
+            continue;
+
+        if (! this->wellState().wellIsOwned(well_index.value(), well_name) ) // Only sum once
+        {
+            continue;
+        }
+
+        const auto& ws = this->wellState().well(well_index.value());
+        if (ws.status == Well::Status::SHUT)
+            continue;
+
+        if (! this->wellState().isProductionGrup(well_name))
+            continue;
+
+        // Only count wells under group control or the ru
+        if (!this->wellState().isProductionGrup(well_name))
+            continue;
+
+        total_guide_rate += this->getGuideRate(well_name, target);
+
+    }
+    return total_guide_rate;
+}
+
+template<typename Scalar, typename IndexTraits>
 GuideRate::RateVector
 WellGroupHelper<Scalar, IndexTraits>::
 getProductionGroupRateVector(const std::string& group_name) const
@@ -652,8 +712,7 @@ getWellGroupTargetInjector(const std::string& name,
 
     WGHelpers::FractionCalculator<Scalar, IndexTraits> fcalc{
         this->schedule_,
-        this->wellState(),
-        this->groupState(),
+        *this,
         this->summary_state_,
         this->report_step_,
         &this->guide_rate_,
@@ -684,13 +743,13 @@ getWellGroupTargetInjector(const std::string& name,
     // TODO finish explanation.
     const Scalar current_rate_available
         = tcalc.calcModeRateFromRates(rates); // Switch sign since 'rates' are negative for producers.
-    const auto chain = this->groupChainTopBot_(name, group.name());
+    const auto chain = this->groupChainTopBot(name, group.name());
     // Because 'name' is the last of the elements, and not an ancestor, we subtract one below.
     const std::size_t num_ancestors = chain.size() - 1;
     // we need to find out the level where the local reduction is applied
     std::size_t local_reduction_level = 0;
     for (std::size_t ii = 1; ii < num_ancestors; ++ii) {
-        const int num_gr_ctrl = this->groupControlledWells_(
+        const int num_gr_ctrl = this->groupControlledWells(
             chain[ii],
             /*always_included_child=*/"",
             /*is_production_group=*/false,
@@ -790,8 +849,7 @@ getWellGroupTargetProducer(const std::string& name,
 
     WGHelpers::FractionCalculator<Scalar, IndexTraits> fcalc{
         this->schedule_,
-        this->wellState(),
-        this->groupState(),
+        *this,
         this->summary_state_,
         this->report_step_,
         &this->guide_rate_,
@@ -820,13 +878,13 @@ getWellGroupTargetProducer(const std::string& name,
     // TODO finish explanation.
     const Scalar current_rate_available
         = -tcalc.calcModeRateFromRates(rates); // Switch sign since 'rates' are negative for producers.
-    const auto chain = this->groupChainTopBot_(name, group.name());
+    const auto chain = this->groupChainTopBot(name, group.name());
     // Because 'name' is the last of the elements, and not an ancestor, we subtract one below.
     const std::size_t num_ancestors = chain.size() - 1;
     // we need to find out the level where the local reduction is applied
     std::size_t local_reduction_level = 0;
     for (std::size_t ii = 1; ii < num_ancestors; ++ii) {
-        const int num_gr_ctrl = this->groupControlledWells_(
+        const int num_gr_ctrl = this->groupControlledWells(
             chain[ii],
             /*always_included_child=*/"",
             /*is_production_group=*/true,
@@ -867,6 +925,55 @@ WellGroupHelper<Scalar, IndexTraits>::
 getWellRateVector(const std::string& name) const
 {
     return this->getGuideRateVector_(this->wellState().currentWellRates(name));
+}
+
+template<typename Scalar, typename IndexTraits>
+std::vector<std::string>
+WellGroupHelper<Scalar, IndexTraits>::
+groupChainTopBot(const std::string& bottom, const std::string& top) const
+{
+    // Get initial parent, 'bottom' can be a well or a group.
+    std::string parent;
+    if (this->schedule_.hasWell(bottom, this->report_step_)) {
+        parent = this->schedule_.getWell(bottom, this->report_step_).groupName();
+    } else {
+        parent = this->schedule_.getGroup(bottom, this->report_step_).parent();
+    }
+
+    // Build the chain from bottom to top.
+    std::vector<std::string> chain;
+    chain.push_back(bottom);
+    chain.push_back(parent);
+    while (parent != top) {
+        parent = this->schedule_.getGroup(parent, this->report_step_).parent();
+        chain.push_back(parent);
+    }
+    assert(chain.back() == top);
+
+    // Reverse order and return.
+    std::reverse(chain.begin(), chain.end());
+    return chain;
+}
+
+template<typename Scalar, typename IndexTraits>
+int WellGroupHelper<Scalar, IndexTraits>::
+groupControlledWells(const std::string& group_name,
+                     const std::string& always_included_child,
+                     const bool is_production_group,
+                     const Phase injection_phase) const
+{
+    auto num_wells = is_production_group ? this->groupState().number_of_wells_under_group_control(group_name)
+        : this->groupState().number_of_wells_under_inj_group_control(group_name, injection_phase);
+    if (this->schedule_.hasWell(always_included_child, this->report_step_)) {
+        const bool isInGroup = this->isInGroupChainTopBot_(always_included_child, group_name);
+        const bool already_included = is_production_group
+            ? this->wellState().isProductionGrup(always_included_child)
+            : this->wellState().isInjectionGrup(always_included_child);
+        if (!already_included && isInGroup) {
+            num_wells++;
+        }
+    }
+    return num_wells;
 }
 
 template<typename Scalar, typename IndexTraits>
@@ -921,21 +1028,6 @@ setCmodeGroup(const Group& group)
 
     if (this->schedule_[this->report_step_].gconsale().has(group.name())) {
         this->groupState().injection_control(group.name(), Phase::GAS, Group::InjectionCMode::SALE);
-    }
-}
-
-template<typename Scalar, typename IndexTraits>
-void WellGroupHelper<Scalar, IndexTraits>::
-setDefaultWellState(WellStateType well_state_type) {
-    switch (well_state_type) {
-        case WellStateType::NORMAL:
-            this->well_state_default_ = this->well_state_normal_;
-            break;
-        case WellStateType::NUPCOL:
-            this->well_state_default_ = this->well_state_nupcol_;
-            break;
-        default:
-            throw std::runtime_error("Invalid well state type");
     }
 }
 
@@ -1503,68 +1595,6 @@ controlGroup_(const Group& group)
     return group.name();
 }
 
-template<typename Scalar, typename IndexTraits>
-Scalar
-WellGroupHelper<Scalar, IndexTraits>::
-getGuideRate_(const std::string& name, const GuideRateModel::Target target)
-{
-    if (this->schedule_.hasWell(name, this->report_step_)) {
-        if (this->guide_rate_.has(name) || this->guide_rate_.hasPotentials(name)) {
-            return this->guide_rate_.get(name, target, this->getWellRateVector_(name));
-        } else {
-            return 0.0;
-        }
-    }
-
-    if (this->guide_rate_.has(name)) {
-        return this->guide_rate_.get(name, target, this->getProductionGroupRateVector(name));
-    }
-
-    Scalar total_guide_rate = 0.0;
-    const Group& group = this->schedule_.getGroup(name, this->report_step_);
-
-    for (const std::string& group_name : group.groups()) {
-        const Group::ProductionCMode& current_group_control
-                = this->groupState().production_control(group_name);
-        if (current_group_control == Group::ProductionCMode::FLD
-            || current_group_control == Group::ProductionCMode::NONE) {
-            // accumulate from sub wells/groups
-            total_guide_rate += this->getGuideRate_(group_name, target);
-        }
-    }
-
-    for (const std::string& well_name : group.wells()) {
-        const auto& well_tmp = this->schedule_.getWell(well_name, this->report_step_);
-
-        if (well_tmp.isInjector())
-            continue;
-
-        const auto well_index = this->wellState().index(well_name);
-        if (!well_index.has_value())
-            continue;
-
-        if (! this->wellState().wellIsOwned(well_index.value(), well_name) ) // Only sum once
-        {
-            continue;
-        }
-
-        const auto& ws = this->wellState().well(well_index.value());
-        if (ws.status == Well::Status::SHUT)
-            continue;
-
-        if (! this->wellState().isProductionGrup(well_name))
-            continue;
-
-        // Only count wells under group control or the ru
-        if (!this->wellState().isProductionGrup(well_name))
-            continue;
-
-        total_guide_rate += this->getGuideRate_(well_name, target);
-
-    }
-    return total_guide_rate;
-}
-
 template<class Scalar, typename IndexTraits>
 Opm::GuideRate::RateVector
 WellGroupHelper<Scalar, IndexTraits>::
@@ -1590,66 +1620,9 @@ getGuideRateVector_(const std::vector<Scalar>& rates) const
 }
 
 template<typename Scalar, typename IndexTraits>
-GuideRate::RateVector
-WellGroupHelper<Scalar, IndexTraits>::
-getWellRateVector_(const std::string& name)
-{
-    return this->getGuideRateVector_(this->wellState().currentWellRates(name));
-}
-
-template<typename Scalar, typename IndexTraits>
-std::vector<std::string>
-WellGroupHelper<Scalar, IndexTraits>::
-groupChainTopBot_(const std::string& bottom, const std::string& top)
-{
-    // Get initial parent, 'bottom' can be a well or a group.
-    std::string parent;
-    if (this->schedule_.hasWell(bottom, this->report_step_)) {
-        parent = this->schedule_.getWell(bottom, this->report_step_).groupName();
-    } else {
-        parent = this->schedule_.getGroup(bottom, this->report_step_).parent();
-    }
-
-    // Build the chain from bottom to top.
-    std::vector<std::string> chain;
-    chain.push_back(bottom);
-    chain.push_back(parent);
-    while (parent != top) {
-        parent = this->schedule_.getGroup(parent, this->report_step_).parent();
-        chain.push_back(parent);
-    }
-    assert(chain.back() == top);
-
-    // Reverse order and return.
-    std::reverse(chain.begin(), chain.end());
-    return chain;
-}
-
-
-template<typename Scalar, typename IndexTraits>
-int WellGroupHelper<Scalar, IndexTraits>::
-groupControlledWells_(const std::string& group_name,
-                     const std::string& always_included_child,
-                     const bool is_production_group,
-                     const Phase injection_phase)
-{
-    auto num_wells = is_production_group ? this->groupState().number_of_wells_under_group_control(group_name)
-        : this->groupState().number_of_wells_under_inj_group_control(group_name, injection_phase);
-    if (this->schedule_.hasWell(always_included_child, this->report_step_)) {
-        const bool isInGroup = this->isInGroupChainTopBot_(always_included_child, group_name);
-        const bool already_included = is_production_group ? this->wellState().isProductionGrup(always_included_child)
-            : this->wellState().isInjectionGrup(always_included_child);
-        if (!already_included && isInGroup) {
-            num_wells++;
-        }
-    }
-    return num_wells;
-}
-
-template<typename Scalar, typename IndexTraits>
 bool
 WellGroupHelper<Scalar, IndexTraits>::
-isInGroupChainTopBot_(const std::string& bottom, const std::string& top)
+isInGroupChainTopBot_(const std::string& bottom, const std::string& top) const
 {
     // Get initial parent, 'bottom' can be a well or a group.
     std::string parent;
@@ -1781,6 +1754,21 @@ selectRateComponent_(const int phase_pos) const
 }
 
 template<typename Scalar, typename IndexTraits>
+void WellGroupHelper<Scalar, IndexTraits>::
+setDefaultWellState_(WellStateType well_state_type) {
+    switch (well_state_type) {
+        case WellStateType::NORMAL:
+            this->well_state_default_ = this->well_state_normal_;
+            break;
+        case WellStateType::NUPCOL:
+            this->well_state_default_ = this->well_state_nupcol_;
+            break;
+        default:
+            throw std::runtime_error("Invalid well state type");
+    }
+}
+
+template<typename Scalar, typename IndexTraits>
 int WellGroupHelper<Scalar, IndexTraits>::
 updateGroupControlledWellsRecursive_(
     const std::string& group_name,
@@ -1866,7 +1854,7 @@ updateGroupControlledWellsRecursive_(
 
                 // Calculates the guide rate of the parent group with control.
                 // It is allowed that the guide rate of this group is defaulted. The guide rate will be derived from the children groups
-                const auto& control_group_guide_rate = this->getGuideRate_(
+                const auto& control_group_guide_rate = this->getGuideRate(
                     control_group_name, tcalc.guideTargetMode()
                 );
 
@@ -1922,7 +1910,7 @@ updateGroupTargetReductionRecursive_(
                 const bool individual_control = (current_group_control != Group::InjectionCMode::FLD
                         && current_group_control != Group::InjectionCMode::NONE);
                 const int num_group_controlled_wells
-                        = this->groupControlledWells_(sub_group.name(), "", !is_injector, phase);
+                        = this->groupControlledWells(sub_group.name(), "", !is_injector, phase);
                 if (individual_control || num_group_controlled_wells == 0) {
                     group_target_reduction[phase_pos] += sub_group_efficiency *
                                         this->sumWellSurfaceRates(sub_group, phase_pos, is_injector);
@@ -1942,7 +1930,7 @@ updateGroupTargetReductionRecursive_(
             const bool individual_control = (current_group_control != Group::ProductionCMode::FLD
                                              && current_group_control != Group::ProductionCMode::NONE);
             const int num_group_controlled_wells
-                = this->groupControlledWells_(
+                = this->groupControlledWells(
                     sub_group.name(),
                     /*always_included_child=*/"",
                     !is_injector,

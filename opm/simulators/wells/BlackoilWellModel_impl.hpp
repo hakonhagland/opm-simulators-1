@@ -1370,8 +1370,7 @@ namespace Opm {
                     auto target = WellGroupControls<Scalar, IndexTraits>::getAutoChokeGroupProductionTargetRate(
                                                             group.name(),
                                                             parentGroup,
-                                                            well_state,
-                                                            group_state,
+                                                            this->wgHelper(),
                                                             this->schedule(),
                                                             summary_state,
                                                             resv_coeff,
@@ -1810,7 +1809,7 @@ namespace Opm {
                 OPM_BEGIN_PARALLEL_TRY_CATCH()
                     for (const auto& well : well_container_) {
                         const auto mode = WellInterface<TypeTag>::IndividualOrGroup::Group;
-                        const bool changed_well = well->updateWellControl(simulator_, mode, this->wellState(), this->groupState(), deferred_logger);
+                        const bool changed_well = well->updateWellControl(simulator_, mode, this->wgHelper(), deferred_logger);
                         if (changed_well) {
                             changed_well_to_group = changed_well || changed_well_to_group;
                         }
@@ -1833,7 +1832,7 @@ namespace Opm {
                 OPM_BEGIN_PARALLEL_TRY_CATCH()
                     for (const auto& well : well_container_) {
                         const auto mode = WellInterface<TypeTag>::IndividualOrGroup::Individual;
-                        const bool changed_well = well->updateWellControl(simulator_, mode, this->wellState(), this->groupState(), deferred_logger);
+                        const bool changed_well = well->updateWellControl(simulator_, mode, this->wgHelper(), deferred_logger);
                         if (changed_well) {
                             changed_well_individual = changed_well || changed_well_individual;
                         }

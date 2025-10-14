@@ -192,8 +192,7 @@ updateWellControls(DeferredLogger& deferred_logger,
             constexpr auto mode = WellInterface<TypeTag>::IndividualOrGroup::Individual;
             well->updateWellControl(wellModel_.simulator(),
                                     mode,
-                                    wellModel_.wellState(),
-                                    wellModel_.groupState(),
+                                    wellModel_.wgHelper(),
                                     deferred_logger);
         }
     }

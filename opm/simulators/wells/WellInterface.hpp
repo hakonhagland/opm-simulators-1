@@ -69,6 +69,7 @@ namespace Opm
 
 class WellInjectionProperties;
 class WellProductionProperties;
+template<typename Scalar, typename IndexTraits> class WellGroupHelper;
 
 template<typename TypeTag>
 class WellInterface : public WellInterfaceIndices<GetPropType<TypeTag, Properties::FluidSystem>,
@@ -98,6 +99,7 @@ public:
 
     using WellStateType = WellState<Scalar, IndexTraits>;
     using SingleWellStateType = SingleWellState<Scalar, IndexTraits>;
+    using WellGroupHelperType = WellGroupHelper<Scalar, IndexTraits>;
 
     using RateConverterType =
     typename WellInterfaceFluidSystem<FluidSystem>::RateConverterType;
@@ -179,8 +181,7 @@ public:
     // TODO: better name or further refactoring the function to make it more clear
     void prepareWellBeforeAssembling(const Simulator& simulator,
                                      const double dt,
-                                     WellStateType& well_state,
-                                     const GroupState<Scalar>& group_state,
+                                     const WellGroupHelperType& wgHelper,
                                      DeferredLogger& deferred_logger);
 
     virtual void computeWellRatesWithBhp(const Simulator& ebosSimulator,
@@ -246,13 +247,11 @@ public:
     enum class IndividualOrGroup { Individual, Group, Both };
     bool updateWellControl(const Simulator& simulator,
                            const IndividualOrGroup iog,
-                           WellStateType& well_state,
-                           const GroupState<Scalar>& group_state,
+                           const WellGroupHelperType& wgHelper,
                            DeferredLogger& deferred_logger) /* const */;
 
     bool updateWellControlAndStatusLocalIteration(const Simulator& simulator,
-                                                  WellStateType& well_state,
-                                                  const GroupState<Scalar>& group_state,
+                                                  const WellGroupHelperType& wgHelper,
                                                   const Well::InjectionControls& inj_controls,
                                                   const Well::ProductionControls& prod_controls,
                                                   const Scalar WQTotal,
@@ -290,8 +289,7 @@ public:
     // Simulator is not const is because that assembleWellEq is non-const Simulator
     void wellTesting(const Simulator& simulator,
                      const double simulation_time,
-                     /* const */ WellStateType& well_state,
-                     const GroupState<Scalar>& group_state,
+                     const WellGroupHelperType& wgHelper,
                      WellTestState& welltest_state,
                      GLiftEclWells& ecl_well_map,
                      std::map<std::string, double>& open_times,
@@ -335,8 +333,7 @@ public:
                                      DeferredLogger& deferred_logger) const;
 
     void solveWellEquation(const Simulator& simulator,
-                           WellStateType& well_state,
-                           const GroupState<Scalar>& group_state,
+                           const WellGroupHelperType& wgHelper,
                            DeferredLogger& deferred_logger);
 
     const std::vector<RateVector>& connectionRates() const
@@ -359,8 +356,7 @@ public:
                                             const double dt,
                                             const WellInjectionControls& inj_controls,
                                             const WellProductionControls& prod_controls,
-                                            WellStateType& well_state,
-                                            const GroupState<Scalar>& group_state,
+                                            const WellGroupHelperType& wgHelper,
                                             DeferredLogger& deferred_logger,
                                             const bool fixed_control = false,
                                             const bool fixed_status = false) = 0;
@@ -411,8 +407,7 @@ protected:
                                           const double dt,
                                           const WellInjectionControls& inj_controls,
                                           const WellProductionControls& prod_controls,
-                                          WellStateType& well_state,
-                                          const GroupState<Scalar>& group_state,
+                                          const WellGroupHelperType& wgHelper,
                                           DeferredLogger& deferred_logger) = 0;
 
     virtual void updateIPRImplicit(const Simulator& simulator,
@@ -421,16 +416,14 @@ protected:
 
     bool iterateWellEquations(const Simulator& simulator,
                               const double dt,
-                              WellStateType& well_state,
-                              const GroupState<Scalar>& group_state,
+                              const WellGroupHelperType& wgHelper,
                               DeferredLogger& deferred_logger);
 
     bool solveWellWithOperabilityCheck(const Simulator& simulator,
                                        const double dt,
                                        const Well::InjectionControls& inj_controls,
                                        const Well::ProductionControls& prod_controls,
-                                       WellStateType& well_state,
-                                       const GroupState<Scalar>& group_state,
+                                       const WellGroupHelperType& wgHelper,
                                        DeferredLogger& deferred_logger);
 
     std::optional<Scalar>
@@ -452,8 +445,7 @@ protected:
                                DeferredLogger& deferred_logger);
 
     bool solveWellForTesting(const Simulator& simulator,
-                             WellStateType& well_state,
-                             const GroupState<Scalar>& group_state,
+                             const WellGroupHelperType& wgHelper,
                              DeferredLogger& deferred_logger);
 
 

@@ -47,6 +47,54 @@ public:
         NORMAL,
         NUPCOL
     };
+    // RAII guard for temporarily setting wellstate pointer
+    class WellStateGuard {
+    public:
+        WellStateGuard(WellGroupHelper& wgHelper, WellGroupHelper::WellStateType well_state_type)
+            : wgHelper_(wgHelper)
+            , previous_state_ptr_(wgHelper_.well_state_default_)
+            , use_enum_(true)
+        {
+            // Save the current state as enum
+            if (wgHelper_.well_state_default_ == wgHelper_.well_state_normal_) {
+                previous_state_ = WellStateType::NORMAL;
+            } else {
+                previous_state_ = WellStateType::NUPCOL;
+            }
+            // Set the new state
+            wgHelper_.setDefaultWellState(well_state_type);
+        }
+
+        WellStateGuard(WellGroupHelper& wgHelper, WellState<Scalar, IndexTraits>& well_state)
+            : wgHelper_(wgHelper)
+            , previous_state_ptr_(wgHelper_.well_state_default_)
+            , use_enum_(false)
+        {
+            // Set the new state directly
+            wgHelper_.well_state_default_ = &well_state;
+        }
+
+        ~WellStateGuard() {
+            // Restore the previous state
+            if (use_enum_) {
+                wgHelper_.setDefaultWellState_(previous_state_);
+            } else {
+                wgHelper_.well_state_default_ = previous_state_ptr_;
+            }
+        }
+
+        // Delete copy and move operations
+        WellStateGuard(const WellStateGuard&) = delete;
+        WellStateGuard& operator=(const WellStateGuard&) = delete;
+        WellStateGuard(WellStateGuard&&) = delete;
+        WellStateGuard& operator=(WellStateGuard&&) = delete;
+
+    private:
+        WellGroupHelper& wgHelper_;
+        WellState<Scalar, IndexTraits>* previous_state_ptr_;
+        WellStateType previous_state_;
+        bool use_enum_;
+    };
 
     WellGroupHelper(
         const Schedule& schedule,
@@ -65,7 +113,7 @@ public:
         const Scalar efficiency_factor,
         const std::vector<Scalar>& resv_coeff,
         const bool check_guide_rate
-    );
+    ) const;
     std::pair<bool, Scalar> checkGroupConstraintsProd(
         const std::string& name,
         const std::string& parent,
@@ -74,13 +122,14 @@ public:
         const Scalar efficiency_factor,
         const std::vector<Scalar>& resv_coeff,
         const bool check_guide_rate
-    );
+    ) const;
     std::map<std::string, Scalar> computeNetworkPressures(
         const Network::ExtNetwork& network,
         const VFPProdProperties<Scalar>& vfp_prod_props,
         const Parallel::Communication& comm
     ) const;
-    DeferredLogger& deferredLogger() { return *this->deferred_logger_; }
+    DeferredLogger& deferredLogger() const { return *this->deferred_logger_; }
+    Scalar getGuideRate(const std::string& name, const GuideRateModel::Target target) const;
     GuideRate::RateVector getProductionGroupRateVector(const std::string& group_name) const;
     Scalar getWellGroupTargetInjector(
         const std::string& name,
@@ -100,10 +149,23 @@ public:
         const std::vector<Scalar>& resv_coeff
     );
     GuideRate::RateVector getWellRateVector(const std::string& name) const;
+    std::vector<std::string> groupChainTopBot(const std::string& bottom, const std::string& top) const;
+    int groupControlledWells(
+        const std::string& group_name,
+        const std::string& always_included_child,
+        const bool is_production_group,
+        const Phase injection_phase
+    ) const;
     const GroupState<Scalar>& groupState() const { return *this->group_state_; }
     GroupState<Scalar>& groupState() { return *this->group_state_; }
+    const PhaseUsageInfo<IndexTraits>& phaseUsageInfo() const { return this->phase_usage_info_; }
+    WellStateGuard pushWellState(WellStateType well_state_type) {
+        return WellStateGuard(*this, well_state_type);
+    }
+    WellStateGuard pushWellState(WellState<Scalar, IndexTraits>& well_state) {
+        return WellStateGuard(*this, well_state);
+    }
     void setCmodeGroup(const Group& group);
-    void setDefaultWellState(WellStateType well_state_type);
     void setLogger(DeferredLogger* deferred_logger) { deferred_logger_ = deferred_logger; }
     template <class AverageRegionalPressureType>
     void setRegionAveragePressureCalculator(
@@ -144,9 +206,6 @@ public:
     void updateWellRates(const Group& group);
     const WellState<Scalar, IndexTraits>& wellState() const { return *this->well_state_default_; }
     WellState<Scalar, IndexTraits>& wellState() { return *this->well_state_default_; }
-    const WellState<Scalar, IndexTraits>& wellStateNupcol() const { return *this->well_state_nupcol_; }
-    const WellState<Scalar, IndexTraits>& wellStateNormal() const { return *this->well_state_normal_; }
-    WellState<Scalar, IndexTraits>& wellStateNormal() { return *this->well_state_normal_; }
     void updateWellRatesFromGroupTargetScale(const Scalar scale, const Group& group, bool is_injector);
     std::pair<std::optional<std::string>, Scalar> worstOffendingWell(
         const Group& group,
@@ -155,17 +214,8 @@ public:
     ) const;
 private:
     std::string controlGroup_(const Group& group);
-    Scalar getGuideRate_(const std::string& name, const GuideRateModel::Target target);
     GuideRate::RateVector getGuideRateVector_(const std::vector<Scalar>& rates) const;
-    GuideRate::RateVector getWellRateVector_(const std::string& name);
-    std::vector<std::string> groupChainTopBot_(const std::string& bottom, const std::string& top);
-    int groupControlledWells_(
-        const std::string& group_name,
-        const std::string& always_included_child,
-        const bool is_production_group,
-        const Phase injection_phase
-    );
-    bool isInGroupChainTopBot_(const std::string& bottom, const std::string& top);
+    bool isInGroupChainTopBot_(const std::string& bottom, const std::string& top) const;
     int phaseToActivePhaseIdx_(const Phase phase);
     Scalar satelliteInjectionRate_(
         const ScheduleState& sched,
@@ -180,10 +230,14 @@ private:
         bool res_rates
     ) const;
     std::optional<GSatProd::GSatProdGroupProp::Rate> selectRateComponent_(const int phase_pos) const;
+    void setDefaultWellState_(WellStateType well_state_type);
     int updateGroupControlledWellsRecursive_(
         const std::string& group_name, const bool is_production_group, const Phase injection_phase);
     void updateGroupTargetReductionRecursive_(
         const Group& group, const bool is_injector, std::vector<Scalar>& group_target_reduction);
+    const WellState<Scalar, IndexTraits>& wellStateNupcol_() const { return *this->well_state_nupcol_; }
+    const WellState<Scalar, IndexTraits>& wellStateNormal_() const { return *this->well_state_normal_; }
+    WellState<Scalar, IndexTraits>& wellStateNormal_() { return *this->well_state_normal_; }
 
     const Schedule& schedule_;
     const SummaryState& summary_state_;

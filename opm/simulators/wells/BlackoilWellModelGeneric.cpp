@@ -1301,16 +1301,17 @@ updateAndCommunicateGroupData(const int reportStepIdx,
                         const Group& group = schedule().getGroup(gr_name, reportStepIdx);
                         const int np = this->wellState().numPhases();
                         Scalar gr_rate_nupcol = 0.0;
-                        wg_helper.setDefaultWellState(WellGroupHelperType::WellStateType::NUPCOL);
-                        for (int phaseIdx = 0; phaseIdx < np; ++phaseIdx) {
-                            gr_rate_nupcol += wg_helper.sumWellPhaseRates(
-                                /*res_rates=*/is_vrep,
-                                group,
-                                phaseIdx,
-                                /*is_injector=*/false
-                            );
+                        {
+                            auto guard = wg_helper.pushWellState(WellGroupHelperType::WellStateType::NUPCOL);
+                            for (int phaseIdx = 0; phaseIdx < np; ++phaseIdx) {
+                                gr_rate_nupcol += wg_helper.sumWellPhaseRates(
+                                    /*res_rates=*/is_vrep,
+                                    group,
+                                    phaseIdx,
+                                    /*is_injector=*/false
+                                );
+                            }
                         }
-                        wg_helper.setDefaultWellState(WellGroupHelperType::WellStateType::NORMAL);
                         Scalar gr_rate = 0.0;
                         for (int phaseIdx = 0; phaseIdx < np; ++phaseIdx) {
                             gr_rate += wg_helper.sumWellPhaseRates(
@@ -1336,7 +1337,6 @@ updateAndCommunicateGroupData(const int reportStepIdx,
             }
         }
     }
-    wg_helper.setDefaultWellState(WellGroupHelperType::WellStateType::NORMAL);
     {
         constexpr int num_configs = 4;
         constexpr std::array<bool, num_configs> is_production_group = {true, false, false, false};
@@ -1349,18 +1349,18 @@ updateAndCommunicateGroupData(const int reportStepIdx,
     // The group target reduction does not honor NUPCOL.
     wg_helper.updateGroupTargetReduction(fieldGroup, /*is_injector=*/false);
     wg_helper.updateGroupTargetReduction(fieldGroup, /*is_injector=*/true);
-    wg_helper.setDefaultWellState(WellGroupHelperType::WellStateType::NUPCOL);
-    wg_helper.updateREINForGroups(fieldGroup, /*sum_rank=*/comm_.rank() == 0);
-    wg_helper.updateVREPForGroups(fieldGroup);
-    wg_helper.updateReservoirRatesInjectionGroups(fieldGroup);
-    wg_helper.updateSurfaceRatesInjectionGroups(fieldGroup);
-    wg_helper.updateNetworkLeafNodeProductionRates();
-    wg_helper.updateGroupProductionRates(fieldGroup);
-    wg_helper.updateWellRates(fieldGroup);
-
+    {
+        auto guard = wg_helper.pushWellState(WellGroupHelperType::WellStateType::NUPCOL);
+        wg_helper.updateREINForGroups(fieldGroup, /*sum_rank=*/comm_.rank() == 0);
+        wg_helper.updateVREPForGroups(fieldGroup);
+        wg_helper.updateReservoirRatesInjectionGroups(fieldGroup);
+        wg_helper.updateSurfaceRatesInjectionGroups(fieldGroup);
+        wg_helper.updateNetworkLeafNodeProductionRates();
+        wg_helper.updateGroupProductionRates(fieldGroup);
+        wg_helper.updateWellRates(fieldGroup);
+    }
     this->wellState().communicateGroupRates(comm_);
     this->groupState().communicate_rates(comm_);
-    wg_helper.setDefaultWellState(WellGroupHelperType::WellStateType::NORMAL);
 
     if (update_wellgrouptarget) {
         for (const auto& well : well_container_generic_) {
