@@ -1306,17 +1306,11 @@ updateReservoirRatesInjectionGroups(const Group& group)
 
 template<typename Scalar, typename IndexTraits>
 void WellGroupHelper<Scalar, IndexTraits>::
-updateState(
-    WellState<Scalar, IndexTraits>& well_state,
-    WellState<Scalar, IndexTraits>& well_state_nupcol,
-    GroupState<Scalar>& group_state,
-    int report_step)
+updateState(WellState<Scalar, IndexTraits>& well_state, GroupState<Scalar>& group_state, int report_step)
 {
-    this->well_state_normal_ = &well_state;
-    this->well_state_nupcol_ = &well_state_nupcol;
+    this->well_state_ = &well_state;
     this->group_state_ = &group_state;
     this->report_step_ = report_step;
-    this->setDefaultWellState(WellStateType::NORMAL);
 }
 
 template<typename Scalar, typename IndexTraits>
@@ -1364,17 +1358,17 @@ updateVREPForGroups(const Group& group)
 
 template<typename Scalar, typename IndexTraits>
 void WellGroupHelper<Scalar, IndexTraits>::
-updateWellRates(const Group& group)
+updateWellRates(const Group& group, const WellState<Scalar, IndexTraits>& well_state_nupcol)
 {
     OPM_TIMEFUNCTION();
     for (const std::string& group_name : group.groups()) {
         const Group& group_tmp = this->schedule_.getGroup(group_name, this->report_step_);
-        this->updateWellRates(group_tmp);
+        this->updateWellRates(group_tmp, well_state_nupcol);
     }
-    const int np = this->wellStateNormal().numPhases();
+    const int np = this->wellState().numPhases();
     for (const std::string& well_name : group.wells()) {
         std::vector<Scalar> rates(np, 0.0);
-        const auto well_index = this->wellStateNormal().index(well_name);
+        const auto well_index = this->wellState().index(well_name);
         if (well_index.has_value()) { // the well is found on this node
             const auto& well_tmp = this->schedule_.getWell(well_name, this->report_step_);
             int sign = 1;
@@ -1382,12 +1376,12 @@ updateWellRates(const Group& group)
             // opm-common that production and injection rates are positive.
             if (!well_tmp.isInjector())
                 sign = -1;
-            const auto& ws = this->wellStateNupcol().well(well_index.value());
+            const auto& ws = well_state_nupcol.well(well_index.value());
             for (int phase = 0; phase < np; ++phase) {
                 rates[phase] = sign * ws.surface_rates[phase];
             }
         }
-        this->wellStateNormal().setCurrentWellRates(well_name, rates);
+        this->wellState().setCurrentWellRates(well_name, rates);
     }
 }
 
@@ -1751,21 +1745,6 @@ selectRateComponent_(const int phase_pos) const
     }
 
     return std::nullopt;
-}
-
-template<typename Scalar, typename IndexTraits>
-void WellGroupHelper<Scalar, IndexTraits>::
-setDefaultWellState_(WellStateType well_state_type) {
-    switch (well_state_type) {
-        case WellStateType::NORMAL:
-            this->well_state_default_ = this->well_state_normal_;
-            break;
-        case WellStateType::NUPCOL:
-            this->well_state_default_ = this->well_state_nupcol_;
-            break;
-        default:
-            throw std::runtime_error("Invalid well state type");
-    }
 }
 
 template<typename Scalar, typename IndexTraits>

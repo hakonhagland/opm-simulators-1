@@ -43,44 +43,20 @@ namespace Opm {
 template<typename Scalar, typename IndexTraits>
 class WellGroupHelper {
 public:
-    enum class WellStateType {
-        NORMAL,
-        NUPCOL
-    };
     // RAII guard for temporarily setting wellstate pointer
     class WellStateGuard {
     public:
-        WellStateGuard(WellGroupHelper& wgHelper, WellGroupHelper::WellStateType well_state_type)
-            : wgHelper_(wgHelper)
-            , previous_state_ptr_(wgHelper_.well_state_default_)
-            , use_enum_(true)
-        {
-            // Save the current state as enum
-            if (wgHelper_.well_state_default_ == wgHelper_.well_state_normal_) {
-                previous_state_ = WellStateType::NORMAL;
-            } else {
-                previous_state_ = WellStateType::NUPCOL;
-            }
-            // Set the new state
-            wgHelper_.setDefaultWellState(well_state_type);
-        }
-
         WellStateGuard(WellGroupHelper& wgHelper, WellState<Scalar, IndexTraits>& well_state)
-            : wgHelper_(wgHelper)
-            , previous_state_ptr_(wgHelper_.well_state_default_)
-            , use_enum_(false)
+            : wgHelper_{wgHelper}
+            , previous_state_ptr_{wgHelper_.well_state_}
         {
             // Set the new state directly
-            wgHelper_.well_state_default_ = &well_state;
+            wgHelper_.well_state_ = &well_state;
         }
 
         ~WellStateGuard() {
             // Restore the previous state
-            if (use_enum_) {
-                wgHelper_.setDefaultWellState_(previous_state_);
-            } else {
-                wgHelper_.well_state_default_ = previous_state_ptr_;
-            }
+            wgHelper_.well_state_ = previous_state_ptr_;
         }
 
         // Delete copy and move operations
@@ -92,9 +68,34 @@ public:
     private:
         WellGroupHelper& wgHelper_;
         WellState<Scalar, IndexTraits>* previous_state_ptr_;
-        WellStateType previous_state_;
-        bool use_enum_;
     };
+
+    // RAII guard for temporarily setting groupstate pointer
+    class GroupStateGuard {
+        public:
+            GroupStateGuard(WellGroupHelper& wgHelper, GroupState<Scalar>& group_state)
+                : wgHelper_{wgHelper}
+                , previous_state_ptr_{wgHelper_.group_state_}
+            {
+                // Set the new state directly
+                wgHelper_.group_state_ = &group_state;
+            }
+
+            ~GroupStateGuard() {
+                // Restore the previous state
+                wgHelper_.group_state_ = previous_state_ptr_;
+            }
+
+            // Delete copy and move operations
+            GroupStateGuard(const GroupStateGuard&) = delete;
+            GroupStateGuard& operator=(const GroupStateGuard&) = delete;
+            GroupStateGuard(GroupStateGuard&&) = delete;
+            GroupStateGuard& operator=(GroupStateGuard&&) = delete;
+
+        private:
+            WellGroupHelper& wgHelper_;
+            GroupState<Scalar>* previous_state_ptr_;
+        };
 
     WellGroupHelper(
         const Schedule& schedule,
@@ -159,8 +160,8 @@ public:
     const GroupState<Scalar>& groupState() const { return *this->group_state_; }
     GroupState<Scalar>& groupState() { return *this->group_state_; }
     const PhaseUsageInfo<IndexTraits>& phaseUsageInfo() const { return this->phase_usage_info_; }
-    WellStateGuard pushWellState(WellStateType well_state_type) {
-        return WellStateGuard(*this, well_state_type);
+    GroupStateGuard pushGroupState(GroupState<Scalar>& group_state) {
+        return GroupStateGuard(*this, group_state);
     }
     WellStateGuard pushWellState(WellState<Scalar, IndexTraits>& well_state) {
         return WellStateGuard(*this, well_state);
@@ -190,22 +191,16 @@ public:
     void updateGroupProductionRates(const Group& group);
     void updateGroupTargetReduction(const Group& group, const bool is_injector);
     void updateNetworkLeafNodeProductionRates();
-    void updateNupcolWellState(WellState<Scalar, IndexTraits>& well_state_nupcol) {
-        well_state_nupcol_ = &well_state_nupcol;
-    }
     void updateREINForGroups(const Group& group, const bool sum_rank);
     void updateReservoirRatesInjectionGroups(const Group& group);
     void updateVREPForGroups(const Group& group);
     void updateState(
-        WellState<Scalar, IndexTraits>& well_state,
-        WellState<Scalar, IndexTraits>& well_state_nupcol,
-        GroupState<Scalar>& group_state,
-        int report_step
+        WellState<Scalar, IndexTraits>& well_state, GroupState<Scalar>& group_state, int report_step
     );
     void updateSurfaceRatesInjectionGroups(const Group& group);
-    void updateWellRates(const Group& group);
-    const WellState<Scalar, IndexTraits>& wellState() const { return *this->well_state_default_; }
-    WellState<Scalar, IndexTraits>& wellState() { return *this->well_state_default_; }
+    void updateWellRates(const Group& group, const WellState<Scalar, IndexTraits>& well_state_nupcol);
+    const WellState<Scalar, IndexTraits>& wellState() const { return *this->well_state_; }
+    WellState<Scalar, IndexTraits>& wellState() { return *this->well_state_; }
     void updateWellRatesFromGroupTargetScale(const Scalar scale, const Group& group, bool is_injector);
     std::pair<std::optional<std::string>, Scalar> worstOffendingWell(
         const Group& group,
@@ -230,20 +225,14 @@ private:
         bool res_rates
     ) const;
     std::optional<GSatProd::GSatProdGroupProp::Rate> selectRateComponent_(const int phase_pos) const;
-    void setDefaultWellState_(WellStateType well_state_type);
     int updateGroupControlledWellsRecursive_(
         const std::string& group_name, const bool is_production_group, const Phase injection_phase);
     void updateGroupTargetReductionRecursive_(
         const Group& group, const bool is_injector, std::vector<Scalar>& group_target_reduction);
-    const WellState<Scalar, IndexTraits>& wellStateNupcol_() const { return *this->well_state_nupcol_; }
-    const WellState<Scalar, IndexTraits>& wellStateNormal_() const { return *this->well_state_normal_; }
-    WellState<Scalar, IndexTraits>& wellStateNormal_() { return *this->well_state_normal_; }
 
     const Schedule& schedule_;
     const SummaryState& summary_state_;
-    WellState<Scalar, IndexTraits>* well_state_normal_;
-    WellState<Scalar, IndexTraits>* well_state_nupcol_;
-    WellState<Scalar, IndexTraits>* well_state_default_;
+    WellState<Scalar, IndexTraits>* well_state_;
     GroupState<Scalar>* group_state_{nullptr};
     const GuideRate& guide_rate_;
     int report_step_{0};

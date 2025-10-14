@@ -63,8 +63,7 @@ assembleWellEq(const double dt,
         if (this->well_domain().at(well->name()) == domain.index) {
             well->assembleWellEq(wellModel_.simulator(),
                                  dt,
-                                 wellModel_.wellState(),
-                                 wellModel_.groupState(),
+                                 wellModel_.wgHelper(),
                                  deferred_logger);
         }
     }

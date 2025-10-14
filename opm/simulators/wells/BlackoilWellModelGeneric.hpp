@@ -369,7 +369,6 @@ protected:
     void updateNupcolWGState()
     {
         this->nupcol_wgstate_ = this->active_wgstate_;
-        this->wgHelper().updateNupcolWellState(this->nupcol_wgstate_.well_state);
     }
 
     void reportGroupSwitching(DeferredLogger& local_deferredLogger) const;

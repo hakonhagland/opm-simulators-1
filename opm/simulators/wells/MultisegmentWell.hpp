@@ -91,8 +91,7 @@ namespace Opm {
 
         /// updating the well state based the current control mode
         void updateWellStateWithTarget(const Simulator& simulator,
-                                       const GroupState<Scalar>& group_state,
-                                       WellStateType& well_state,
+                                       const WellGroupHelperType& wgHelper,
                                        DeferredLogger& deferred_logger) const override;
 
         /// updating the segment pressure and rates based the current bhp and well rates
@@ -120,6 +119,7 @@ namespace Opm {
         /// computing the well potentials for group control
         void computeWellPotentials(const Simulator& simulator,
                                    const WellStateType& well_state,
+                                   const WellGroupHelperType& wgHelper,
                                    std::vector<Scalar>& well_potentials,
                                    DeferredLogger& deferred_logger) override;
 
@@ -161,6 +161,7 @@ namespace Opm {
 
         std::optional<Scalar>
         computeBhpAtThpLimitProdWithAlq(const Simulator& simulator,
+                                        const WellGroupHelperType& wgHelper,
                                         const SummaryState& summary_state,
                                         const Scalar alq_value,
                                         DeferredLogger& deferred_logger,
@@ -235,6 +236,7 @@ namespace Opm {
                          DeferredLogger& deferred_logger) const;
 
         void computeWellRatesAtBhpLimit(const Simulator& simulator,
+                                        const WellGroupHelperType& wgHelper,
                                         std::vector<Scalar>& well_flux,
                                         DeferredLogger& deferred_logger) const;
 
@@ -245,16 +247,19 @@ namespace Opm {
 
         void computeWellRatesWithBhpIterations(const Simulator& simulator,
                                                const Scalar& bhp,
+                                               const WellGroupHelperType& wgHelper,
                                                std::vector<Scalar>& well_flux,
                                                DeferredLogger& deferred_logger) const override;
 
         std::vector<Scalar>
         computeWellPotentialWithTHP(const WellStateType& well_state,
                                     const Simulator& simulator,
+                                    const WellGroupHelperType& wgHelper,
                                     DeferredLogger& deferred_logger) const;
 
         bool computeWellPotentialsImplicit(const Simulator& simulator,
                                            const WellStateType& well_state,
+                                           const WellGroupHelperType& wgHelper,
                                            std::vector<Scalar>& well_potentials,
                                            DeferredLogger& deferred_logger) const;
 
@@ -302,11 +307,13 @@ namespace Opm {
         std::optional<Scalar>
         computeBhpAtThpLimitProd(const WellStateType& well_state,
                                  const Simulator& ebos_simulator,
+                                 const WellGroupHelperType& wgHelper,
                                  const SummaryState& summary_state,
                                  DeferredLogger& deferred_logger) const;
 
         std::optional<Scalar>
         computeBhpAtThpLimitInj(const Simulator& ebos_simulator,
+                                const WellGroupHelperType& wgHelper,
                                 const SummaryState& summary_state,
                                 DeferredLogger& deferred_logger) const;
 
@@ -320,6 +327,7 @@ namespace Opm {
         // check whether the well is operable under THP limit with current reservoir condition
         void checkOperabilityUnderTHPLimit(const Simulator& ebos_simulator,
                                            const WellStateType& well_state,
+                                           const WellGroupHelperType& wgHelper,
                                            DeferredLogger& deferred_logger) override;
 
         // updating the inflow based on the current reservoir condition
