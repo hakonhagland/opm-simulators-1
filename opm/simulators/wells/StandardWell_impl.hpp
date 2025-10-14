@@ -1527,7 +1527,6 @@ namespace Opm
         // to replace the original one
         WellStateType well_state_copy = simulator.problem().wellModel().wellState();
         auto guard = const_cast<WellGroupHelperType&>(wgHelper).pushWellState(well_state_copy);
-        const auto& group_state = wgHelper.groupState();
 
         // Get the current controls.
         const auto& summary_state = simulator.vanguard().summaryState();
@@ -1627,7 +1626,6 @@ namespace Opm
         // store a copy of the well state, we don't want to update the real well state
         WellStateType well_state_copy = well_state;
         auto guard = const_cast<WellGroupHelperType&>(wgHelper).pushWellState(well_state_copy);
-        const auto& group_state = wgHelper.groupState();
         auto& ws = well_state_copy.well(this->index_of_well_);
 
         // get current controls

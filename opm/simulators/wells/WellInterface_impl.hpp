@@ -193,7 +193,6 @@ namespace Opm
     {
         OPM_TIMEFUNCTION();
         auto& well_state = const_cast<WellGroupHelperType&>(wgHelper).wellState();
-        const auto& group_state = wgHelper.groupState();
         if (stoppedOrZeroRateTarget(simulator, well_state, deferred_logger)) {
             return false;
         }
@@ -284,7 +283,6 @@ namespace Opm
     {
         OPM_TIMEFUNCTION();
         auto& well_state = const_cast<WellGroupHelperType&>(wgHelper).wellState();
-        const auto& group_state = wgHelper.groupState();
         const auto& summary_state = simulator.vanguard().summaryState();
         const auto& schedule = simulator.vanguard().schedule();
         auto& ws = well_state.well(this->index_of_well_);
@@ -512,7 +510,6 @@ namespace Opm
     {
         OPM_TIMEFUNCTION();
         auto& well_state = const_cast<WellGroupHelperType&>(wgHelper).wellState();
-        const auto& group_state = wgHelper.groupState();
         const auto& summary_state = simulator.vanguard().summaryState();
         const auto inj_controls = this->well_ecl_.isInjector() ? this->well_ecl_.injectionControls(summary_state) : Well::InjectionControls(0);
         const auto prod_controls = this->well_ecl_.isProducer() ? this->well_ecl_.productionControls(summary_state) : Well::ProductionControls(0);
@@ -578,7 +575,6 @@ namespace Opm
     {
         OPM_TIMEFUNCTION();
         auto& well_state = const_cast<WellGroupHelperType&>(wgHelper).wellState();
-        const auto& group_state = wgHelper.groupState();
         const auto& summary_state = simulator.vanguard().summaryState();
         bool converged = true;
         auto& ws = well_state.well(this->index_of_well_);
@@ -774,7 +770,6 @@ namespace Opm
     {
         OPM_TIMEFUNCTION();
         auto& well_state = const_cast<WellGroupHelperType&>(wgHelper).wellState();
-        const auto& group_state = wgHelper.groupState();
         const double dt = simulator.timeStepSize();
 
         const auto& summary_state = simulator.vanguard().summaryState();
