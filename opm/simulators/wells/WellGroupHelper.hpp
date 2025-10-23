@@ -191,7 +191,7 @@ public:
         const Group& group, const RegionalValues& regional_values, const double dt
     );
     int updateGroupControlledWells(const bool is_production_group, const Phase injection_phase);
-    void updateGroupProductionRates(const Group& group);
+    void updateGroupProductionRates(GroupState<Scalar>& group_state, const Group& group) const;
     void updateGroupTargetReduction(const Group& group, const bool is_injector);
     void updateNetworkLeafNodeProductionRates();
     void updateREINForGroups(const Group& group, const bool sum_rank);

@@ -1207,12 +1207,12 @@ updateGroupControlledWells(const bool is_production_group, const Phase injection
 
 template<typename Scalar, typename IndexTraits>
 void WellGroupHelper<Scalar, IndexTraits>::
-updateGroupProductionRates(const Group& group)
+updateGroupProductionRates(GroupState<Scalar>& group_state, const Group& group) const
 {
     OPM_TIMEFUNCTION();
     for (const std::string& group_name : group.groups()) {
         const Group& group_tmp = this->schedule_.getGroup(group_name, this->report_step_);
-        this->updateGroupProductionRates(group_tmp);
+        this->updateGroupProductionRates(group_state, group_tmp);
     }
     const int np = this->wellState().numPhases();
     std::vector<Scalar> rates(np, 0.0);
@@ -1221,7 +1221,7 @@ updateGroupProductionRates(const Group& group)
             /*res_rates=*/false, group, phase, /*injector=*/false, /*network=*/false
         );
     }
-    this->groupState().update_production_rates(group.name(), rates);
+    group_state.update_production_rates(group.name(), rates);
 }
 
 template<typename Scalar, typename IndexTraits>
