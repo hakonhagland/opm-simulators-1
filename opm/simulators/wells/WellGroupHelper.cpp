@@ -1235,7 +1235,7 @@ updateGroupTargetReduction(const Group& group, const bool is_injector)
 
 template<typename Scalar, typename IndexTraits>
 void WellGroupHelper<Scalar, IndexTraits>::
-updateNetworkLeafNodeProductionRates()
+updateNetworkLeafNodeProductionRates(GroupState<Scalar>& group_state) const
 {
     const auto& network = this->schedule_[this->report_step_].network();
     if (network.active()) {
@@ -1252,7 +1252,7 @@ updateNetworkLeafNodeProductionRates()
                     }
                 }
             }
-            this->groupState().update_network_leaf_node_production_rates(group_name, network_rates);
+            group_state.update_network_leaf_node_production_rates(group_name, network_rates);
         }
     }
 }
@@ -1318,12 +1318,12 @@ updateState(WellState<Scalar, IndexTraits>& well_state, GroupState<Scalar>& grou
 
 template<typename Scalar, typename IndexTraits>
 void WellGroupHelper<Scalar, IndexTraits>::
-updateSurfaceRatesInjectionGroups(const Group& group)
+updateSurfaceRatesInjectionGroups(GroupState<Scalar>& group_state, const Group& group) const
 {
     OPM_TIMEFUNCTION();
     for (const std::string& group_name : group.groups()) {
         const Group& group_tmp = this->schedule_.getGroup(group_name, this->report_step_);
-        this->updateSurfaceRatesInjectionGroups(group_tmp);
+        this->updateSurfaceRatesInjectionGroups(group_state, group_tmp);
     }
     const int np = this->wellState().numPhases();
     std::vector<Scalar> rates(np, 0.0);
@@ -1336,9 +1336,8 @@ updateSurfaceRatesInjectionGroups(const Group& group)
             /*network=*/false
         );
     }
-    this->groupState().update_injection_surface_rates(group.name(), rates);
+    group_state.update_injection_surface_rates(group.name(), rates);
 }
-
 
 template<typename Scalar, typename IndexTraits>
 void WellGroupHelper<Scalar, IndexTraits>::

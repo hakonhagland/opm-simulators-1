@@ -1357,8 +1357,8 @@ updateAndCommunicateGroupData(const int reportStepIdx,
         wg_helper.updateREINForGroups(fieldGroup, /*sum_rank=*/comm_.rank() == 0);
         wg_helper.updateVREPForGroups(fieldGroup);
         wg_helper.updateReservoirRatesInjectionGroups(fieldGroup);
-        wg_helper.updateSurfaceRatesInjectionGroups(fieldGroup);
-        wg_helper.updateNetworkLeafNodeProductionRates();
+        wg_helper.updateSurfaceRatesInjectionGroups(this->groupState(), fieldGroup);
+        wg_helper.updateNetworkLeafNodeProductionRates(this->groupState());
         wg_helper.updateGroupProductionRates(this->groupState(), fieldGroup);
     }
     wg_helper.updateWellRates(fieldGroup, this->nupcolWellState());

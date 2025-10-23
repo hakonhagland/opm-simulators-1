@@ -193,14 +193,14 @@ public:
     int updateGroupControlledWells(const bool is_production_group, const Phase injection_phase);
     void updateGroupProductionRates(GroupState<Scalar>& group_state, const Group& group) const;
     void updateGroupTargetReduction(const Group& group, const bool is_injector);
-    void updateNetworkLeafNodeProductionRates();
+    void updateNetworkLeafNodeProductionRates(GroupState<Scalar>& group_state) const;
     void updateREINForGroups(const Group& group, const bool sum_rank);
     void updateReservoirRatesInjectionGroups(const Group& group);
     void updateVREPForGroups(const Group& group);
     void updateState(
         WellState<Scalar, IndexTraits>& well_state, GroupState<Scalar>& group_state
     );
-    void updateSurfaceRatesInjectionGroups(const Group& group);
+    void updateSurfaceRatesInjectionGroups(GroupState<Scalar>& group_state, const Group& group) const;
     void updateWellRates(const Group& group, const WellState<Scalar, IndexTraits>& well_state_nupcol);
     const WellState<Scalar, IndexTraits>& wellState() const { return *this->well_state_; }
     WellState<Scalar, IndexTraits>& wellState() { return *this->well_state_; }
