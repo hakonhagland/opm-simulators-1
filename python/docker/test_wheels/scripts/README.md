@@ -78,9 +78,9 @@ $ opm-wheels build-docker-image --docker-os="debian:11"
 
 ### Available options for `build-docker-image`:
 - `--docker-os`, `-d` - OS for Docker image (default: ubuntu-22.04; legacy colon form accepted)
-  - Supported: `ubuntu-22.04`, `ubuntu-24.04`, `debian-11`
+  - Supported: `3.8,3.9,3.10,3.11,3.12,3.13,3.14`
 - `--python-versions`, `-p` - Python versions to install in container
-  - Supported: `3.8,3.9,3.10,3.11,3.12,3.13`
+  - Supported: `3.8,3.9,3.10,3.11,3.12,3.13,3.14`
   - Format: comma-separated list without spaces (e.g., `3.11,3.12`)
   - Default: installs all supported versions
 - `--opm-simulators-repo`, `-osr` - OPM simulators repository URL
@@ -119,7 +119,7 @@ $ opm-wheels run-docker-image \
 - `--docker-os`, `-d` - OS for Docker image (default: ubuntu-22.04; legacy colon form accepted)
 - `--wheel-dir` - Directory containing wheel files (default: python/wheelhouse)
 - `--python-versions`, `-p` - Python versions for testing
-  - Supported: `3.8,3.9,3.10,3.11,3.12,3.13`
+  - Supported: `3.8,3.9,3.10,3.11,3.12,3.13,3.14`
   - Format: comma-separated list without spaces (e.g., `3.11,3.12`)
 - `--host-tests-dir` - Use test directories from host instead of cloned repos
   - Expects: `host-tests-dir/opm-common/python` and `host-tests-dir/opm-simulators/python`
