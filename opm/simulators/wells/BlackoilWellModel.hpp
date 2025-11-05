@@ -433,7 +433,7 @@ template<class Scalar> class WellContributions;
                 setupRescoupScopedLogger(DeferredLogger& local_logger);
 
             void receiveGroupTargetsFromMaster(const int reportStepIdx);
-            void sendMasterGroupTargetsToSlaves(const int reportStepIdx);
+            void sendMasterGroupTargetsToSlaves();
         #endif
         protected:
             Simulator& simulator_;
