@@ -28,7 +28,7 @@
 #include <opm/simulators/wells/FractionCalculator.hpp>
 #include <opm/simulators/wells/GroupState.hpp>
 #include <opm/simulators/wells/TargetCalculator.hpp>
-#include <opm/simulators/wells/WellGroupHelpers.hpp>
+#include <opm/simulators/wells/WellGroupHelper.hpp>
 #include <opm/simulators/wells/WellState.hpp>
 
 #include <variant>
@@ -63,6 +63,8 @@ public:
     using FractionCalculator = WGHelpers::FractionCalculator<Scalar, IndexTraits>;
     using InjectionTargetCalculator = WGHelpers::InjectionTargetCalculator<Scalar, IndexTraits>;
     using TargetCalculator = WGHelpers::TargetCalculator<Scalar, IndexTraits>;
+    using WellGroupHelperType = WellGroupHelper<Scalar, IndexTraits>;
+
     /** Generic result for a computed target and its control mode. */
     struct TargetInfo {
         Scalar target;

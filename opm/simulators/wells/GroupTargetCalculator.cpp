@@ -373,7 +373,7 @@ GroupTargetCalculator<Scalar, IndexTraits>::
 TopToBottomCalculator::
 getGroupChainTopBot_() const
 {
-    return WellGroupHelpers<Scalar, IndexTraits>::groupChainTopBot(
+    return WellGroupHelperType::groupChainTopBot(
         this->bottomGroup().name(), this->group_.name(), this->schedule(), this->reportStepIdx()
     );
 }

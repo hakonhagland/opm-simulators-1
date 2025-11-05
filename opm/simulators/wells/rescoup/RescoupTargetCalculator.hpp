@@ -21,8 +21,8 @@
 #define OPM_RESCOUP_TARGET_CALCULATOR_HPP
 #include <opm/input/eclipse/Schedule/Group/GuideRate.hpp>
 #include <opm/material/fluidsystems/PhaseUsageInfo.hpp>
-#include <opm/simulators/flow/ReservoirCoupling.hpp>
-#include <opm/simulators/flow/ReservoirCouplingMaster.hpp>
+#include <opm/simulators/flow/rescoup/ReservoirCoupling.hpp>
+#include <opm/simulators/flow/rescoup/ReservoirCouplingMaster.hpp>
 #include <opm/simulators/utils/DeferredLogger.hpp>
 #include <opm/simulators/wells/BlackoilWellModelGeneric.hpp>
 #include <opm/simulators/wells/GroupState.hpp>

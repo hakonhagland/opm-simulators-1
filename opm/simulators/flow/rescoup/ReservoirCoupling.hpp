@@ -126,7 +126,6 @@ enum class MessageTag : int {
     MasterStartOfReportStep,
     NumSlaveGroupTargets,
     ProductionGroupTargets,
-    SlaveSimulationStartDate,
     SlaveActivationDate,
     SlaveActivationHandshake,
     SlaveInjectionData,
