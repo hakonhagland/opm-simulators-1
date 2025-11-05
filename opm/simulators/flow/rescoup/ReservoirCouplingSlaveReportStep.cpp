@@ -105,6 +105,7 @@ sendProductionDataToMaster(
     }
 }
 
+template <class Scalar>
 std::pair<std::size_t, std::size_t>
 ReservoirCouplingSlaveReportStep<Scalar>::
 receiveNumGroupTargetsFromMaster() const {

@@ -28,9 +28,12 @@ namespace Opm {
 template <class Scalar>
 class ReservoirCouplingSlaveReportStep {
 public:
+    using InjectionGroupTarget = ReservoirCoupling::InjectionGroupTarget<Scalar>;
+    using ProductionGroupTarget = ReservoirCoupling::ProductionGroupTarget<Scalar>;
     using MessageTag = ReservoirCoupling::MessageTag;
     using SlaveGroupProductionData = ReservoirCoupling::SlaveGroupProductionData<Scalar>;
     using SlaveGroupInjectionData = ReservoirCoupling::SlaveGroupInjectionData<Scalar>;
+
     ReservoirCouplingSlaveReportStep(
         ReservoirCouplingSlave<Scalar> &slave
     );
