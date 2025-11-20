@@ -56,9 +56,9 @@ RescoupSendSlaveGroupData(GroupStateHelperType& groupStateHelper)
 // 1) *Production group potentials*: If both the master group and slave groups are production groups (and
 //   possibly also injection groups), and the master group has GCONPROD item 10 set to "FORM", "POTN", or "0".
 //   In this case, the master group needs the slave group potentials to calculate the guide rates.
-//   NOTE: This could also apply to a parent of the master (and not just the master group
-//    itself). For example, if a parent group of the master have GCONPROD item 10 set to "FORM", but the
-//    master group itself has no guidrate.
+//   This could also apply to a parent of the master group, for example if the master group has a
+//   fixed guide rate, and a parent group of the master group has GCONPROD item 10 set to "FORM". Then the
+//   parent group needs the slave group potentials to calculate the group potential and its guide rate.
 //
 // 2) *Production group surface rates*: If both the master group and slave groups are production
 //   groups (and possibly also injection groups), and the master group has GCONPROD item 10 set to
@@ -97,6 +97,7 @@ RescoupSendSlaveGroupData(GroupStateHelperType& groupStateHelper)
 // 6) If the master group or any of its parents is a sales gas control group. It will need to know
 //       a) slave group surface gas production rates
 //       b) slave group surface gas injection rates
+//       c) slave group gas reinjection rate
 //   in order to calculate the sales gas targets.
 //
 // TODO: We could try to send only the necessary data to the master process, but that would require
