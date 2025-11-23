@@ -33,6 +33,7 @@ namespace Opm {
 class DeferredLogger;
 template<class Scalar> class GroupState;
 template<typename IndexTraits> class PhaseUsageInfo;
+template<typename Scalar, typename IndexTraits> class WellGroupHelper;
 
 namespace WGHelpers {
 
@@ -42,13 +43,11 @@ template<typename Scalar, typename IndexTraits>
 class TargetCalculator
 {
 public:
-    TargetCalculator(const Group::ProductionCMode cmode,
-                     const PhaseUsageInfo<IndexTraits>& pu,
+    using WellGroupHelperType = WellGroupHelper<Scalar, IndexTraits>;
+
+    TargetCalculator(const WellGroupHelperType& wg_helper,
                      const std::vector<Scalar>& resv_coeff,
-                     const Scalar group_grat_target_from_sales,
-                     const std::string& group_name,
-                     const GroupState<Scalar>& group_state,
-                     const bool use_gpmaint);
+                     const Group& group);
 
     template <typename RateType>
     RateType calcModeRateFromRates(const std::vector<RateType>& rates) const
@@ -59,19 +58,15 @@ public:
     template <typename RateType>
     RateType calcModeRateFromRates(const RateType* rates) const;
 
-    Scalar groupTarget(const std::optional<Group::ProductionControls>& ctrl,
-                       DeferredLogger& deferred_logger) const;
+    Scalar groupTarget(DeferredLogger& deferred_logger) const;
 
     GuideRateModel::Target guideTargetMode() const;
 
 private:
     Group::ProductionCMode cmode_;
-    const PhaseUsageInfo<IndexTraits>& pu_;
+    const WellGroupHelper<Scalar, IndexTraits>& wg_helper_;
     const std::vector<Scalar>& resv_coeff_;
-    const Scalar group_grat_target_from_sales_;
-    const std::string& group_name_;
-    const GroupState<Scalar>& group_state_;
-    bool use_gpmaint_;
+    const Group& group_;
 };
 
 /// Based on a group control mode, extract or calculate rates, and
@@ -80,14 +75,12 @@ template<typename Scalar, typename IndexTraits>
 class InjectionTargetCalculator
 {
 public:
-    InjectionTargetCalculator(const Group::InjectionCMode& cmode,
-                              const PhaseUsageInfo<IndexTraits>& pu,
+    using WellGroupHelperType = WellGroupHelper<Scalar, IndexTraits>;
+
+    InjectionTargetCalculator(const WellGroupHelperType& wg_helper,
                               const std::vector<Scalar>& resv_coeff,
-                              const std::string& group_name,
-                              const Scalar sales_target,
-                              const GroupState<Scalar>& group_state,
+                              const Group& group,
                               const Phase& injection_phase,
-                              const bool use_gpmaint,
                               DeferredLogger& deferred_logger);
 
     template <typename RateVec>
@@ -96,19 +89,16 @@ public:
         return rates[pos_];
     }
 
-    Scalar groupTarget(const std::optional<Group::InjectionControls>& ctrl,
-                       DeferredLogger& deferred_logger) const;
+    Scalar groupTarget(DeferredLogger& deferred_logger) const;
 
     GuideRateModel::Target guideTargetMode() const;
 
 private:
-    Group::InjectionCMode cmode_;
-    const PhaseUsageInfo<IndexTraits>& pu_;
+    const WellGroupHelper<Scalar, IndexTraits>& wg_helper_;
     const std::vector<Scalar>& resv_coeff_;
-    const std::string& group_name_;
-    Scalar sales_target_;
-    const GroupState<Scalar>& group_state_;
-    bool use_gpmaint_;
+    const Group& group_;
+    const Phase& injection_phase_;
+    Group::InjectionCMode cmode_;
     int pos_;
     GuideRateModel::Target target_;
 };

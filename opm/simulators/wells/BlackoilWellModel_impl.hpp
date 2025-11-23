@@ -514,9 +514,9 @@ namespace Opm {
                 if (event || dyn_status_change) {
                     try {
                         well->scaleSegmentRatesAndPressure(this->wellState());
-                        well->calculateExplicitQuantities(simulator_, this->wellState(), local_deferredLogger);
+                        well->calculateExplicitQuantities(simulator_, this->wgHelper(), local_deferredLogger);
                         well->updateWellStateWithTarget(simulator_, this->wgHelper(), this->wellState(), local_deferredLogger);
-                        well->updatePrimaryVariables(simulator_, this->wellState(), local_deferredLogger);
+                        well->updatePrimaryVariables(this->wgHelper(), local_deferredLogger);
                         well->solveWellEquation(
                             simulator_, this->wgHelper(), this->wellState(), local_deferredLogger
                         );
@@ -1169,7 +1169,7 @@ namespace Opm {
 
         OPM_BEGIN_PARALLEL_TRY_CATCH();
         for (auto& well : this->well_container_) {
-            well->solveEqAndUpdateWellState(simulator_, well_state, deferred_logger);
+            well->solveEqAndUpdateWellState(simulator_, this->wgHelper(), well_state, deferred_logger);
         }
         OPM_END_PARALLEL_TRY_CATCH("BlackoilWellModel::doPreStepNetworkRebalance() failed: ",
                                     this->simulator_.vanguard().grid().comm());
@@ -1403,9 +1403,6 @@ namespace Opm {
 
                 //TODO: Auto choke combined with RESV control is not supported
                 std::vector<Scalar> resv_coeff(Indices::numPhases, 1.0);
-                Scalar gratTargetFromSales = 0.0;
-                if (group_state.has_grat_sales_target(group.name()))
-                    gratTargetFromSales = group_state.grat_sales_target(group.name());
 
                 const auto ctrl = group.productionControls(summary_state);
                 auto cmode_tmp = ctrl.cmode;
@@ -1418,7 +1415,7 @@ namespace Opm {
                     const Scalar efficiencyFactor = 1.0;
                     const Group& parentGroup = this->schedule().getGroup(group.parent(), reportStepIdx);
                     auto target = WellGroupControls<Scalar, IndexTraits>::getAutoChokeGroupProductionTargetRate(
-                                                            group.name(),
+                                                            group,
                                                             parentGroup,
                                                             this->wgHelper(),
                                                             this->schedule(),
@@ -1431,15 +1428,12 @@ namespace Opm {
                     target_tmp = target.first;
                     cmode_tmp = target.second;
                 }
-                const auto cmode = cmode_tmp;
                 using TargetCalculatorType =  WGHelpers::TargetCalculator<Scalar, IndexTraits>;
-                TargetCalculatorType tcalc(cmode, FluidSystem::phaseUsage(), resv_coeff,
-                                           gratTargetFromSales, nodeName, group_state,
-                                           group.has_gpmaint_control(cmode));
+                TargetCalculatorType tcalc{this->wgHelper(), resv_coeff, group};
                 if (!fld_none)
                 {
                     // Target is set for the autochoke group itself
-                    target_tmp = tcalc.groupTarget(ctrl, local_deferredLogger);
+                    target_tmp = tcalc.groupTarget(local_deferredLogger);
                 }
 
                 const Scalar orig_target = target_tmp;
@@ -1777,7 +1771,7 @@ namespace Opm {
                     x_local_[i] = x[cells[i]];
                 }
                 well->recoverWellSolutionAndUpdateWellState(simulator_, x_local_,
-                                                            this->wellState(), local_deferredLogger);
+                                                            this->wgHelper(), this->wellState(), local_deferredLogger);
             }
         }
         OPM_END_PARALLEL_TRY_CATCH_LOG(local_deferredLogger,
@@ -1812,7 +1806,7 @@ namespace Opm {
         for (const auto& well : well_container_) {
             if (well->isOperableAndSolvable() || well->wellIsStopped()) {
                 local_report += well->getWellConvergence(
-                        simulator_, this->wellState(), B_avg, local_deferredLogger,
+                        this->wgHelper(), B_avg, local_deferredLogger,
                         iterationIdx > param_.strict_outer_iter_wells_);
             } else {
                 ConvergenceReport report;
@@ -1858,7 +1852,7 @@ namespace Opm {
     {
         // TODO: checking isOperableAndSolvable() ?
         for (auto& well : well_container_) {
-            well->calculateExplicitQuantities(simulator_, this->wellState(), deferred_logger);
+            well->calculateExplicitQuantities(simulator_, this->wgHelper(), deferred_logger);
         }
     }
 
@@ -2101,9 +2095,7 @@ namespace Opm {
                                        this->wgHelper(),
                                        local_deferredLogger);
             const bool under_zero_target =
-                well->wellUnderZeroGroupRateTarget(this->simulator_,
-                                                   this->wellState(),
-                                                   local_deferredLogger);
+                well->wellUnderZeroGroupRateTarget(this->wgHelper(), local_deferredLogger);
             well->updateWellTestState(this->wellState().well(wname),
                                       simulationTime,
                                       /*writeMessageToOPMLog=*/ true,
@@ -2280,7 +2272,7 @@ namespace Opm {
                 well->updateWellStateWithTarget(
                     simulator_, this->wgHelper(), this->wellState(), deferred_logger
                 );
-                well->updatePrimaryVariables(simulator_, this->wellState(), deferred_logger);
+                well->updatePrimaryVariables(this->wgHelper(), deferred_logger);
                 // There is no new well control change input within a report step,
                 // so next time step, the well does not consider to have effective events anymore.
                 events.clearEvent(WellState<Scalar, IndexTraits>::event_mask);
@@ -2364,7 +2356,7 @@ namespace Opm {
     updatePrimaryVariables(DeferredLogger& deferred_logger)
     {
         for (const auto& well : well_container_) {
-            well->updatePrimaryVariables(simulator_, this->wellState(), deferred_logger);
+            well->updatePrimaryVariables(this->wgHelper(), deferred_logger);
         }
     }
 
