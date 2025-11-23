@@ -141,8 +141,7 @@ namespace Opm
                           const bool changed_to_open_this_step) override;
 
         /// check whether the well equations get converged for this well
-        virtual ConvergenceReport getWellConvergence(const Simulator& simulator,
-                                                     const WellStateType& well_state,
+        virtual ConvergenceReport getWellConvergence(const WellGroupHelperType& wgHelper,
                                                      const std::vector<Scalar>& B_avg,
                                                      DeferredLogger& deferred_logger,
                                                      const bool relax_tolerance) const override;
@@ -156,6 +155,7 @@ namespace Opm
         /// xw to update Well State
         void recoverWellSolutionAndUpdateWellState(const Simulator& simulator,
                                                    const BVector& x,
+                                                   const WellGroupHelperType& wgHelper,
                                                    WellStateType& well_state,
                                                    DeferredLogger& deferred_logger) override;
 
@@ -166,16 +166,16 @@ namespace Opm
                                    std::vector<Scalar>& well_potentials,
                                    DeferredLogger& deferred_logger) /* const */ override;
 
-        void updatePrimaryVariables(const Simulator& simulator,
-                                    const WellStateType& well_state,
+        void updatePrimaryVariables(const WellGroupHelperType& wgHelper,
                                     DeferredLogger& deferred_logger) override;
 
         void solveEqAndUpdateWellState(const Simulator& simulator,
+                                       const WellGroupHelperType& wgHelper,
                                        WellStateType& well_state,
                                        DeferredLogger& deferred_logger) override;
 
         void calculateExplicitQuantities(const Simulator& simulator,
-                                         const WellStateType& well_state,
+                                         const WellGroupHelperType& wgHelper,
                                          DeferredLogger& deferred_logger) override; // should be const?
 
         void updateProductivityIndex(const Simulator& simulator,
@@ -239,6 +239,7 @@ namespace Opm
 
         void updateIPRImplicit(const Simulator& simulator,
                                WellStateType& well_state,
+                               const WellGroupHelperType& wgHelper,
                                DeferredLogger& deferred_logger) override;
 
         void computeWellRatesWithBhp(const Simulator& ebosSimulator,
@@ -263,6 +264,7 @@ namespace Opm
         // updating the well_state based on well solution dwells
         void updateWellState(const Simulator& simulator,
                              const BVectorWell& dwells,
+                             const WellGroupHelperType& wgHelper,
                              WellStateType& well_state,
                              DeferredLogger& deferred_logger);
 
@@ -275,12 +277,12 @@ namespace Opm
                                                     const WellStateType& well_state) const;
 
         void computeWellConnectionDensitesPressures(const Simulator& simulator,
-                                                    const WellStateType& well_state,
+                                                    const WellGroupHelperType& wgHelper,
                                                     const WellConnectionProps& props,
                                                     DeferredLogger& deferred_logger);
 
         void computeWellConnectionPressures(const Simulator& simulator,
-                                            const WellStateType& well_state,
+                                            const WellGroupHelperType& wgHelper,
                                             DeferredLogger& deferred_logger);
 
         template<class Value>
@@ -363,16 +365,16 @@ namespace Opm
                                             const double dt,
                                             const Well::InjectionControls& inj_controls,
                                             const Well::ProductionControls& prod_controls,
+                                            const WellGroupHelperType& wgHelper,
                                             WellStateType& well_state,
-                                            const GroupState<Scalar>& group_state,
                                             DeferredLogger& deferred_logger) override;
 
         void assembleWellEqWithoutIterationImpl(const Simulator& simulator,
                                                 const double dt,
                                                 const Well::InjectionControls& inj_controls,
                                                 const Well::ProductionControls& prod_controls,
+                                                const WellGroupHelperType& wgHelper,
                                                 WellStateType& well_state,
-                                                const GroupState<Scalar>& group_state,
                                                 DeferredLogger& deferred_logger);
 
         void calculateSinglePerf(const Simulator& simulator,

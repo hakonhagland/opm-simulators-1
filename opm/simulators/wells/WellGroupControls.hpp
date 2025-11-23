@@ -71,10 +71,7 @@ public:
 
     std::optional<Scalar>
     getGroupInjectionTargetRate(const Group& group,
-                                const WellState<Scalar, IndexTraits>& well_state,
-                                const GroupState<Scalar>& group_state,
-                                const Schedule& schedule,
-                                const SummaryState& summaryState,
+                                const WellGroupHelperType& wgHelper,
                                 const InjectorType& injectorType,
                                 const RateConvFunc& rateConverter,
                                 Scalar efficiencyFactor,
@@ -82,10 +79,7 @@ public:
 
     template<class EvalWell>
     void getGroupProductionControl(const Group& group,
-                                   const WellState<Scalar, IndexTraits>& well_state,
-                                   const GroupState<Scalar>& group_state,
-                                   const Schedule& schedule,
-                                   const SummaryState& summaryState,
+                                   const WellGroupHelperType& wgHelper,
                                    const EvalWell& bhp,
                                    const std::vector<EvalWell>& rates,
                                    const RateConvFunc& rateConverter,
@@ -94,15 +88,12 @@ public:
                                    DeferredLogger& deferred_logger) const;
 
     Scalar getGroupProductionTargetRate(const Group& group,
-                                        const WellState<Scalar, IndexTraits>& well_state,
-                                        const GroupState<Scalar>& group_state,
-                                        const Schedule& schedule,
-                                        const SummaryState& summaryState,
+                                        const WellGroupHelperType& wgHelper,
                                         const RateConvFunc& rateConverter,
                                         Scalar efficiencyFactor,
                                         DeferredLogger& deferred_logger) const;
 
-    static std::pair<Scalar, Group::ProductionCMode> getAutoChokeGroupProductionTargetRate(const std::string& name,
+    static std::pair<Scalar, Group::ProductionCMode> getAutoChokeGroupProductionTargetRate(const Group& bottom_group,
                                                         const Group& group,
                                                         const WellGroupHelperType& wgHelper,
                                                         const Schedule& schedule,

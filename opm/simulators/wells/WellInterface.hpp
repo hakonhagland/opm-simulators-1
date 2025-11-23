@@ -157,13 +157,13 @@ public:
                       const std::vector<Scalar>& B_avg,
                       const bool changed_to_open_this_step);
 
-    virtual ConvergenceReport getWellConvergence(const Simulator& simulator,
-                                                 const WellStateType& well_state,
+    virtual ConvergenceReport getWellConvergence(const WellGroupHelperType& wgHelper,
                                                  const std::vector<Scalar>& B_avg,
                                                  DeferredLogger& deferred_logger,
                                                  const bool relax_tolerance) const = 0;
 
     virtual void solveEqAndUpdateWellState(const Simulator& simulator,
+                                           const WellGroupHelperType& wgHelper,
                                            WellStateType& well_state,
                                            DeferredLogger& deferred_logger) = 0;
 
@@ -175,8 +175,8 @@ public:
 
     void assembleWellEqWithoutIteration(const Simulator& simulator,
                                         const double dt,
+                                        const WellGroupHelperType& wgHelper,
                                         WellStateType& well_state,
-                                        const GroupState<Scalar>& group_state,
                                         DeferredLogger& deferred_logger);
 
     // TODO: better name or further refactoring the function to make it more clear
@@ -203,6 +203,7 @@ public:
     /// xw to update Well State
     virtual void recoverWellSolutionAndUpdateWellState(const Simulator& simulator,
                                                        const BVector& x,
+                                                       const WellGroupHelperType& wgHelper,
                                                        WellStateType& well_state,
                                                        DeferredLogger& deferred_logger) = 0;
 
@@ -232,23 +233,20 @@ public:
                                                    std::vector<Scalar>& well_flux,
                                                    DeferredLogger& deferred_logger) const = 0;
 
-    bool wellUnderZeroRateTarget(const Simulator& simulator,
-                                 const WellStateType& well_state,
+    bool wellUnderZeroRateTarget(const WellGroupHelperType& wgHelper,
                                  DeferredLogger& deferred_logger) const;
 
-    bool wellUnderZeroGroupRateTarget(const Simulator& simulator,
-                                      const WellStateType& well_state,
-                                      DeferredLogger& deferred_logger,
-                                      std::optional<bool> group_control = std::nullopt) const;
-
-    bool stoppedOrZeroRateTarget(const Simulator& simulator,
-                                 const WellStateType& well_state,
+    bool stoppedOrZeroRateTarget(const WellGroupHelperType& wgHelper,
                                  DeferredLogger& deferred_logger) const;
 
     bool updateWellStateWithTHPTargetProd(const Simulator& simulator,
                                           WellStateType& well_state,
                                           const WellGroupHelperType& wgHelper,
                                           DeferredLogger& deferred_logger) const;
+
+    bool wellUnderZeroGroupRateTarget(const WellGroupHelperType& wgHelper,
+                                      DeferredLogger& deferred_logger,
+                                      const std::optional<bool> group_control = std::nullopt) const;
 
     enum class IndividualOrGroup { Individual, Group, Both };
     bool updateWellControl(const Simulator& simulator,
@@ -267,12 +265,11 @@ public:
                                                   const bool fixed_control = false,
                                                   const bool fixed_status = false);
 
-    virtual void updatePrimaryVariables(const Simulator& simulator,
-                                        const WellStateType& well_state,
+    virtual void updatePrimaryVariables(const WellGroupHelperType& wgHelper,
                                         DeferredLogger& deferred_logger) = 0;
 
     virtual void calculateExplicitQuantities(const Simulator& simulator,
-                                             const WellStateType& well_state,
+                                             const WellGroupHelperType& wgHelper,
                                              DeferredLogger& deferred_logger) = 0; // should be const?
 
     virtual void updateProductivityIndex(const Simulator& simulator,
@@ -407,8 +404,8 @@ protected:
                                                 const double dt,
                                                 const WellInjectionControls& inj_controls,
                                                 const WellProductionControls& prod_controls,
+                                                const WellGroupHelperType& wgHelper,
                                                 WellStateType& well_state,
-                                                const GroupState<Scalar>& group_state,
                                                 DeferredLogger& deferred_logger) = 0;
 
     // iterate well equations with the specified control until converged
@@ -422,6 +419,7 @@ protected:
 
     virtual void updateIPRImplicit(const Simulator& simulator,
                                    WellStateType& well_state,
+                                   const WellGroupHelperType& wgHelper,
                                    DeferredLogger& deferred_logger) = 0;
 
     bool iterateWellEquations(const Simulator& simulator,

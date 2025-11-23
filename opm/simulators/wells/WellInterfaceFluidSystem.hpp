@@ -106,28 +106,19 @@ protected:
 
     std::optional<Scalar>
     getGroupInjectionTargetRate(const Group& group,
-                                const WellState<Scalar, IndexTraits>& well_state,
-                                const GroupState<Scalar>& group_state,
-                                const Schedule& schedule,
-                                const SummaryState& summaryState,
+                                const WellGroupHelperType& wgHelper,
                                 const InjectorType& injectorType,
                                 Scalar efficiencyFactor,
                                 DeferredLogger& deferred_logger) const;
 
     Scalar
     getGroupProductionTargetRate(const Group& group,
-                                 const WellState<Scalar, IndexTraits>& well_state,
-                                 const GroupState<Scalar>& group_state,
-                                 const Schedule& schedule,
-                                 const SummaryState& summaryState,
+                                 const WellGroupHelperType& wgHelper,
                                  Scalar efficiencyFactor,
                                  DeferredLogger& deferred_logger) const;
 
-    bool zeroGroupRateTarget(const SummaryState& summary_state,
-                             const Schedule& schedule,
-                             const WellState<Scalar, IndexTraits>& well_state,
-                             const GroupState<Scalar>& group_state,
-                             DeferredLogger& deferredLogger) const;
+    bool zeroGroupRateTarget(const WellGroupHelperType& wgHelper,
+                             DeferredLogger& deferred_logger) const;
 
     // For the conversion between the surface volume rate and reservoir voidage rate
     const RateConverterType& rateConverter_;

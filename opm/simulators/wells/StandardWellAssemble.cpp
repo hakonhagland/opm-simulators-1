@@ -33,6 +33,7 @@
 #include <opm/simulators/wells/StandardWellPrimaryVariables.hpp>
 #include <opm/simulators/wells/WellAssemble.hpp>
 #include <opm/simulators/wells/WellBhpThpCalculator.hpp>
+#include <opm/simulators/wells/WellGroupHelper.hpp>
 #include <opm/simulators/wells/WellInterfaceFluidSystem.hpp>
 #include <opm/simulators/wells/WellState.hpp>
 
@@ -83,10 +84,7 @@ private:
 template<class FluidSystem, class Indices>
 void
 StandardWellAssemble<FluidSystem,Indices>::
-assembleControlEq(const WellState<Scalar, IndexTraits>& well_state,
-                  const GroupState<Scalar>& group_state,
-                  const Schedule& schedule,
-                  const SummaryState& summaryState,
+assembleControlEq(const WellGroupHelperType& wgHelper,
                   const Well::InjectionControls& inj_controls,
                   const Well::ProductionControls& prod_controls,
                   const PrimaryVariables& primary_variables,
@@ -127,19 +125,16 @@ assembleControlEq(const WellState<Scalar, IndexTraits>& well_state,
                                                  // Setup function for evaluation of BHP from THP (used only if needed).
         std::function<EvalWell()> bhp_from_thp = [&]() {
             const auto rates = getRates();
-            return WellBhpThpCalculator(well_).calculateBhpFromThp(well_state,
+            return WellBhpThpCalculator(well_).calculateBhpFromThp(wgHelper.wellState(),
                                                                    rates,
                                                                    well,
-                                                                   summaryState,
+                                                                   wgHelper.summaryState(),
                                                                    rho,
                                                                    deferred_logger);
         };
 
         WellAssemble(well_).
-            assembleControlEqInj(well_state,
-                                 group_state,
-                                 schedule,
-                                 summaryState,
+            assembleControlEqInj(wgHelper,
                                  inj_controls,
                                  primary_variables.eval(PrimaryVariables::Bhp),
                                  injection_rate,
@@ -151,18 +146,15 @@ assembleControlEq(const WellState<Scalar, IndexTraits>& well_state,
         const auto rates = getRates();
                                             // Setup function for evaluation of BHP from THP (used only if needed).
         std::function<EvalWell()> bhp_from_thp = [&]() {
-            return WellBhpThpCalculator(well_).calculateBhpFromThp(well_state,
+            return WellBhpThpCalculator(well_).calculateBhpFromThp(wgHelper.wellState(),
                                                                    rates,
                                                                    well,
-                                                                   summaryState,
+                                                                   wgHelper.summaryState(),
                                                                    rho,
                                                                    deferred_logger);
         };
         WellAssemble(well_).
-            assembleControlEqProd(well_state,
-                                  group_state,
-                                  schedule,
-                                  summaryState,
+            assembleControlEqProd(wgHelper,
                                   prod_controls,
                                   primary_variables.eval(PrimaryVariables::Bhp),
                                   rates,
