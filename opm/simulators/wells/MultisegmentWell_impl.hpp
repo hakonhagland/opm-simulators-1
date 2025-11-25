@@ -154,11 +154,12 @@ namespace Opm
     template <typename TypeTag>
     void
     MultisegmentWell<TypeTag>::
-    updatePrimaryVariables(const WellGroupHelperType& wgHelper,
+    updatePrimaryVariables(const Simulator& simulator,
+                           const WellGroupHelperType& wgHelper,
                            DeferredLogger& deferred_logger)
     {
         const auto& well_state = wgHelper.wellState();
-        const bool stop_or_zero_rate_target = this->stoppedOrZeroRateTarget(wgHelper, deferred_logger);
+        const bool stop_or_zero_rate_target = this->stoppedOrZeroRateTarget(simulator, wgHelper, deferred_logger);
         this->primary_variables_.update(well_state, stop_or_zero_rate_target);
     }
 
@@ -201,11 +202,13 @@ namespace Opm
     template <typename TypeTag>
     ConvergenceReport
     MultisegmentWell<TypeTag>::
-    getWellConvergence(const WellGroupHelperType& wgHelper,
+    getWellConvergence(const Simulator& simulator,
+                       const WellGroupHelperType& wgHelper,
                        const std::vector<Scalar>& B_avg,
                        DeferredLogger& deferred_logger,
                        const bool relax_tolerance) const
     {
+        (void)simulator; // Unused in MultisegmentWell, but needed for uniform interface
         const auto& well_state = wgHelper.wellState();
         return this->MSWEval::getWellConvergence(well_state,
                                                  B_avg,
@@ -730,7 +733,7 @@ namespace Opm
         const Scalar dFLimit = this->param_.dwell_fraction_max_;
         const Scalar max_pressure_change = this->param_.max_pressure_change_ms_wells_;
         const bool stop_or_zero_rate_target =
-            this->stoppedOrZeroRateTarget(wgHelper, deferred_logger);
+            this->stoppedOrZeroRateTarget(simulator, wgHelper, deferred_logger);
         this->primary_variables_.updateNewton(dwells,
                                               relaxation_factor,
                                               dFLimit,
@@ -762,7 +765,7 @@ namespace Opm
                                 const WellGroupHelperType& wgHelper,
                                 DeferredLogger& deferred_logger)
     {
-        updatePrimaryVariables(wgHelper, deferred_logger);
+        updatePrimaryVariables(simulator, wgHelper, deferred_logger);
         computePerfCellPressDiffs(simulator);
         computeInitialSegmentFluids(simulator, deferred_logger);
     }
@@ -1540,7 +1543,7 @@ namespace Opm
                 return false;
         }
 
-        updatePrimaryVariables(wgHelper, deferred_logger);
+        updatePrimaryVariables(simulator, wgHelper, deferred_logger);
 
         std::vector<std::vector<Scalar> > residual_history;
         std::vector<Scalar> measure_history;
@@ -1560,7 +1563,7 @@ namespace Opm
             assembleWellEqWithoutIteration(simulator, dt, inj_controls, prod_controls, wgHelper,
                                            well_state, deferred_logger);
 
-            const auto report = getWellConvergence(wgHelper, Base::B_avg_, deferred_logger, relax_convergence);
+            const auto report = getWellConvergence(simulator, wgHelper, Base::B_avg_, deferred_logger, relax_convergence);
             if (report.converged()) {
                 converged = true;
                 break;
@@ -1582,7 +1585,7 @@ namespace Opm
             bool min_relaxation_reached = this->update_relaxation_factor(measure_history, relaxation_factor, this->regularize_, deferred_logger);
             if (min_relaxation_reached || this->repeatedStagnation(measure_history, this->regularize_, deferred_logger)) {
                 // try last attempt with relaxed tolerances
-                const auto reportStag = getWellConvergence(wgHelper, Base::B_avg_, deferred_logger, true);
+                const auto reportStag = getWellConvergence(simulator, wgHelper, Base::B_avg_, deferred_logger, true);
                 if (reportStag.converged()) {
                     converged = true;
                     std::string message = fmt::format("Well stagnates/oscillates but {} manages to get converged with relaxed tolerances in {} inner iterations."
@@ -1664,7 +1667,7 @@ namespace Opm
                 return false;
         }
 
-        updatePrimaryVariables(wgHelper, deferred_logger);
+        updatePrimaryVariables(simulator, wgHelper, deferred_logger);
 
         std::vector<std::vector<Scalar> > residual_history;
         std::vector<Scalar> measure_history;
@@ -1692,7 +1695,7 @@ namespace Opm
         // don't allow opening wells that has a stopped well status
         const bool allow_open = well_state.well(this->index_of_well_).status == WellStatus::OPEN;
         // don't allow switcing for wells under zero rate target or requested fixed status and control
-        const bool allow_switching = !this->wellUnderZeroRateTarget(wgHelper, deferred_logger) &&
+        const bool allow_switching = !this->wellUnderZeroRateTarget(simulator, wgHelper, deferred_logger) &&
                                      (!fixed_control || !fixed_status) && allow_open;
         bool final_check = false;
         // well needs to be set operable or else solving/updating of re-opened wells is skipped
@@ -1734,7 +1737,7 @@ namespace Opm
                                            well_state, deferred_logger);
 
 
-            const auto report = getWellConvergence(wgHelper, Base::B_avg_, deferred_logger, relax_convergence);
+            const auto report = getWellConvergence(simulator, wgHelper, Base::B_avg_, deferred_logger, relax_convergence);
             converged = report.converged();
             if (this->parallel_well_info_.communication().size() > 1 &&
                 this->parallel_well_info_.communication().max(converged) != this->parallel_well_info_.communication().min(converged)) {
@@ -1973,7 +1976,7 @@ namespace Opm
 
             // the fourth equation, the pressure drop equation
             if (seg == 0) { // top segment, pressure equation is the control equation
-                const bool stopped_or_zero_target = this->stoppedOrZeroRateTarget(wgHelper, deferred_logger);
+                const bool stopped_or_zero_target = this->stoppedOrZeroRateTarget(simulator, wgHelper, deferred_logger);
                 MultisegmentWellAssemble(*this).
                         assembleControlEq(wgHelper,
                                         inj_controls,

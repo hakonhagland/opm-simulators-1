@@ -144,7 +144,8 @@ getWellConvergence(const Domain& domain,
     for (const auto& well : wellModel_.localNonshutWells()) {
         if ((this->well_domain().at(well->name()) == domain.index)) {
             if (well->isOperableAndSolvable() || well->wellIsStopped()) {
-                report += well->getWellConvergence(wellModel_.wgHelper(),
+                report += well->getWellConvergence(wellModel_.simulator(),
+                                                   wellModel_.wgHelper(),
                                                    B_avg,
                                                    local_deferredLogger,
                                                    relax_tolerance);

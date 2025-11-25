@@ -193,7 +193,7 @@ namespace Opm
                       DeferredLogger& deferred_logger) /* const */
     {
         OPM_TIMEFUNCTION();
-        if (stoppedOrZeroRateTarget(wgHelper, deferred_logger)) {
+        if (stoppedOrZeroRateTarget(simulator, wgHelper, deferred_logger)) {
             return false;
         }
 
@@ -265,7 +265,7 @@ namespace Opm
                 this->well_control_log_.push_back(from);
             }
             updateWellStateWithTarget(simulator, wgHelper, well_state, deferred_logger);
-            updatePrimaryVariables(wgHelper, deferred_logger);
+            updatePrimaryVariables(simulator, wgHelper, deferred_logger);
         }
 
         return changed;
@@ -296,7 +296,7 @@ namespace Opm
         }
         const bool oscillating = std::count(this->well_control_log_.begin(), this->well_control_log_.end(), from) >= this->param_.max_number_of_well_switches_;
 
-        if (oscillating || this->wellUnderZeroRateTarget(wgHelper, deferred_logger) || !(well_state.well(this->index_of_well_).status == WellStatus::OPEN)) {
+        if (oscillating || this->wellUnderZeroRateTarget(simulator, wgHelper, deferred_logger) || !(well_state.well(this->index_of_well_).status == WellStatus::OPEN)) {
            return false;
         }
 
@@ -333,7 +333,7 @@ namespace Opm
                             // don't call for thp since this might trigger additional local solve
                             updateWellStateWithTarget(simulator, wgHelper, well_state, deferred_logger);
                         }
-                        updatePrimaryVariables(wgHelper, deferred_logger);
+                        updatePrimaryVariables(simulator, wgHelper, deferred_logger);
                     }
                 }
                 return changed;
@@ -417,7 +417,7 @@ namespace Opm
 
         scaleSegmentRatesAndPressure(well_state_copy);
         calculateExplicitQuantities(simulator, wgHelper_copy, deferred_logger);
-        updatePrimaryVariables(wgHelper_copy, deferred_logger);
+        updatePrimaryVariables(simulator, wgHelper_copy, deferred_logger);
 
         if (this->isProducer()) {
             const auto& schedule = simulator.vanguard().schedule();
@@ -468,7 +468,7 @@ namespace Opm
             for (int p = 0; p < np; ++p) {
                 ws.well_potentials[p] = std::max(Scalar{0.0}, potentials[p]);
             }
-            const bool under_zero_target = this->wellUnderZeroGroupRateTarget(wgHelper_copy, deferred_logger);
+            const bool under_zero_target = this->wellUnderZeroGroupRateTarget(simulator, wgHelper_copy, deferred_logger);
             this->updateWellTestState(well_state_copy.well(this->indexOfWell()),
                                      simulation_time,
                                       /*writeMessageToOPMLog=*/ false,
@@ -623,7 +623,7 @@ namespace Opm
 
         const bool isThp = ws.production_cmode == Well::ProducerCMode::THP;
         // check stability of solution under thp-control
-        if (converged && !stoppedOrZeroRateTarget(wgHelper, deferred_logger) && isThp) {
+        if (converged && !stoppedOrZeroRateTarget(simulator, wgHelper, deferred_logger) && isThp) {
             auto rates = well_state.well(this->index_of_well_).surface_rates;
             this->adaptRatesForVFP(rates);
             this->updateIPRImplicit(simulator, well_state, wgHelper, deferred_logger);
@@ -1006,7 +1006,7 @@ namespace Opm
             );
 
             if (converged) {
-                const bool zero_target = this->wellUnderZeroRateTarget(wgHelper, deferred_logger);
+                const bool zero_target = this->wellUnderZeroRateTarget(simulator, wgHelper, deferred_logger);
                 if (this->wellIsStopped() && !zero_target && nonzero_rate_original) {
                     // Well had non-zero rate, but was stopped during local well-solve. We re-open the well
                     // for the next global iteration, but if the zero rate persists, it will be stopped.
@@ -1664,7 +1664,9 @@ namespace Opm
     template<typename TypeTag>
     bool
     WellInterface<TypeTag>::
-    wellUnderZeroRateTarget(const WellGroupHelperType& wgHelper, DeferredLogger& deferred_logger) const
+    wellUnderZeroRateTarget(const Simulator& simulator,
+                           const WellGroupHelperType& wgHelper,
+                           DeferredLogger& deferred_logger) const
     {
         OPM_TIMEFUNCTION();
         const auto& well_state = wgHelper.wellState();
@@ -1675,13 +1677,14 @@ namespace Opm
             const auto& summaryState = wgHelper.summaryState();
             return this->wellUnderZeroRateTargetIndividual(summaryState, well_state);
         } else {
-            return this->wellUnderZeroGroupRateTarget(wgHelper, deferred_logger, isGroupControlled);
+            return this->wellUnderZeroGroupRateTarget(simulator, wgHelper, deferred_logger, isGroupControlled);
         }
     }
 
     template <typename TypeTag>
     bool
-    WellInterface<TypeTag>::wellUnderZeroGroupRateTarget(const WellGroupHelperType& wgHelper,
+    WellInterface<TypeTag>::wellUnderZeroGroupRateTarget(const Simulator& simulator,
+                                                         const WellGroupHelperType& wgHelper,
                                                          DeferredLogger& deferred_logger,
                                                          const std::optional<bool> group_control) const
     {
@@ -1689,7 +1692,12 @@ namespace Opm
         // Check if well is under zero rate target from group
         const bool isGroupControlled = group_control.value_or(this->wellUnderGroupControl(well_state.well(this->index_of_well_)));
         if (isGroupControlled) {
-            return this->zeroGroupRateTarget(wgHelper, deferred_logger);
+            // Extract REAL group_state from simulator (bypassing wgHelper)
+            // This matches master's behavior and prevents using empty GroupState
+            const auto& group_state = simulator.problem().wellModel().groupState();
+            WellGroupHelperType wgHelper_copy = wgHelper;
+            auto group_guard = wgHelper_copy.pushGroupState(group_state);
+            return this->zeroGroupRateTarget(wgHelper_copy, deferred_logger);
         }
         return false;
     }
@@ -1697,13 +1705,14 @@ namespace Opm
     template<typename TypeTag>
     bool
     WellInterface<TypeTag>::
-    stoppedOrZeroRateTarget(const WellGroupHelperType& wgHelper,
+    stoppedOrZeroRateTarget(const Simulator& simulator,
+                            const WellGroupHelperType& wgHelper,
                             DeferredLogger& deferred_logger) const
     {
         // Check if well is stopped or under zero rate control, either
         // directly or from group.
         return this->wellIsStopped()
-            || this->wellUnderZeroRateTarget(wgHelper, deferred_logger);
+            || this->wellUnderZeroRateTarget(simulator, wgHelper, deferred_logger);
     }
 
     template<typename TypeTag>

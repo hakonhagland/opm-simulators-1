@@ -99,7 +99,8 @@ namespace Opm {
         void scaleSegmentRatesAndPressure(WellStateType& well_state) const override;
 
         /// check whether the well equations get converged for this well
-        ConvergenceReport getWellConvergence(const WellGroupHelperType& wgHelper,
+        ConvergenceReport getWellConvergence(const Simulator& simulator,
+                                             const WellGroupHelperType& wgHelper,
                                              const std::vector<Scalar>& B_avg,
                                              DeferredLogger& deferred_logger,
                                              const bool relax_tolerance) const override;
@@ -124,7 +125,8 @@ namespace Opm {
                                    std::vector<Scalar>& well_potentials,
                                    DeferredLogger& deferred_logger) override;
 
-        void updatePrimaryVariables(const WellGroupHelperType& wgHelper,
+        void updatePrimaryVariables(const Simulator& simulator,
+                                    const WellGroupHelperType& wgHelper,
                                     DeferredLogger& deferred_logger) override;
 
         void solveEqAndUpdateWellState(const Simulator& simulator,

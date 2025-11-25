@@ -516,7 +516,7 @@ namespace Opm {
                         well->scaleSegmentRatesAndPressure(this->wellState());
                         well->calculateExplicitQuantities(simulator_, this->wgHelper(), local_deferredLogger);
                         well->updateWellStateWithTarget(simulator_, this->wgHelper(), this->wellState(), local_deferredLogger);
-                        well->updatePrimaryVariables(this->wgHelper(), local_deferredLogger);
+                        well->updatePrimaryVariables(simulator_, this->wgHelper(), local_deferredLogger);
                         well->solveWellEquation(
                             simulator_, this->wgHelper(), this->wellState(), local_deferredLogger
                         );
@@ -1801,7 +1801,7 @@ namespace Opm {
         for (const auto& well : well_container_) {
             if (well->isOperableAndSolvable() || well->wellIsStopped()) {
                 local_report += well->getWellConvergence(
-                        this->wgHelper(), B_avg, local_deferredLogger,
+                        simulator_, this->wgHelper(), B_avg, local_deferredLogger,
                         iterationIdx > param_.strict_outer_iter_wells_);
             } else {
                 ConvergenceReport report;
@@ -2090,7 +2090,7 @@ namespace Opm {
                                        this->wgHelper(),
                                        local_deferredLogger);
             const bool under_zero_target =
-                well->wellUnderZeroGroupRateTarget(this->wgHelper(), local_deferredLogger);
+                well->wellUnderZeroGroupRateTarget(simulator_, this->wgHelper(), local_deferredLogger);
             well->updateWellTestState(this->wellState().well(wname),
                                       simulationTime,
                                       /*writeMessageToOPMLog=*/ true,
@@ -2267,7 +2267,7 @@ namespace Opm {
                 well->updateWellStateWithTarget(
                     simulator_, this->wgHelper(), this->wellState(), deferred_logger
                 );
-                well->updatePrimaryVariables(this->wgHelper(), deferred_logger);
+                well->updatePrimaryVariables(simulator_, this->wgHelper(), deferred_logger);
                 // There is no new well control change input within a report step,
                 // so next time step, the well does not consider to have effective events anymore.
                 events.clearEvent(WellState<Scalar, IndexTraits>::event_mask);
@@ -2351,7 +2351,7 @@ namespace Opm {
     updatePrimaryVariables(DeferredLogger& deferred_logger)
     {
         for (const auto& well : well_container_) {
-            well->updatePrimaryVariables(this->wgHelper(), deferred_logger);
+            well->updatePrimaryVariables(simulator_, this->wgHelper(), deferred_logger);
         }
     }
 

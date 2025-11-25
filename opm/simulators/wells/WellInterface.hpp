@@ -157,7 +157,8 @@ public:
                       const std::vector<Scalar>& B_avg,
                       const bool changed_to_open_this_step);
 
-    virtual ConvergenceReport getWellConvergence(const WellGroupHelperType& wgHelper,
+    virtual ConvergenceReport getWellConvergence(const Simulator& simulator,
+                                                 const WellGroupHelperType& wgHelper,
                                                  const std::vector<Scalar>& B_avg,
                                                  DeferredLogger& deferred_logger,
                                                  const bool relax_tolerance) const = 0;
@@ -233,10 +234,12 @@ public:
                                                    std::vector<Scalar>& well_flux,
                                                    DeferredLogger& deferred_logger) const = 0;
 
-    bool wellUnderZeroRateTarget(const WellGroupHelperType& wgHelper,
+    bool wellUnderZeroRateTarget(const Simulator& simulator,
+                                 const WellGroupHelperType& wgHelper,
                                  DeferredLogger& deferred_logger) const;
 
-    bool stoppedOrZeroRateTarget(const WellGroupHelperType& wgHelper,
+    bool stoppedOrZeroRateTarget(const Simulator& simulator,
+                                 const WellGroupHelperType& wgHelper,
                                  DeferredLogger& deferred_logger) const;
 
     bool updateWellStateWithTHPTargetProd(const Simulator& simulator,
@@ -244,7 +247,8 @@ public:
                                           const WellGroupHelperType& wgHelper,
                                           DeferredLogger& deferred_logger) const;
 
-    bool wellUnderZeroGroupRateTarget(const WellGroupHelperType& wgHelper,
+    bool wellUnderZeroGroupRateTarget(const Simulator& simulator,
+                                      const WellGroupHelperType& wgHelper,
                                       DeferredLogger& deferred_logger,
                                       const std::optional<bool> group_control = std::nullopt) const;
 
@@ -265,7 +269,8 @@ public:
                                                   const bool fixed_control = false,
                                                   const bool fixed_status = false);
 
-    virtual void updatePrimaryVariables(const WellGroupHelperType& wgHelper,
+    virtual void updatePrimaryVariables(const Simulator& simulator,
+                                        const WellGroupHelperType& wgHelper,
                                         DeferredLogger& deferred_logger) = 0;
 
     virtual void calculateExplicitQuantities(const Simulator& simulator,

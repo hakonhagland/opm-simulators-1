@@ -141,7 +141,8 @@ namespace Opm
                           const bool changed_to_open_this_step) override;
 
         /// check whether the well equations get converged for this well
-        virtual ConvergenceReport getWellConvergence(const WellGroupHelperType& wgHelper,
+        virtual ConvergenceReport getWellConvergence(const Simulator& simulator,
+                                                     const WellGroupHelperType& wgHelper,
                                                      const std::vector<Scalar>& B_avg,
                                                      DeferredLogger& deferred_logger,
                                                      const bool relax_tolerance) const override;
@@ -166,7 +167,8 @@ namespace Opm
                                    std::vector<Scalar>& well_potentials,
                                    DeferredLogger& deferred_logger) /* const */ override;
 
-        void updatePrimaryVariables(const WellGroupHelperType& wgHelper,
+        void updatePrimaryVariables(const Simulator& simulator,
+                                    const WellGroupHelperType& wgHelper,
                                     DeferredLogger& deferred_logger) override;
 
         void solveEqAndUpdateWellState(const Simulator& simulator,

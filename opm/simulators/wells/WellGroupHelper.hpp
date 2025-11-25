@@ -91,7 +91,7 @@ public:
     class GroupStateGuard
     {
     public:
-        GroupStateGuard(WellGroupHelper& wgHelper, GroupState<Scalar>& group_state)
+        GroupStateGuard(WellGroupHelper& wgHelper, const GroupState<Scalar>& group_state)
             : wgHelper_ {wgHelper}
             , previous_state_ptr_ {wgHelper_.group_state_}
         {
@@ -197,7 +197,7 @@ public:
         return this->phase_usage_info_;
     }
 
-    GroupStateGuard pushGroupState(GroupState<Scalar>& group_state)
+    GroupStateGuard pushGroupState(const GroupState<Scalar>& group_state)
     {
         return GroupStateGuard(*this, group_state);
     }
