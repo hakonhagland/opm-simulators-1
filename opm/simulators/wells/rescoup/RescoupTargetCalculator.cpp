@@ -36,19 +36,19 @@ template <class Scalar, class IndexTraits>
 RescoupTargetCalculator<Scalar, IndexTraits>::
 RescoupTargetCalculator(
     GuideRateHandler<Scalar, IndexTraits>& guide_rate_handler,
-    WellGroupHelper<Scalar, IndexTraits>& wg_helper
+    GroupStateHelper<Scalar, IndexTraits>& group_state_helper
 )
     : guide_rate_handler_{guide_rate_handler}
-    , wg_helper_{wg_helper}
-    , well_state_{wg_helper.wellState()}
-    , group_state_{wg_helper.groupState()}
-    , report_step_idx_{wg_helper.reportStepIdx()}
-    , schedule_{wg_helper.schedule()}
-    , summary_state_{wg_helper.summaryState()}
+    , group_state_helper_{group_state_helper}
+    , well_state_{group_state_helper.wellState()}
+    , group_state_{group_state_helper.groupState()}
+    , report_step_idx_{group_state_helper.reportStepIdx()}
+    , schedule_{group_state_helper.schedule()}
+    , summary_state_{group_state_helper.summaryState()}
     , deferred_logger_{guide_rate_handler.deferredLogger()}
-    , reservoir_coupling_master_{wg_helper.reservoirCouplingMaster()}
+    , reservoir_coupling_master_{group_state_helper.reservoirCouplingMaster()}
     , well_model_{guide_rate_handler.wellModel()}
-    , phase_usage_{wg_helper.phaseUsage()}
+    , phase_usage_{group_state_helper.phaseUsage()}
 {
 }
 
@@ -110,7 +110,7 @@ calculateMasterGroupTargetsAndSendToSlaves()
     if (comm.rank() == 0) {
         GroupTargetCalculator calculator{
             this->well_model_,
-            this->wg_helper_,
+            this->group_state_helper_,
             this->deferred_logger_
         };
         auto num_slaves = rescoup_master.numSlaves();
@@ -128,7 +128,7 @@ calculateMasterGroupTargetsAndSendToSlaves()
 
 // NOTE on reuse and future refactor:
 // This method relies on GroupTargetCalculator to compute group-level targets
-// for reservoir coupling. Similar target logic exists in WellGroupHelper
+// for reservoir coupling. Similar target logic exists in GroupStateHelper
 // (checkGroupContraintsProd/getWellGroupTargetProducer and
 // checkGroupContraintsInj/getWellGroupTargetInjector). The plan is to make
 // GroupTargetCalculator the general implementation and refactor the existing

@@ -28,7 +28,7 @@
 #include <opm/simulators/wells/FractionCalculator.hpp>
 #include <opm/simulators/wells/GroupState.hpp>
 #include <opm/simulators/wells/TargetCalculator.hpp>
-#include <opm/simulators/wells/WellGroupHelper.hpp>
+#include <opm/simulators/wells/GroupStateHelper.hpp>
 #include <opm/simulators/wells/WellState.hpp>
 
 #include <variant>
@@ -60,10 +60,10 @@ public:
         Group::InjectionCMode,
         Group::ProductionCMode
     >;
-    using FractionCalculator = WGHelpers::FractionCalculator<Scalar, IndexTraits>;
-    using InjectionTargetCalculator = WGHelpers::InjectionTargetCalculator<Scalar, IndexTraits>;
-    using TargetCalculator = WGHelpers::TargetCalculator<Scalar, IndexTraits>;
-    using WellGroupHelperType = WellGroupHelper<Scalar, IndexTraits>;
+    using FractionCalculator = GroupStateHelpers::FractionCalculator<Scalar, IndexTraits>;
+    using InjectionTargetCalculator = GroupStateHelpers::InjectionTargetCalculator<Scalar, IndexTraits>;
+    using TargetCalculator = GroupStateHelpers::TargetCalculator<Scalar, IndexTraits>;
+    using GroupStateHelperType = GroupStateHelper<Scalar, IndexTraits>;
 
     /** Generic result for a computed target and its control mode. */
     struct TargetInfo {
@@ -130,7 +130,7 @@ public:
             return this->parent_calculator_.wellModel();
         }
         const WellState<Scalar, IndexTraits>& wellState() const { return this->parent_calculator_.wellState(); }
-        const WellGroupHelper<Scalar, IndexTraits>& wgHelper() const { return this->parent_calculator_.wgHelper(); }
+        const GroupStateHelperType& groupStateHelper() const { return this->parent_calculator_.groupStateHelper(); }
     private:
         std::optional<TargetInfo> calculateGroupTargetRecursive_(const Group& group, const Scalar efficiency_factor);
         TargetInfo getTargetNoGuideRate_(const Group& group);
@@ -181,7 +181,7 @@ public:
         const Schedule& schedule() const { return this->parent_calculator_.schedule(); }
         const SummaryState& summaryState() const { return this->parent_calculator_.summaryState(); }
         const WellState<Scalar, IndexTraits>& wellState() const { return this->parent_calculator_.wellState(); }
-        const WellGroupHelper<Scalar, IndexTraits>& wgHelper() const { return this->parent_calculator_.wgHelper(); }
+        const GroupStateHelperType& groupStateHelper() const { return this->parent_calculator_.groupStateHelper(); }
 
     private:
         Scalar getGratSalesInjectionTarget_(const Group& group) const { return this->parent_calculator_.getGratSalesInjectionTarget(group); }
@@ -217,7 +217,7 @@ public:
      */
     GroupTargetCalculator(
         const BlackoilWellModelGeneric<Scalar, IndexTraits>& well_model,
-        const WellGroupHelper<Scalar, IndexTraits>& wg_helper,
+        const GroupStateHelperType& group_state_helper,
         DeferredLogger& deferred_logger
     );
     DeferredLogger& deferredLogger() { return this->deferred_logger_; }
@@ -238,10 +238,10 @@ public:
     const SummaryState& summaryState() const { return this->summary_state_; }
     const BlackoilWellModelGeneric<Scalar, IndexTraits>& wellModel() const { return this->well_model_; }
     const WellState<Scalar, IndexTraits>& wellState() const { return this->well_state_; }
-    const WellGroupHelper<Scalar, IndexTraits>& wgHelper() const { return this->wg_helper_; }
+    const GroupStateHelperType& groupStateHelper() const { return this->group_state_helper_; }
 private:
     const BlackoilWellModelGeneric<Scalar, IndexTraits>& well_model_;
-    const WellGroupHelper<Scalar, IndexTraits>& wg_helper_;
+    const GroupStateHelperType& group_state_helper_;
     const WellState<Scalar, IndexTraits >& well_state_;
     const GroupState<Scalar>& group_state_;
     const Schedule& schedule_;

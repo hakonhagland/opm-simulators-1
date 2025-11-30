@@ -33,20 +33,20 @@ template<class Scalar, class IndexTraits>
 GroupTargetCalculator<Scalar, IndexTraits>::
 GroupTargetCalculator(
     const BlackoilWellModelGeneric<Scalar, IndexTraits>& well_model,
-    const WellGroupHelper<Scalar, IndexTraits>& wg_helper,
+    const GroupStateHelperType& group_state_helper,
     DeferredLogger& deferred_logger
 ) :
     well_model_{well_model},
-    wg_helper_{wg_helper},
-    well_state_{wg_helper.wellState()},
-    group_state_{wg_helper.groupState()},
-    schedule_{wg_helper.schedule()},
-    summary_state_{wg_helper.summaryState()},
-    phase_usage_{wg_helper.phaseUsage()},
-    guide_rate_{wg_helper.guideRate()},
-    report_step_idx_{wg_helper.reportStepIdx()},
+    group_state_helper_{group_state_helper},
+    well_state_{group_state_helper.wellState()},
+    group_state_{group_state_helper.groupState()},
+    schedule_{group_state_helper.schedule()},
+    summary_state_{group_state_helper.summaryState()},
+    phase_usage_{group_state_helper.phaseUsage()},
+    guide_rate_{group_state_helper.guideRate()},
+    report_step_idx_{group_state_helper.reportStepIdx()},
     deferred_logger_{deferred_logger},
-    resv_coeffs_inj_(wg_helper.phaseUsage().numPhases, 0.0)
+    resv_coeffs_inj_(group_state_helper.phaseUsage().numPhases, 0.0)
 {
     std::tie(this->fipnum_, this->pvtreg_) = this->well_model_.getGroupFipnumAndPvtreg();
     // Get the reservoir coefficients for injection
@@ -126,7 +126,7 @@ calculateGroupTarget()
 {
     // TODO: For now this is adapted to the reservoir coupling implementation where "group" below will
     //   correspond to a master group. In the future we might want to port the logic to include
-    //   e.g. checkGroupConstraintsProd() and checkGroupConstraintsInj() in WellGroupHelper.cpp.
+    //   e.g. checkGroupConstraintsProd() and checkGroupConstraintsInj() in GroupStateHelper.cpp.
     const auto& group = this->original_group_;  // The bottom group we want to calculate the target for.
     if (group.is_field() || !this->parentGroupControlAvailable_(group)) {
         return this->getTargetNoGuideRate_(group);
@@ -292,7 +292,7 @@ calculateGroupTargetRecursive_(const Group& group, const Scalar efficiency_facto
     if (this->hasFldOrNoneControl_(group)) {
         // NOTE: A pure injection group is assumed to have production control NONE and
         //   a pure production group is assumed to have injection control NONE, see
-        //   WellGroupHelper.cpp::setCmodeGroup() for details.
+        //   GroupStateHelper.cpp::setCmodeGroup() for details.
         if (!this->parentGroupControlAvailable_(group)) {
             // If we are here, the group has control mode NONE, and either
             //   - item 8 of GCONPROD/GCONINJE is "NO" or,
@@ -315,7 +315,7 @@ calculateGroupTargetRecursive_(const Group& group, const Scalar efficiency_facto
         // Controlling group that is not of the type we are interested in.
         // This should never happen, since any group that is not an injector should have injection
         // control NONE. And any group that is not a producer should have production control NONE.
-        // See WellGroupHelper.cpp::setCmodeGroup() for details.
+        // See GroupStateHelper.cpp::setCmodeGroup() for details.
         // .. and therefore should be caught by the hasFldOrNoneControl_() check above.
         this->defLogThrow(
             fmt::format("Controlling group that is not of the type we are interested in: {}", group.name())
@@ -395,6 +395,7 @@ injectionPhase_()
             return Phase::GAS;
         default:
            this->defLogThrow("Invalid injection phase");
+           return Phase::WATER; // Unreachable, but satisfies compiler
     }
 }
 
@@ -469,7 +470,7 @@ initForInjector_()
         std::get<InjectionTargetCalculator>(this->target_calculator_).guideTargetMode();
     this->fraction_calculator_.emplace(
         this->schedule(),
-        this->wgHelper(),
+        this->groupStateHelper(),
         this->summaryState(),
         this->reportStepIdx(),
         &this->guideRate(),
@@ -492,7 +493,7 @@ initForProducer_()
     auto dummy_phase = Phase::OIL; // Dummy phase, not used for producers.
     this->fraction_calculator_.emplace(
         this->schedule(),
-        this->wgHelper(),
+        this->groupStateHelper(),
         this->summaryState(),
         this->reportStepIdx(),
         &this->guideRate(),
@@ -508,7 +509,7 @@ GroupTargetCalculator<Scalar, IndexTraits>::
 TopToBottomCalculator::
 getGroupChainTopBot_() const
 {
-    return this->wgHelper().groupChainTopBot(this->bottom_group_.name(), this->top_group_.name());
+    return this->groupStateHelper().groupChainTopBot(this->bottom_group_.name(), this->top_group_.name());
 }
 
 template<class Scalar, class IndexTraits>
