@@ -673,7 +673,7 @@ namespace Opm {
         // This function is called by the master process to send the group targets to the slaves.
         RescoupTargetCalculator<Scalar, IndexTraits> target_calculator{
             this->guide_rate_handler_,
-            this->wgHelper()
+            this->groupStateHelper()
         };
         target_calculator.calculateMasterGroupTargetsAndSendToSlaves();
     }
