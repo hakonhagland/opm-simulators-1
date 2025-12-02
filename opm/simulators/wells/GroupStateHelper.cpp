@@ -180,7 +180,7 @@ GroupStateHelper<Scalar, IndexTraits>::checkGroupConstraintsInj(const std::strin
 
     // check whether guide rate is violated
     if (check_guide_rate) {
-        for (std::size_t ii = 1; ii < num_ancestors; ++ii) {
+        for (std::size_t ii = 1; ii <= num_ancestors; ++ii) {
             if (this->guide_rate_.has(chain[ii], injection_phase)) {
                 const auto& guided_group = chain[ii];
                 const Scalar grefficiency
@@ -353,7 +353,7 @@ GroupStateHelper<Scalar, IndexTraits>::checkGroupConstraintsProd(const std::stri
 
     // check whether guide rate is violated
     if (check_guide_rate) {
-        for (std::size_t ii = 1; ii < num_ancestors; ++ii) {
+        for (std::size_t ii = 1; ii <= num_ancestors; ++ii) {
             if (this->guide_rate_.has(chain[ii])) {
                 const auto& guided_group = chain[ii];
                 const Scalar grefficiency
