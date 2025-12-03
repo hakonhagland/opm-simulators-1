@@ -184,7 +184,6 @@ collectSlaveGroupSurfaceProductionRates_(std::size_t group_idx) const
     return ProductionRates{production_rates};
 }
 
-
 template<typename Scalar, typename IndexTraits>
 typename RescoupSendSlaveGroupData<Scalar, IndexTraits>::SlaveGroupProductionData
 RescoupSendSlaveGroupData<Scalar, IndexTraits>::

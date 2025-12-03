@@ -179,6 +179,22 @@ public:
         return *this->group_state_;
     }
 
+    const GuideRate& guideRate() const
+    {
+        return this->guide_rate_;
+    }
+
+    bool isRank0() const
+    {
+        return this->well_state_->isRank0();
+    }
+
+    bool isReservoirCouplingMaster() const { return rescoup_.isMaster(); }
+
+    bool isReservoirCouplingMasterGroup(const Group& group) const { return rescoup_.isMasterGroup(group.name()); }
+
+    bool isReservoirCouplingSlave() const { return rescoup_.isSlave(); }
+
     const PhaseUsageInfo<IndexTraits>& phaseUsageInfo() const
     {
         return this->phase_usage_info_;
@@ -204,26 +220,32 @@ public:
         return this->schedule_;
     }
 
-    const GuideRate& guideRate() const
-    {
-        return this->guide_rate_;
-    }
-
     const PhaseUsageInfo<IndexTraits>& phaseUsage() const {
         return this->phase_usage_info_;
     }
 
-    // === Reservoir Coupling ===
+    ReservoirCoupling::Proxy<Scalar>& rescoup() {
+        return rescoup_;
+    }
 
-    /// @brief Get the reservoir coupling proxy
-    ReservoirCoupling::Proxy<Scalar>& rescoup() { return rescoup_; }
-    const ReservoirCoupling::Proxy<Scalar>& rescoup() const { return rescoup_; }
+    const ReservoirCoupling::Proxy<Scalar>& rescoup() const {
+        return rescoup_;
+    }
 
-    bool isReservoirCouplingMaster() const { return rescoup_.isMaster(); }
-    bool isReservoirCouplingSlave() const { return rescoup_.isSlave(); }
+    ReservoirCouplingMaster<Scalar>& reservoirCouplingMaster() {
+        return rescoup_.master();
+    }
 
-    ReservoirCouplingMaster<Scalar>& reservoirCouplingMaster() { return rescoup_.master(); }
-    ReservoirCouplingSlave<Scalar>& reservoirCouplingSlave() { return rescoup_.slave(); }
+    const ReservoirCouplingMaster<Scalar>& reservoirCouplingMaster() const {
+        return rescoup_.master();
+    }
+
+    ReservoirCouplingSlave<Scalar>& reservoirCouplingSlave() {
+        return rescoup_.slave();
+    }
+    const ReservoirCouplingSlave<Scalar>& reservoirCouplingSlave() const {
+        return rescoup_.slave();
+    }
 
 #ifdef RESERVOIR_COUPLING_ENABLED
     void setReservoirCouplingMaster(ReservoirCouplingMaster<Scalar>* master) {
@@ -320,8 +342,17 @@ private:
 
     GuideRate::RateVector getGuideRateVector_(const std::vector<Scalar>& rates) const;
 
+    Scalar getSatelliteRate_(const Group& group,
+        const int phase_pos,
+        const bool res_rates,
+        const bool is_injector) const;
+
     /// check if well/group bottom is a sub well/group of the group top
     bool isInGroupChainTopBot_(const std::string& bottom, const std::string& top) const;
+
+    bool isReservoirCouplingMasterGroup_(const Group& group) const;
+
+    bool isSatelliteGroup_(const Group& group) const;
 
     int phaseToActivePhaseIdx_(const Phase phase) const;
 

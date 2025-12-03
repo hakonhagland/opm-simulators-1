@@ -578,6 +578,30 @@ GroupStateHelper<Scalar, IndexTraits>::computeNetworkPressures(const Network::Ex
 
 template <typename Scalar, typename IndexTraits>
 Scalar
+GroupStateHelper<Scalar, IndexTraits>::getGroupRESVrate(const Group& group,                                                      const int phasePos,
+                                                      const bool is_injector) const
+{
+    if (is_injector) {
+        Scalar total_rate = 0.0;
+        total_rate += this->sumWellResRates(group,
+                                            this->phase_usage_info_.canonicalToActivePhaseIdx(waterPhaseIdx),
+                                            /*is_injector=*/true);
+        total_rate += this->sumWellResRates(group,
+                                            this->phase_usage_info_.canonicalToActivePhaseIdx(oilPhaseIdx),
+                                            /*is_injector=*/true);
+        total_rate += this->sumWellResRates(group,
+                                            this->phase_usage_info_.canonicalToActivePhaseIdx(gasPhaseIdx),
+                                            /*is_injector=*/true);
+        return total_rate;
+    }
+    else {
+        return this->sumWellPhaseRates(/*res_rates=*/true, group, phasePos, is_injector);
+    }    return this->sumWellPhaseRates(/*res_rates=*/true, group, phasePos, is_injector);
+}
+
+
+template <typename Scalar, typename IndexTraits>
+Scalar
 GroupStateHelper<Scalar, IndexTraits>::getGuideRate(const std::string& name,
                                                    const GuideRateModel::Target target) const
 {
@@ -1062,30 +1086,23 @@ Scalar
 GroupStateHelper<Scalar, IndexTraits>::sumWellPhaseRates(bool res_rates,
                                                         const Opm::Group& group,
                                                         const int phase_pos,
-                                                        const bool injector,
+                                                        const bool is_injector,
                                                         const bool network) const
 {
-    // Only obtain satellite rates once (on rank 0)
-    Scalar rate = 0.0;
-    if (this->wellState().isRank0() && (group.hasSatelliteProduction() || group.hasSatelliteInjection())) {
-        if (injector) {
-            rate = this->satelliteInjectionRate_(
-                this->schedule_[this->report_step_], group, phase_pos, res_rates);
-        } else {
-            const auto rate_comp = this->selectRateComponent_(phase_pos);
-            if (rate_comp.has_value()) {
-                rate = this->satelliteProductionRate_(
-                    this->schedule_[this->report_step_], group, *rate_comp, res_rates);
-            }
+    if (this->isRank0()) {
+        // Only obtain satellite rates once (on rank 0)
+        if (this->isSatelliteGroup_(group)) {
+            return this->getSatelliteRate_(group, phase_pos, res_rates, is_injector);
         }
-        // Satellite groups have no sub groups/wells so we're done
-        return rate;
+        if (this->isReservoirCouplingMasterGroup_(group)) {
+            return this->getReservoirCouplingMasterGroupRate_(group, phase_pos, res_rates, is_injector);
+        }
     }
-
+    Scalar rate = 0.0;
     for (const std::string& group_name : group.groups()) {
         const auto& group_tmp = this->schedule_.getGroup(group_name, this->report_step_);
         const auto& gefac = group_tmp.getGroupEfficiencyFactor(network);
-        rate += gefac * this->sumWellPhaseRates(res_rates, group_tmp, phase_pos, injector, network);
+        rate += gefac * this->sumWellPhaseRates(res_rates, group_tmp, phase_pos, is_injector, network);
     }
 
     for (const std::string& well_name : group.wells()) {
@@ -1100,7 +1117,7 @@ GroupStateHelper<Scalar, IndexTraits>::sumWellPhaseRates(bool res_rates,
 
         const auto& well_ecl = this->schedule_.getWell(well_name, this->report_step_);
         // only count producers or injectors
-        if ((well_ecl.isProducer() && injector) || (well_ecl.isInjector() && !injector))
+        if ((well_ecl.isProducer() && is_injector) || (well_ecl.isInjector() && !is_injector))
             continue;
 
         const auto& ws = this->wellState().well(well_index.value());
@@ -1111,13 +1128,13 @@ GroupStateHelper<Scalar, IndexTraits>::sumWellPhaseRates(bool res_rates,
             * this->wellState().well(well_index.value()).efficiency_scaling_factor;
         if (res_rates) {
             const auto& well_rates = ws.reservoir_rates;
-            if (injector)
+            if (is_injector)
                 rate += factor * well_rates[phase_pos];
             else
                 rate -= factor * well_rates[phase_pos];
         } else {
             const auto& well_rates = ws.surface_rates;
-            if (injector)
+            if (is_injector)
                 rate += factor * well_rates[phase_pos];
             else
                 rate -= factor * well_rates[phase_pos];
@@ -1580,6 +1597,51 @@ GroupStateHelper<Scalar, IndexTraits>::getGuideRateVector_(const std::vector<Sca
 }
 
 template <typename Scalar, typename IndexTraits>
+Scalar
+GroupStateHelper<Scalar, IndexTraits>::getReservoirCouplingMasterGroupRate_(const Group& group,
+                                                                            const int phase_pos,
+                                                                            const bool res_rates,
+                                                                            const bool is_injector) const
+{
+#ifdef RESERVOIR_COUPLING_ENABLED
+    if (this->isReservoirCouplingMaster()) {
+        if (is_injector) {
+            return this->reservoirCouplingMaster().getMasterGroupInjectionRate(group.name(), phase_pos, res_rates);
+        }
+        else {
+            return this->reservoirCouplingMaster().getMasterGroupProductionRate(group.name(), phase_pos, res_rates);
+        }
+    }
+    else {
+        return 0.0;
+    }
+#else
+    return 0.0;
+#endif
+}
+
+template <typename Scalar, typename IndexTraits>
+Scalar
+GroupStateHelper<Scalar, IndexTraits>::getSatelliteRate_(const Group& group,
+                                                               const int phase_pos,
+                                                               const bool res_rates,
+                                                               const bool is_injector) const
+{
+    // Only obtain satellite rates once (on rank 0)
+    assert(this->isRank0() && this->isSatelliteGroup_(group));
+    Scalar rate = 0.0;
+    if (is_injector) {
+        return this->satelliteInjectionRate_(this->schedule_[this->report_step_], group, phase_pos, res_rates);
+    } else {
+        const auto rate_comp = this->selectRateComponent_(phase_pos);
+        if (rate_comp.has_value()) {
+            return this->satelliteProductionRate_(this->schedule_[this->report_step_], group, *rate_comp, res_rates);
+        }
+    }
+    return rate;
+}
+
+template <typename Scalar, typename IndexTraits>
 bool
 GroupStateHelper<Scalar, IndexTraits>::isInGroupChainTopBot_(const std::string& bottom,
                                                             const std::string& top) const
@@ -1601,6 +1663,13 @@ GroupStateHelper<Scalar, IndexTraits>::isInGroupChainTopBot_(const std::string& 
         }
     }
     return true;
+}
+
+template <typename Scalar, typename IndexTraits>
+bool
+GroupStateHelper<Scalar, IndexTraits>::isSatelliteGroup_(const Group& group) const
+{
+    return group.hasSatelliteProduction() || group.hasSatelliteInjection();
 }
 
 template <typename Scalar, typename IndexTraits>

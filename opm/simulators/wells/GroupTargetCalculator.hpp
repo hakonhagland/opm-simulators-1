@@ -19,11 +19,13 @@
 
 #ifndef OPM_GROUP_TARGET_CALCULATOR_HPP
 #define OPM_GROUP_TARGET_CALCULATOR_HPP
+#include <opm/common/ErrorMacros.hpp>
 #include <opm/input/eclipse/EclipseState/Phase.hpp>
 #include <opm/input/eclipse/Schedule/Schedule.hpp>
 #include <opm/input/eclipse/Schedule/Group/GConSale.hpp>
 #include <opm/input/eclipse/Schedule/Group/Group.hpp>
 #include <opm/simulators/utils/DeferredLogger.hpp>
+#include <opm/simulators/utils/DeferredLoggingErrorHelpers.hpp>
 #include <opm/simulators/wells/BlackoilWellModelGeneric.hpp>
 #include <opm/simulators/wells/FractionCalculator.hpp>
 #include <opm/simulators/wells/GroupState.hpp>
@@ -101,7 +103,6 @@ public:
         );
         std::optional<TargetInfo> calculateGroupTarget();
         DeferredLogger& deferredLogger() { return this->parent_calculator_.deferredLogger(); }
-        void defLogThrow(const std::string& message);
         int fipnum() const { return this->parent_calculator_.fipnum(); }
         const GConSale& gconsale() const {
             return this->schedule()[this->reportStepIdx()].gconsale();
@@ -187,6 +188,7 @@ public:
         Scalar getGratSalesInjectionTarget_(const Group& group) const { return this->parent_calculator_.getGratSalesInjectionTarget(group); }
         Scalar getGratSalesProductionTarget_(const Group& group) const { return this->parent_calculator_.getGratSalesProductionTarget(group); }
         std::vector<std::string> getGroupChainTopBot_() const;
+        std::size_t getLocalReductionLevel_(const std::vector<std::string>& chain);
         TargetCalculatorType getProductionTargetCalculator_(const Group& group) const {
             return this->parent_calculator_.getProductionTargetCalculator(group); }
         TargetCalculatorType getInjectionTargetCalculator_(const Group& group) const {
