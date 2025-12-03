@@ -563,12 +563,12 @@ namespace Opm {
     setupRescoupScopedLogger(DeferredLogger& local_logger) {
         if (this->isReservoirCouplingMaster()) {
             return ReservoirCoupling::ScopedLoggerGuard{
-                this->reservoirCouplingMaster().getLogger(),
+                this->reservoirCouplingMaster().logger(),
                 &local_logger
             };
         } else if (this->isReservoirCouplingSlave()) {
             return ReservoirCoupling::ScopedLoggerGuard{
-                this->reservoirCouplingSlave().getLogger(),
+                this->reservoirCouplingSlave().logger(),
                 &local_logger
             };
         }
