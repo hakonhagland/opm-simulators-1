@@ -39,6 +39,7 @@ class Logger {
 public:
     Logger() = default;
     void clearDeferredLogger() { deferred_logger_ = nullptr; }
+    DeferredLogger& deferredLogger() { return *deferred_logger_; }
     bool haveDeferredLogger() const { return deferred_logger_ != nullptr; }
     void info(const std::string &msg) const;
     void setDeferredLogger(DeferredLogger *deferred_logger) { deferred_logger_ = deferred_logger; }

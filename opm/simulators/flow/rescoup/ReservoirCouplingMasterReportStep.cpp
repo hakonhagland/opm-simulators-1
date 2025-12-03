@@ -19,6 +19,7 @@
 
 #include <config.h>
 #include <opm/simulators/flow/rescoup/ReservoirCoupling.hpp>
+#include <opm/simulators/flow/rescoup/ReservoirCouplingErrorMacros.hpp>
 #include <opm/simulators/flow/rescoup/ReservoirCouplingMpiTraits.hpp>
 #include <opm/simulators/flow/rescoup/ReservoirCouplingMaster.hpp>
 #include <opm/simulators/flow/rescoup/ReservoirCouplingMasterReportStep.hpp>
@@ -26,7 +27,6 @@
 #include <opm/input/eclipse/Schedule/ResCoup/ReservoirCouplingInfo.hpp>
 #include <opm/input/eclipse/Schedule/ResCoup/MasterGroup.hpp>
 #include <opm/input/eclipse/Schedule/ResCoup/Slaves.hpp>
-#include <opm/common/ErrorMacros.hpp>
 #include <opm/simulators/utils/ParallelCommunication.hpp>
 
 #include <dune/common/parallel/mpitraits.hh>
@@ -69,7 +69,7 @@ getSlaveGroupPotentials(const std::string &master_group_name) const
         return this->slave_group_production_data_.at(slave_name)[group_idx].potentials;
     }
     else {
-        OPM_THROW(
+        RCOUP_LOG_THROW(
             std::runtime_error,
             fmt::format(
                 "Master group name {} not found in master-to-slave-group-name mapping",

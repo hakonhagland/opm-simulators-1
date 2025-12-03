@@ -187,6 +187,7 @@ public:
         Scalar getGratSalesInjectionTarget_(const Group& group) const { return this->parent_calculator_.getGratSalesInjectionTarget(group); }
         Scalar getGratSalesProductionTarget_(const Group& group) const { return this->parent_calculator_.getGratSalesProductionTarget(group); }
         std::vector<std::string> getGroupChainTopBot_() const;
+        std::size_t getLocalReductionLevel_(const std::vector<std::string>& chain);
         TargetCalculatorType getProductionTargetCalculator_(const Group& group) const {
             return this->parent_calculator_.getProductionTargetCalculator(group); }
         TargetCalculatorType getInjectionTargetCalculator_(const Group& group) const {

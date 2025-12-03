@@ -215,6 +215,23 @@ public:
         return this->guide_rate_;
     }
 
+    bool isRank0() const
+    {
+        return this->well_state_->isRank0();
+    }
+
+#ifdef RESERVOIR_COUPLING_ENABLED
+    bool isReservoirCouplingMaster() const
+    {
+        return this->reservoir_coupling_master_ != nullptr;
+    }
+
+    bool isReservoirCouplingSlave() const
+    {
+        return this->reservoir_coupling_slave_ != nullptr;
+    }
+#endif
+
     const PhaseUsageInfo<IndexTraits>& phaseUsage() const {
         return this->phase_usage_info_;
     }
@@ -328,8 +345,17 @@ private:
 
     GuideRate::RateVector getGuideRateVector_(const std::vector<Scalar>& rates) const;
 
+    Scalar getSatelliteRate_(const Group& group,
+        const int phase_pos,
+        const bool res_rates,
+        const bool is_injector) const;
+
     /// check if well/group bottom is a sub well/group of the group top
     bool isInGroupChainTopBot_(const std::string& bottom, const std::string& top) const;
+
+    bool isReservoirCouplingMasterGroup_(const Group& group) const;
+
+    bool isSatelliteGroup_(const Group& group) const;
 
     int phaseToActivePhaseIdx_(const Phase phase) const;
 
