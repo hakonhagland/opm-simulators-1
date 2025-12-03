@@ -136,10 +136,13 @@ calculateGroupTarget()
         if (this->hasFldOrNoneControl_(group)) {
             // Parent control is available, but no guide rate is defined. This is illegal for a master group
             // under FLD or NONE control.
-            throw std::runtime_error("No guide rate defined for master group " + group.name());
+            OPM_DEFLOG_THROW(
+                std::runtime_error,
+                fmt::format("No guide rate defined for master group {}", group.name()),
+                this->deferredLogger());
         }
         // A master group with:
-        //   - not FLD or NONE control,
+        //   - individual (not FLD or NONE) control,
         //   - parent control available,
         //   - but no guide rate
         // this could be considered an error, but we can also fall back to use its own target.
@@ -148,20 +151,14 @@ calculateGroupTarget()
     const auto efficiency_factor = group.getGroupEfficiencyFactor();
     auto target = this->calculateGroupTargetRecursive_(group, efficiency_factor);
     if (target) {
-        // TODO: Should we switch group to FLD control mode now?
+        // TODO: We could probably switch the group to FLD control mode now. However, this call is coming
+        //    from beginTimeStep() in BlackoilWellModel_impl.hpp, but the regular higher constraints
+        //    checks (for all groups, not just the master group) will first be done during the assemble() step,
+        //    at which point the group should be switched to FLD control mode if necessary.
         return target;
     }
     // If a higher level target was not found or not violated, use the group's own target.
     return this->getTargetNoGuideRate_(group);
-}
-
-template<class Scalar, class IndexTraits>
-void
-GroupTargetCalculator<Scalar, IndexTraits>::
-GeneralCalculator::
-defLogThrow(const std::string& message)
-{
-    OPM_DEFLOG_THROW(std::runtime_error, message, this->deferredLogger());
 }
 
 template<class Scalar, class IndexTraits>
@@ -309,16 +306,18 @@ calculateGroupTargetRecursive_(const Group& group, const Scalar efficiency_facto
         }
     }
 
-    if ((this->isInjector() && !group.isInjectionGroup()) ||
-            (this->isProducer() && !group.isProductionGroup()))
+    if ((this->targetType() == TargetType::Injection && !group.isInjectionGroup()) ||
+            (this->targetType() == TargetType::Production && !group.isProductionGroup()))
     {
         // Controlling group that is not of the type we are interested in.
         // This should never happen, since any group that is not an injector should have injection
         // control NONE. And any group that is not a producer should have production control NONE.
         // See GroupStateHelper.cpp::setCmodeGroup() for details.
         // .. and therefore should be caught by the hasFldOrNoneControl_() check above.
-        this->defLogThrow(
-            fmt::format("Controlling group that is not of the type we are interested in: {}", group.name())
+        OPM_DEFLOG_THROW(
+            std::runtime_error,
+            fmt::format("Controlling group that is not of the type we are interested in: {}", group.name()),
+            this->deferredLogger()
         );
     }
 
@@ -337,6 +336,8 @@ GroupTargetCalculator<Scalar, IndexTraits>::
 GeneralCalculator::
 getTargetNoGuideRate_(const Group& group)
 {
+    // Efficiency factor is not applied here, since it only applies to child rates, not to the group's
+    // own target.
     const auto target_calculator = this->getTargetCalculator(group);
     return this->getTargetFromCalculator(target_calculator, group);
 }
@@ -350,7 +351,7 @@ hasFldOrNoneControl_(const Group& group)
     // Check if the group (constrained to production or injection) has control FLD or NONE.
     // For example, a pure injection group will have production control NONE.
     const auto& name = group.name();
-    if (this->isInjector()) {
+    if (this->targetType() == TargetType::Injection) {
         return this->groupState().has_field_or_none_control(name, this->injectionPhase_());
     }
     else {
@@ -362,18 +363,9 @@ template<class Scalar, class IndexTraits>
 bool
 GroupTargetCalculator<Scalar, IndexTraits>::
 GeneralCalculator::
-hasGuideRate_(const Group& group) const
-{
-    return this->guideRate().has(group.name());
-}
-
-template<class Scalar, class IndexTraits>
-bool
-GroupTargetCalculator<Scalar, IndexTraits>::
-GeneralCalculator::
 parentGroupControlAvailable_(const Group& group)
 {
-    if (this->isInjector()) {
+    if (this->targetType() == TargetType::Injection) {
         return group.injectionGroupControlAvailable(this->injectionPhase_());
     } else {
         return group.productionGroupControlAvailable();
@@ -386,16 +378,21 @@ GroupTargetCalculator<Scalar, IndexTraits>::
 GeneralCalculator::
 injectionPhase_()
 {
-    switch (this->injection_phase_.value()) {
-        case ReservoirCoupling::Phase::Water:
-            return Phase::WATER;
-        case ReservoirCoupling::Phase::Oil:
-            return Phase::OIL;
-        case ReservoirCoupling::Phase::Gas:
-            return Phase::GAS;
-        default:
-           this->defLogThrow("Invalid injection phase");
-           return Phase::WATER; // Unreachable, but satisfies compiler
+    if (this->injection_phase_.has_value()) {
+        switch (this->injection_phase_.value()) {
+            case ReservoirCoupling::Phase::Water:
+                return Phase::WATER;
+            case ReservoirCoupling::Phase::Oil:
+                return Phase::OIL;
+            case ReservoirCoupling::Phase::Gas:
+                return Phase::GAS;
+            default:
+               OPM_DEFLOG_THROW(std::runtime_error, "Invalid injection phase", this->deferredLogger());
+               return Phase::WATER; // Unreachable, but satisfies compiler
+        }
+    }
+    else {
+        return Phase::OIL;   // Dummy phase, not used for producers.
     }
 }
 
@@ -410,14 +407,14 @@ TopToBottomCalculator(
     GeneralCalculator& parent_calculator,
     const Group& top_group,
     const Group& bottom_group,
-    Scalar efficiency_factor
+    Scalar chain_efficiency_factor
 ) :
     parent_calculator_{parent_calculator},
     top_group_{top_group},
     bottom_group_{bottom_group},
-    efficiency_factor_{efficiency_factor}
+    chain_efficiency_factor_{chain_efficiency_factor}
 {
-    if (this->isInjector()) {
+    if (this->targetType() == TargetType::Injection) {
         this->initForInjector_();
     }
     else {
@@ -435,29 +432,155 @@ GroupTargetCalculator<Scalar, IndexTraits>::
 TopToBottomCalculator::
 calculateGroupTarget()
 {
-    auto orig_target = this->getTopLevelTarget_();
     const auto chain = this->getGroupChainTopBot_();
+    // NOTE: For reservoir coupling: we are called from beginTimeStep() in BlackoilWellModel_impl.hpp,
+    //   so we do not check for guide rate violations here, compare with
+    //  GroupStateHelper.cpp::checkGroupConstraintsProd() and
+    //  GroupStateHelper.cpp::checkGroupConstraintsInj() since the guide rate will be checked during the
+    //   assemble() step.
+    const auto local_reduction_level = this->getLocalReductionLevel_(chain);
+    Scalar target = this->getTopLevelTarget_();
+    Scalar bottom_group_current_rate_available = this->getBottomGroupCurrentRateAvailable_();
     // Because the bottom group (the original group) is the last of the elements,
     //   and not an ancestor, we subtract one:
     const std::size_t num_ancestors = chain.size() - 1;
-    Scalar target = orig_target;
     for (std::size_t i = 0; i < num_ancestors; ++i) {
-        if ((i == 0) || this->guideRate().has(chain[i])) {
+        if ((i == 0) || this->hasGuideRate_(chain[i])) {
             // Apply local reductions only at the control level
             // (top) and for levels where we have a specified
             // group guide rate.
-            target -= this->localReduction_(chain[i]);
+            if (i <= local_reduction_level) {
+                target -= this->localReduction_(chain[i]);
+            }
+            // Add my reduction back at the level where it is included in the local reduction
+            if (i == local_reduction_level) {
+                const Scalar addback_efficiency
+                    = this->computeAddbackEfficiency_(chain, local_reduction_level);
+                target += bottom_group_current_rate_available * addback_efficiency;
+            }
         }
         target *= this->localFraction_(chain[i + 1]);
     }
     // Avoid negative target rates coming from too large local reductions.
-    target = std::max(Scalar(0.0), target / this->efficiency_factor_);
-    return TargetInfo{target, this->toplevel_control_mode_};
+    target = std::max(Scalar(0.0), target);
+    // Divide by the accumulated efficiency factor along the chain from top to bottom, excluding the top group.
+    // This is the full target rate that should be assigned to the bottom group, to be seen as the unscaled
+    // target rate for the top group.
+    const Scalar full_target = target / this->chain_efficiency_factor_;
+    Scalar scale = 1.0;
+    if (bottom_group_current_rate_available > 1e-12) {
+        scale = full_target / bottom_group_current_rate_available;
+    }
+    if (scale < 1.0) {
+        // The bottom group is producing too much according to the top level group target,
+        // so we need to scale down the target rate
+        return TargetInfo{full_target, this->toplevel_control_mode_};
+    }
+    else {
+        return TargetInfo{full_target, this->toplevel_control_mode_};
+    }
 }
 
 // -------------------------------------------------------
 // Private methods for the TopToBottomCalculator class
 // -------------------------------------------------------
+
+template <class Scalar, class IndexTraits>
+Scalar
+GroupTargetCalculator<Scalar, IndexTraits>::
+TopToBottomCalculator::
+computeAddbackEfficiency_(
+    const std::vector<std::string>& chain,
+    const std::size_t local_reduction_level) const
+{
+    // Compute partial efficiency factor from local_reduction_level down to entity.
+    // Chain is ordered [control_group, ..., local_reduction_level, ..., entity].
+    // We multiply efficiency factors from index (local_reduction_level + 1) to end.
+    const std::size_t num_ancestors = chain.size() - 1;
+    Scalar efficiency = 1.0;
+    for (std::size_t jj = local_reduction_level + 1; jj <= num_ancestors; ++jj) {
+        const auto& grp = this->schedule().getGroup(chain[jj], this->reportStepIdx());
+        efficiency *= grp.getGroupEfficiencyFactor();
+    }
+    return efficiency;
+}
+
+template<class Scalar, class IndexTraits>
+Scalar
+GroupTargetCalculator<Scalar, IndexTraits>::
+TopToBottomCalculator::
+getBottomGroupCurrentRateAvailable_() const
+{
+    const auto& group = this->bottom_group_;
+    if (this->targetType() == TargetType::Injection) {
+        return std::get<InjectionTargetCalculator>(this->target_calculator_).calcModeRateFromRates(
+            this->groupStateHelper().getGroupRatesAvailableForHigherLevelControl(group, /*is_injector=*/true)
+        );
+    }
+    else {
+        return std::get<TargetCalculator>(this->target_calculator_).calcModeRateFromRates(
+            this->groupStateHelper().getGroupRatesAvailableForHigherLevelControl(group, /*is_injector=*/false)
+        );
+    }
+}
+
+template<class Scalar, class IndexTraits>
+std::vector<std::string>
+GroupTargetCalculator<Scalar, IndexTraits>::
+TopToBottomCalculator::
+getGroupChainTopBot_() const
+{
+    return this->groupStateHelper().groupChainTopBot(this->bottom_group_.name(), this->top_group_.name());
+}
+
+template<class Scalar, class IndexTraits>
+std::size_t
+GroupTargetCalculator<Scalar, IndexTraits>::
+TopToBottomCalculator::
+getLocalReductionLevel_(const std::vector<std::string>& chain)
+{
+    const std::size_t num_ancestors = chain.size() - 1;
+    std::size_t local_reduction_level = 0;
+    for (std::size_t ii = 1; ii < num_ancestors; ++ii) {
+        const int num_gr_ctrl = this->groupStateHelper().groupControlledWells(
+            chain[ii],
+            /*always_included_child=*/"",
+            /*is_producer=*/this->targetType() == TargetType::Production,
+            /*injection_phase=*/this->injectionPhase_());
+        if (this->hasGuideRate_(chain[ii]) && num_gr_ctrl > 0) {
+            local_reduction_level = ii;
+        }
+    }
+    return local_reduction_level;
+}
+
+template<class Scalar, class IndexTraits>
+Scalar
+GroupTargetCalculator<Scalar, IndexTraits>::
+TopToBottomCalculator::
+getTopLevelTarget_()
+{
+    if (this->targetType() == TargetType::Injection) {
+        auto control_mode = this->groupState().injection_control(
+            this->top_group_.name(), this->injectionPhase_()
+        );
+        std::optional<Group::InjectionControls> ctrl;
+        if (!this->top_group_.has_gpmaint_control(this->injectionPhase_(), control_mode))
+            ctrl = this->top_group_.injectionControls(this->injectionPhase_(), this->summaryState());
+        return std::get<InjectionTargetCalculator>(this->target_calculator_).groupTarget(
+            ctrl, this->deferredLogger()
+        );
+    }
+    else {
+        auto control_mode = this->groupState().production_control(this->top_group_.name());
+        std::optional<Group::ProductionControls> ctrl;
+        if (!this->top_group_.has_gpmaint_control(control_mode))
+            ctrl = this->top_group_.productionControls(this->summaryState());
+        return std::get<TargetCalculator>(this->target_calculator_).groupTarget(
+            ctrl, this->deferredLogger()
+        );
+    }
+}
 
 template<class Scalar, class IndexTraits>
 void
@@ -504,43 +627,6 @@ initForProducer_()
 }
 
 template<class Scalar, class IndexTraits>
-std::vector<std::string>
-GroupTargetCalculator<Scalar, IndexTraits>::
-TopToBottomCalculator::
-getGroupChainTopBot_() const
-{
-    return this->groupStateHelper().groupChainTopBot(this->bottom_group_.name(), this->top_group_.name());
-}
-
-template<class Scalar, class IndexTraits>
-Scalar
-GroupTargetCalculator<Scalar, IndexTraits>::
-TopToBottomCalculator::
-getTopLevelTarget_()
-{
-    if (this->isInjector()) {
-        auto control_mode = this->groupState().injection_control(
-            this->top_group_.name(), this->injectionPhase_()
-        );
-        std::optional<Group::InjectionControls> ctrl;
-        if (!this->top_group_.has_gpmaint_control(this->injectionPhase_(), control_mode))
-            ctrl = this->top_group_.injectionControls(this->injectionPhase_(), this->summaryState());
-        return std::get<InjectionTargetCalculator>(this->target_calculator_).groupTarget(
-            ctrl, this->deferredLogger()
-        );
-    }
-    else {
-        auto control_mode = this->groupState().production_control(this->top_group_.name());
-        std::optional<Group::ProductionControls> ctrl;
-        if (!this->top_group_.has_gpmaint_control(control_mode))
-            ctrl = this->top_group_.productionControls(this->summaryState());
-        return std::get<TargetCalculator>(this->target_calculator_).groupTarget(
-            ctrl, this->deferredLogger()
-        );
-    }
-}
-
-template<class Scalar, class IndexTraits>
 Scalar
 GroupTargetCalculator<Scalar, IndexTraits>::
 TopToBottomCalculator::
@@ -556,7 +642,7 @@ GroupTargetCalculator<Scalar, IndexTraits>::
 TopToBottomCalculator::
 localReduction_(const std::string& group_name)
 {
-    if (this->isInjector()) {
+    if (this->targetType() == TargetType::Injection) {
         const std::vector<Scalar>& group_target_reductions =
             this->groupState().injection_reduction_rates(group_name);
         return std::get<InjectionTargetCalculator>(this->target_calculator_).calcModeRateFromRates(
