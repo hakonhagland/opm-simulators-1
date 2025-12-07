@@ -39,6 +39,8 @@
 #include <opm/simulators/wells/WellHelpers.hpp>
 #include <opm/simulators/wells/WellInterfaceGeneric.hpp>
 
+#include <opm/common/TimingMacros.hpp>
+
 #include <cassert>
 #include <cmath>
 #include <optional>
@@ -640,6 +642,7 @@ bhpMax(const std::function<Scalar(const Scalar)>& fflo,
        const Scalar vfp_flo_front,
        DeferredLogger& deferred_logger) const
 {
+    OPM_TIMEBLOCK(bhpMax);
     // Find the bhp-point where production becomes nonzero.
     Scalar bhp_max = 0.0;
     Scalar low = bhp_limit;
@@ -769,10 +772,11 @@ computeBhpAtThpLimit(const std::function<std::vector<Scalar>(const Scalar)>& fra
     // Solve for the proper solution in the given interval.
     const int max_iteration = 100;
     const Scalar bhp_tolerance = 0.01 * unit::barsa;
+    using RFB = RegulaFalsiBisection<ThrowOnError>;
     try {
+        OPM_TIMEBLOCK(RegulaFalsiBisectionSolve);
         int iteration = 0;
-        const Scalar solved_bhp = RegulaFalsiBisection<ThrowOnError>::
-            solve(eq, low, high, max_iteration, bhp_tolerance, iteration);
+        const Scalar solved_bhp = RFB::solve(eq, low, high, max_iteration, bhp_tolerance, iteration);
         return solved_bhp;
     }
     catch (...) {
@@ -790,6 +794,7 @@ bisectBracket(const std::function<Scalar(const Scalar)>& eq,
               std::optional<Scalar>& approximate_solution,
               DeferredLogger& deferred_logger) const
 {
+    OPM_TIMEBLOCK(bisectBracket);
     bool finding_bracket = false;
     low = range[0];
     high = range[1];
@@ -865,6 +870,7 @@ bruteForceBracket(const std::function<Scalar(const Scalar)>& eq,
                   Scalar& low, Scalar& high,
                   DeferredLogger& deferred_logger)
 {
+    OPM_TIMEBLOCK(bruteForceBracket);
     bool bracket_found = false;
     low = range[0];
     high = range[1];
