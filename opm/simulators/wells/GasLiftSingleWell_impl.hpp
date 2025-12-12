@@ -251,7 +251,8 @@ checkThpControl_() const
                          this->well_state_.well(well_index).production_cmode;
     bool thp_control = control_mode == Well::ProducerCMode::THP;
     const auto& well = getWell();
-    thp_control = thp_control || well.thpLimitViolatedButNotSwitched();
+    const bool thp_violated = well.thpLimitViolatedButNotSwitched();
+    thp_control = thp_control || thp_violated;
     if (this->debug) {
         if (!thp_control) {
             this->displayDebugMessage_("Well is not under THP control, skipping iteration..");

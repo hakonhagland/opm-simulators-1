@@ -759,6 +759,8 @@ namespace Opm
         // and the guard ensures that the original group state is restored at scope exit, i.e. at
         // the end of this function.
         auto group_guard = groupStateHelper_copy.pushGroupState(group_state);
+        // Also push the well_state so that assembleControlEq reads our modified control modes
+        auto well_guard = groupStateHelper_copy.pushWellState(well_state);
 
         auto inj_controls = Well::InjectionControls(0);
         auto prod_controls = Well::ProductionControls(0);
@@ -2206,7 +2208,11 @@ namespace Opm
         if (zero_rates || !converged) {
             return  this->computeBhpAtThpLimitProdWithAlq(simulator, groupStateHelper, summary_state, alq_value, deferred_logger, /*iterate_if_no_solution */ false);
         }
-        this->updateIPRImplicit(simulator, groupStateHelper, well_state_copy, deferred_logger);
+        // Create a copy of groupStateHelper that uses well_state_copy instead of the original well_state
+        // This ensures updateIPRImplicit and estimateStableBhp use consistent well state
+        GroupStateHelperType groupStateHelper_copy = groupStateHelper;
+        auto well_guard = groupStateHelper_copy.pushWellState(well_state_copy);
+        this->updateIPRImplicit(simulator, groupStateHelper_copy, well_state_copy, deferred_logger);
         this->adaptRatesForVFP(rates);
         return WellBhpThpCalculator(*this).estimateStableBhp(well_state_copy, this->well_ecl_, rates, this->getRefDensity(), summary_state, alq_value);
     }

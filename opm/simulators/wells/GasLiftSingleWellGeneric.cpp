@@ -410,8 +410,6 @@ GasLiftSingleWellGeneric<Scalar, IndexTraits>::computeInitialWellRates_() const
 {
     std::optional<RatesAndBhp> rates;
     Scalar initial_alq = this->orig_alq_;
-    // auto alq = initial_alq;
-    // if (auto bhp = computeBhpAtThpLimit_(this->orig_alq_); bhp) {
     if (auto [bhp, alq] = computeConvergedBhpAtThpLimitByMaybeIncreasingALQ_(); bhp) {
         {
             const std::string msg = fmt::format("computed initial bhp {} given thp limit and given alq {}", *bhp, alq);
@@ -772,45 +770,61 @@ getLimitedRatesAndBhp_(const RatesAndBhp& rates) const
     bool gas_is_limited = false;
     bool water_is_limited = false;
 
+    // Use relative tolerance to handle numerical precision issues when rate ~= target
+    // This is needed because the BHP solve can produce rates very close to but not exactly at the target
+    const Scalar rel_tol = 1e-6;
+
     // The well rates are potentially limited by the targets
     // The other phases are scaled accordingly. i.e. we assume the phase fractions are the same
     // This is not 100% true but the best we can do without solving the well equation
     if (hasProductionControl_(Rate::oil)) {
         auto target = getProductionTarget_(Rate::oil);
-        if (oil_rate > target) {
-            gas_rate *= target / oil_rate;
-            water_rate *= target / oil_rate;
-            oil_rate = target;
+        const bool rate_at_or_exceeds_target = (oil_rate >= target * (1.0 - rel_tol));
+        if (rate_at_or_exceeds_target) {
+            if (oil_rate > target) {
+                gas_rate *= target / oil_rate;
+                water_rate *= target / oil_rate;
+                oil_rate = target;
+            }
             oil_is_limited = true;
         }
     }
     if (hasProductionControl_(Rate::gas)) {
         auto target = getProductionTarget_(Rate::gas);
-        if (gas_rate > target) {
-            oil_rate *= target / gas_rate;
-            water_rate *= target / gas_rate;
-            gas_rate = target;
+        const bool rate_at_or_exceeds_target = (gas_rate >= target * (1.0 - rel_tol));
+        if (rate_at_or_exceeds_target) {
+            if (gas_rate > target) {
+                oil_rate *= target / gas_rate;
+                water_rate *= target / gas_rate;
+                gas_rate = target;
+            }
             gas_is_limited = true;
         }
     }
     if (hasProductionControl_(Rate::water)) {
         auto target = getProductionTarget_(Rate::water);
-        if (water_rate > target) {
-            gas_rate *= target / water_rate;
-            oil_rate *= target / water_rate;
-            water_rate = target;
+        const bool rate_at_or_exceeds_target = (water_rate >= target * (1.0 - rel_tol));
+        if (rate_at_or_exceeds_target) {
+            if (water_rate > target) {
+                gas_rate *= target / water_rate;
+                oil_rate *= target / water_rate;
+                water_rate = target;
+            }
             water_is_limited = true;
         }
     }
     if (hasProductionControl_(Rate::liquid)) {
         auto target = getProductionTarget_(Rate::liquid);
         auto liq_rate = oil_rate + water_rate;
-        if (liq_rate > target) {
+        const bool rate_at_or_exceeds_target = (liq_rate >= target * (1.0 - rel_tol));
+        if (rate_at_or_exceeds_target) {
+            if (liq_rate > target) {
                 gas_rate *= target / liq_rate;
                 water_rate *= target / liq_rate;
                 oil_rate *= target / liq_rate;
-                water_is_limited = true;
-                oil_is_limited = true;
+            }
+            water_is_limited = true;
+            oil_is_limited = true;
         }
     }
     return LimitedRatesAndBhp {oil_rate,

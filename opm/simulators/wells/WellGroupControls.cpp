@@ -167,6 +167,11 @@ getGroupInjectionTargetRate(const Group& group,
         // Should not be here.
         assert(false);
     }
+    // Defensive check for empty GroupState (e.g. from solveWellWithBhp or solveWellWithZeroRate)
+    // When we have an empty group state, we can't query group controls, so return nullopt
+    if (!groupStateHelper.groupState().has_injection_control(group.name(), injectionPhase)) {
+        return std::nullopt;
+    }
     auto currentGroupControl = groupStateHelper.groupState().injection_control(group.name(), injectionPhase);
     if (currentGroupControl == Group::InjectionCMode::FLD ||
         currentGroupControl == Group::InjectionCMode::NONE) {
@@ -282,6 +287,11 @@ getGroupProductionTargetRate(const Group& group,
     const auto& well_state = groupStateHelper.wellState();
     const auto& group_state = groupStateHelper.groupState();
     const auto& schedule = groupStateHelper.schedule();
+    // Defensive check for empty GroupState (e.g. from solveWellWithBhp or solveWellWithZeroRate)
+    // When we have an empty group state, we can't query group controls, so return neutral value
+    if (!group_state.has_production_control(group.name())) {
+        return 1.0;
+    }
     const Group::ProductionCMode& currentGroupControl = group_state.production_control(group.name());
     if (currentGroupControl == Group::ProductionCMode::FLD ||
         currentGroupControl == Group::ProductionCMode::NONE) {
