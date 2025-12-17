@@ -38,6 +38,7 @@
 #include <opm/simulators/utils/ParallelCommunication.hpp>
 
 #include <algorithm>
+#include <functional>
 #include <map>
 #include <memory>
 #include <optional>
@@ -324,6 +325,40 @@ private:
     //! \return The partial efficiency factor for addback
     Scalar computeAddbackEfficiency_(const std::vector<std::string>& chain,
                                      std::size_t local_reduction_level) const;
+
+    //! \brief Compute target available for a group/well by applying reductions and fractions
+    //!        along the group hierarchy chain.
+    //!
+    //! This implements the core reduction/fraction loop that appears in multiple constraint
+    //! checking and target computation functions. The algorithm is:
+    //!
+    //!   target = orig_target
+    //!   for each level i in [0, num_ancestors):
+    //!       if has_guide_rate(chain[i]) or i == 0:
+    //!           if local_reduction_level >= i:
+    //!               target -= reduction(chain[i])
+    //!           if should_addback and local_reduction_level == i:
+    //!               target += current_rate * addback_efficiency
+    //!       target *= fraction(chain[i+1])
+    //!
+    //! \param orig_target The original target at the top of the chain (in target mode units)
+    //! \param chain The group hierarchy from top to bottom (chain[0] is top, chain.back() is bottom)
+    //! \param local_reduction_level The level where the current entity's reduction is included
+    //! \param current_rate_available The current rate of the entity we're computing target for
+    //! \param has_guide_rate_fn Function(group_name) -> bool: checks if group has a guide rate
+    //! \param reduction_fn Function(group_name) -> Scalar: returns reduction in target mode units
+    //! \param fraction_fn Function(level_index) -> Scalar: returns fraction for distributing to child
+    //! \param should_addback If true, add back current_rate at local_reduction_level
+    //! \return The computed target (before dividing by efficiency_factor)
+    Scalar computeGroupTargetFromChain_(
+        Scalar orig_target,
+        const std::vector<std::string>& chain,
+        std::size_t local_reduction_level,
+        Scalar current_rate_available,
+        const std::function<bool(const std::string&)>& has_guide_rate_fn,
+        const std::function<Scalar(const std::string&)>& reduction_fn,
+        const std::function<Scalar(std::size_t)>& fraction_fn,
+        bool should_addback) const;
 
     std::string controlGroup_(const Group& group) const;
 
