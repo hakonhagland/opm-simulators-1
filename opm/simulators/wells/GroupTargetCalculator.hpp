@@ -24,6 +24,8 @@
 #include <opm/input/eclipse/Schedule/Schedule.hpp>
 #include <opm/input/eclipse/Schedule/Group/GConSale.hpp>
 #include <opm/input/eclipse/Schedule/Group/Group.hpp>
+#include <opm/simulators/flow/rescoup/ReservoirCoupling.hpp>
+#include <opm/simulators/flow/rescoup/ReservoirCouplingMaster.hpp>
 #include <opm/simulators/utils/DeferredLogger.hpp>
 #include <opm/simulators/utils/DeferredLoggingErrorHelpers.hpp>
 #include <opm/simulators/wells/BlackoilWellModelGeneric.hpp>
@@ -166,6 +168,9 @@ public:
     class TopToBottomCalculator {
     public:
         using TargetCalculatorType = std::variant<std::monostate, TargetCalculator, InjectionTargetCalculator>;
+
+        constexpr static Scalar TARGET_RATE_TOLERANCE = 1e-12;
+
         TopToBottomCalculator(
             GeneralCalculator& parent_calculator,
             const Group& top_group,
@@ -199,6 +204,13 @@ public:
             return this->parent_calculator_.getInjectionTargetCalculator(group); }
         TargetCalculatorType getInjectionTargetCalculator(const Group& group) const;
         TargetCalculatorType getProductionTargetCalculator(const Group& group) const;
+        /// @brief Get the slave group's total reservoir rate for RESV scaling
+        /// @details For reservoir coupling master groups, this returns the sum of all phase
+        ///          reservoir rates from the slave (in slave's reservoir units). This is used
+        ///          when scaling targets in RESV mode.
+        /// @param group The master group to get the corresponding slave group reservoir rate for
+        /// @return Total reservoir rate, or throws an error if not a RC master group
+        Scalar getSlaveGroupReservoirRate_(const Group& master_group);
         TargetInfo getTargetNoGuideRate_(const Group& group) const {
             return this->parent_calculator_.getTargetNoGuideRate(group);
         }
@@ -208,6 +220,7 @@ public:
         void initForInjector_();
         void initForProducer_();
         Phase injectionPhase_() const { return this->parent_calculator_.injectionPhase_(); }
+        bool isProducerAndRESVControl_(const Group& group) const;
         Scalar localFraction_(const std::string& group_name);
         Scalar localReduction_(const std::string& group_name);
 

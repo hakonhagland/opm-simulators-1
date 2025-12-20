@@ -575,21 +575,22 @@ getProductionGroupTarget(const Group& group, DeferredLogger& deferred_logger) co
 template <typename Scalar, typename IndexTraits>
 std::vector<Scalar>
 GroupStateHelper<Scalar, IndexTraits>::
-getGroupRatesAvailableForHigherLevelControl(const Group& group, const bool is_injector,
-                                            const bool res_rates) const
+getGroupRatesAvailableForHigherLevelControl(const Group& group, const bool is_injector) const
 {
     std::vector<Scalar> rates(this->numPhases(), 0.0);
     if (is_injector) {
         const std::vector<Scalar> reduction_rates = this->groupState().injection_reduction_rates(group.name());
         for (int phasePos = 0; phasePos < this->numPhases(); ++phasePos) {
-            const Scalar local_current_rate = this->sumWellPhaseRates(res_rates, group, phasePos, /*is_injector=*/true);
+            const Scalar local_current_rate = this->sumWellPhaseRates(
+                /*res_rates=*/false, group, phasePos, /*is_injector=*/true);
             rates[phasePos] = this->comm_.sum(local_current_rate) - reduction_rates[phasePos];
         }
     }
     else {
         const std::vector<Scalar> reduction_rates = this->groupState().production_reduction_rates(group.name());
         for (int phasePos = 0; phasePos < this->numPhases(); ++phasePos) {
-            const Scalar local_current_rate = this->sumWellPhaseRates(res_rates, group, phasePos, /*is_injector=*/false);
+            const Scalar local_current_rate = this->sumWellPhaseRates(
+                /*res_rates=*/false, group, phasePos, /*is_injector=*/false);
             rates[phasePos] = -this->comm_.sum(local_current_rate) - reduction_rates[phasePos];
         }
     }

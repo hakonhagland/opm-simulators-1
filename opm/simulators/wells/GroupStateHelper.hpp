@@ -141,8 +141,7 @@ public:
 
     const Parallel::Communication& comm() const { return this->comm_; }
 
-    std::vector<Scalar> getGroupRatesAvailableForHigherLevelControl(const Group& group, const bool is_injector,
-                                                                    const bool res_rates = false) const;
+    std::vector<Scalar> getGroupRatesAvailableForHigherLevelControl(const Group& group, const bool is_injector) const;
 
     Scalar getGuideRate(const std::string& name, const GuideRateModel::Target target) const;
 

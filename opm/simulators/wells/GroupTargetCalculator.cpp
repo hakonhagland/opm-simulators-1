@@ -292,6 +292,11 @@ getTargetNoGuideRate(const Group& group)
 {
     // Efficiency factor is not applied here, since it only applies to child rates, not to the group's
     // own target.
+    // NOTE: If a master group is under individual control and has a RESV rate target, it should be
+    //   transferred into a RESV target for the slave group. But it is not obvious how to transform it
+    //   since the master and slave groups in general have different PVT properties.
+    // TODO: For now we assume the RESV rate target is in slave reservoir units, and just send it as is
+    //   to the slave group. Alternatively, we could also throw an error here for that case
     const auto target_calculator = this->getTargetCalculator(group);
     return this->getTargetFromCalculator(target_calculator, group);
 }
@@ -422,15 +427,25 @@ calculateGroupTarget()
     // This is the full target rate that should be assigned to the bottom group, to be seen as the unscaled
     // target rate for the top group.
     const Scalar full_target = target / this->chain_efficiency_factor_;
-    if (bottom_group_current_rate_available > 1e-12) {
+    if (bottom_group_current_rate_available > TARGET_RATE_TOLERANCE) {  // > 1e-12
         if ((bottom_group_current_rate_available > full_target)) {
             // The bottom group is producing too much according to the top level group target,
-            // so we need to scale down the target rate. Return the top level target as is.
-            return TargetInfo{top_level_target, this->toplevel_control_mode_};
+            // so we need to scale down the target rate.
+            if (this->isProducerAndRESVControl_(this->top_group_)) {
+                // For RESV mode with reservoir coupling master groups, we scale the slave's
+                // actual reservoir rate to get a target in slave's reservoir units.
+                const Scalar slave_resv_rate = this->getSlaveGroupReservoirRate_(this->bottom_group_);
+                // Scale the slave's reservoir rate by the same factor we would scale surface rates
+                const Scalar scale = full_target / bottom_group_current_rate_available;
+                return TargetInfo{scale * slave_resv_rate, this->toplevel_control_mode_};
+            }
+            else {
+                return TargetInfo{full_target, this->toplevel_control_mode_};
+            }
         }
         else if (this->hasFLDControl_(this->bottom_group_)) {
             // The bottom group is under FLD control, so we return the top level target as is.
-            return TargetInfo{top_level_target, this->toplevel_control_mode_};
+            return TargetInfo{full_target, this->toplevel_control_mode_};
         }
     }
     // Return the bottom group's target rate as is.
@@ -485,14 +500,28 @@ getBottomGroupCurrentRateAvailable_() const
     }
     else {
         const auto& tcalc = std::get<TargetCalculator>(this->target_calculator_);
-        // For RESV control mode, use reservoir rates from the group (important for reservoir coupling
-        // where master groups receive rates from slaves with different PVT properties).
-        const bool res_rates = tcalc.isResvMode();
         return tcalc.calcModeRateFromRates(
-            this->groupStateHelper().getGroupRatesAvailableForHigherLevelControl(group, /*is_injector=*/false, res_rates),
-            /*rates_are_reservoir=*/res_rates
+            this->groupStateHelper().getGroupRatesAvailableForHigherLevelControl(group, /*is_injector=*/false)
         );
     }
+}
+
+template<class Scalar, class IndexTraits>
+Scalar
+GroupTargetCalculator<Scalar, IndexTraits>::
+TopToBottomCalculator::
+getSlaveGroupReservoirRate_(const Group& group)
+{
+    if (!this->groupStateHelper().isReservoirCouplingMasterGroup(group)) {
+        OPM_DEFLOG_THROW(std::runtime_error, "Group is not a reservoir coupling master group", this->deferredLogger());
+    }
+    // Sum reservoir rates for all phases from the slave
+    Scalar total_resv_rate = 0.0;
+    const auto& master = this->groupStateHelper().reservoirCouplingMaster();
+    for (auto phase : {ReservoirCoupling::Phase::Oil, ReservoirCoupling::Phase::Gas, ReservoirCoupling::Phase::Water}) {
+        total_resv_rate += master.getMasterGroupProductionRate(group.name(), phase, /*res_rates=*/true);
+    }
+    return total_resv_rate;
 }
 
 template<class Scalar, class IndexTraits>
@@ -597,6 +626,20 @@ initForProducer_()
         /*is_producer=*/true,
         dummy_phase
     );
+}
+
+template<class Scalar, class IndexTraits>
+bool
+GroupTargetCalculator<Scalar, IndexTraits>::
+TopToBottomCalculator::
+isProducerAndRESVControl_(const Group& group) const
+{
+    if (this->targetType() == TargetType::Production) {
+        return this->groupState().production_control(group.name()) == Group::ProductionCMode::RESV;
+    }
+    else {
+        return false;
+    }
 }
 
 template<class Scalar, class IndexTraits>

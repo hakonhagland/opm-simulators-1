@@ -49,8 +49,7 @@ TargetCalculator(const Opm::GroupStateHelper<Scalar, IndexTraits>& groupStateHel
 
 template<typename Scalar, typename IndexTraits>
 template <typename RateType>
-RateType TargetCalculator<Scalar, IndexTraits>::calcModeRateFromRates(const RateType* rates,
-                                                                      const bool rates_are_reservoir) const
+RateType TargetCalculator<Scalar, IndexTraits>::calcModeRateFromRates(const RateType* rates) const
 {
     const auto& pu = this->groupStateHelper_.phaseUsage();
     switch (this->cmode_) {
@@ -78,24 +77,12 @@ RateType TargetCalculator<Scalar, IndexTraits>::calcModeRateFromRates(const Rate
         return rates[opos] + rates[wpos];
     }
     case Group::ProductionCMode::RESV: {
-        // If rates are already in reservoir units (e.g., from reservoir coupling master groups),
-        // skip the surface-to-reservoir conversion and just sum them directly.
-        if (rates_are_reservoir) {
-            auto mode_rate = rates[0];
-            const int num_phases = pu.numActivePhases();
-            for (int phase = 1; phase < num_phases; ++phase) {
-                mode_rate += rates[phase];
-            }
-            return mode_rate;
+        auto mode_rate = rates[0] * this->resv_coeff_[0];
+        const int num_phases = pu.numActivePhases();
+        for (int phase = 1; phase < num_phases; ++phase) {
+            mode_rate += rates[phase] * this->resv_coeff_[phase];
         }
-        else {
-            auto mode_rate = rates[0] * this->resv_coeff_[0];
-            const int num_phases = pu.numActivePhases();
-            for (int phase = 1; phase < num_phases; ++phase) {
-                mode_rate += rates[phase] * this->resv_coeff_[phase];
-            }
-            return mode_rate;
-        }
+        return mode_rate;
     }
     default:
         // Should never be here.
@@ -190,7 +177,7 @@ InjectionTargetCalculator<Scalar, IndexTraits>::guideTargetMode() const
 
 #define INSTANTIATE_TARGET_CALCULATOR(T,...) \
     template __VA_ARGS__                     \
-    TargetCalculator<T, BlackOilDefaultFluidSystemIndices>::calcModeRateFromRates(const __VA_ARGS__* rates, const bool rates_are_reservoir) const;
+    TargetCalculator<T, BlackOilDefaultFluidSystemIndices>::calcModeRateFromRates(const __VA_ARGS__* rates) const;
 
 #define INSTANTIATE_TYPE(T)                                       \
     template class TargetCalculator<T, BlackOilDefaultFluidSystemIndices>;                           \

@@ -51,23 +51,17 @@ public:
                      const Group& group);
 
     template <typename RateType>
-    RateType calcModeRateFromRates(const std::vector<RateType>& rates,
-                                   const bool rates_are_reservoir = false) const
+    RateType calcModeRateFromRates(const std::vector<RateType>& rates) const
     {
-      return calcModeRateFromRates(rates.data(), rates_are_reservoir);
+      return calcModeRateFromRates(rates.data());
     }
 
     template <typename RateType>
-    RateType calcModeRateFromRates(const RateType* rates,
-                                   const bool rates_are_reservoir = false) const;
+    RateType calcModeRateFromRates(const RateType* rates) const;
 
     Scalar groupTarget(DeferredLogger& deferred_logger) const;
 
     GuideRateModel::Target guideTargetMode() const;
-
-    /// @brief Check if the control mode is RESV (reservoir volume rate)
-    /// @return true if control mode is RESV, false otherwise
-    bool isResvMode() const { return this->cmode_ == Group::ProductionCMode::RESV; }
 
 private:
     Group::ProductionCMode cmode_;
