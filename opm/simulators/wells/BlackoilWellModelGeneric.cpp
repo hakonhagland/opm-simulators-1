@@ -749,8 +749,7 @@ checkGroupHigherConstraints(const Group& group,
                 rates.data(),
                 group.getGroupEfficiencyFactor(),
                 resv_coeff,
-                /*check_guide_rate*/true,
-                deferred_logger
+                /*check_guide_rate*/true
             );
             if (is_changed) {
                 const auto group_limit_action = group.productionControls(summaryState_).group_limit_action;

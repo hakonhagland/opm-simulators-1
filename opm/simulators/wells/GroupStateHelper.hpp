@@ -189,8 +189,7 @@ public:
                                                       const Scalar* rates,
                                                       const Scalar efficiency_factor,
                                                       const std::vector<Scalar>& resv_coeff,
-                                                      const bool check_guide_rate,
-                                                      DeferredLogger& deferred_logger) const;
+                                                      const bool check_guide_rate) const;
 
     Scalar getGuideRate(const std::string& name, const GuideRateModel::Target target) const;
 
