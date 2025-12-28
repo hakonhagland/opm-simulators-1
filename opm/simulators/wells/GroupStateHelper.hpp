@@ -195,8 +195,7 @@ public:
 
     Scalar getInjectionGroupTarget(const Group& group,
                                    const Phase& injection_phase,
-                                   const std::vector<Scalar>& resv_coeff,
-                                   DeferredLogger& deferred_logger) const;
+                                   const std::vector<Scalar>& resv_coeff) const;
 
     Scalar getProductionGroupTarget(const Group& group, DeferredLogger& deferred_logger) const;
 
