@@ -382,8 +382,7 @@ public:
     std::pair<std::optional<std::string>, Scalar>
     worstOffendingWell(const Group& group,
                        const Group::ProductionCMode& offended_control,
-                       const Parallel::Communication& comm,
-                       DeferredLogger& deferred_logger) const;
+                       const Parallel::Communication& comm) const;
 
 private:
     //! \brief Compute partial efficiency factor for addback calculation.
