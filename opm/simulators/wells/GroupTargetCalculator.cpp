@@ -413,7 +413,7 @@ calculateGroupTarget()
                 target -= this->localReduction_(chain[i]);
             }
             // Add my reduction back at the level where it is included in the local reduction
-            if (i == local_reduction_level) {
+            if (this->bottomGroupHasIndividualControl_() && i == local_reduction_level) {
                 const Scalar addback_efficiency
                     = this->computeAddbackEfficiency_(chain, local_reduction_level);
                 target += bottom_group_current_rate_available * addback_efficiency;
