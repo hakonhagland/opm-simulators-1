@@ -262,9 +262,8 @@ BOOST_AUTO_TEST_CASE(TestGroupHigherConstraints)
     // FIELD has ORAT control
     gs.production_control("FIELD", Opm::Group::ProductionCMode::ORAT);
 
-    Opm::DeferredLogger deferred_logger;
     auto& gsh = well_model.groupStateHelper();
-    auto logger_guard = gsh.setupScopedDeferredLogger(deferred_logger);
+    auto logger_guard = gsh.pushLogger();
 
     // Update the groupControlledWells count based on well control modes
     gsh.updateGroupControlledWells(/*is_production_group=*/true, Opm::Phase::OIL);
