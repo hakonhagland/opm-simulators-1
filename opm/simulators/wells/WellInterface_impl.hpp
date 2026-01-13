@@ -265,7 +265,7 @@ namespace Opm
                 this->well_control_log_.push_back(from);
             }
             updateWellStateWithTarget(simulator, groupStateHelper, well_state, deferred_logger);
-            updatePrimaryVariables(groupStateHelper, deferred_logger);
+            updatePrimaryVariables(groupStateHelper);
         }
 
         return changed;
@@ -341,7 +341,7 @@ namespace Opm
                             // don't call for thp since this might trigger additional local solve
                             updateWellStateWithTarget(simulator, groupStateHelper, well_state, deferred_logger);
                         }
-                        updatePrimaryVariables(groupStateHelper, deferred_logger);
+                        updatePrimaryVariables(groupStateHelper);
                     }
                 }
                 return changed;
@@ -424,8 +424,8 @@ namespace Opm
         ws.open();
 
         scaleSegmentRatesAndPressure(well_state_copy);
-        calculateExplicitQuantities(simulator, groupStateHelper_copy, deferred_logger);
-        updatePrimaryVariables(groupStateHelper_copy, deferred_logger);
+        calculateExplicitQuantities(simulator, groupStateHelper_copy);
+        updatePrimaryVariables(groupStateHelper_copy);
 
         if (this->isProducer()) {
             const auto& schedule = simulator.vanguard().schedule();

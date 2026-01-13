@@ -159,7 +159,6 @@ public:
 
     virtual ConvergenceReport getWellConvergence(const GroupStateHelperType& groupStateHelper,
                                                  const std::vector<Scalar>& B_avg,
-                                                 DeferredLogger& deferred_logger,
                                                  const bool relax_tolerance) const = 0;
 
     virtual void solveEqAndUpdateWellState(const Simulator& simulator,
@@ -274,12 +273,10 @@ public:
                                                   const bool fixed_status,
                                                   const bool solving_with_zero_rate);
 
-    virtual void updatePrimaryVariables(const GroupStateHelperType& groupStateHelper,
-                                        DeferredLogger& deferred_logger) = 0;
+    virtual void updatePrimaryVariables(const GroupStateHelperType& groupStateHelper) = 0;
 
     virtual void calculateExplicitQuantities(const Simulator& simulator,
-                                             const GroupStateHelperType& groupStateHelper,
-                                             DeferredLogger& deferred_logger) = 0; // should be const?
+                                             const GroupStateHelperType& groupStateHelper) = 0; // should be const?
 
     virtual void updateProductivityIndex(const Simulator& simulator,
                                          const WellProdIndexCalculator<Scalar>& wellPICalc,

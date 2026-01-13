@@ -143,7 +143,6 @@ namespace Opm
         /// check whether the well equations get converged for this well
         virtual ConvergenceReport getWellConvergence(const GroupStateHelperType& groupStateHelper,
                                                      const std::vector<Scalar>& B_avg,
-                                                     DeferredLogger& deferred_logger,
                                                      const bool relax_tolerance) const override;
 
         /// Ax = Ax - C D^-1 B x
@@ -166,8 +165,7 @@ namespace Opm
                                    std::vector<Scalar>& well_potentials,
                                    DeferredLogger& deferred_logger) /* const */ override;
 
-        void updatePrimaryVariables(const GroupStateHelperType& groupStateHelper,
-                                    DeferredLogger& deferred_logger) override;
+        void updatePrimaryVariables(const GroupStateHelperType& groupStateHelper) override;
 
         void solveEqAndUpdateWellState(const Simulator& simulator,
                                        const GroupStateHelperType& groupStateHelper,
@@ -175,8 +173,7 @@ namespace Opm
                                        DeferredLogger& deferred_logger) override;
 
         void calculateExplicitQuantities(const Simulator& simulator,
-                                         const GroupStateHelperType& groupStateHelper,
-                                         DeferredLogger& deferred_logger) override; // should be const?
+                                         const GroupStateHelperType& groupStateHelper) override; // should be const?
 
         void updateProductivityIndex(const Simulator& simulator,
                                      const WellProdIndexCalculator<Scalar>& wellPICalc,

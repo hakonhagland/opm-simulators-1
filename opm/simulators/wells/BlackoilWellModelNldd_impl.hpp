@@ -146,7 +146,6 @@ getWellConvergence(const Domain& domain,
             if (well->isOperableAndSolvable() || well->wellIsStopped()) {
                 report += well->getWellConvergence(wellModel_.groupStateHelper(),
                                                    B_avg,
-                                                   local_deferredLogger,
                                                    relax_tolerance);
             } else {
                 ConvergenceReport xreport;

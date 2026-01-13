@@ -268,7 +268,7 @@ template<class Scalar> class WellContributions;
             // twice at the beginning of the time step
             /// Calculating the explict quantities used in the well calculation. By explicit, we mean they are cacluated
             /// at the beginning of the time step and no derivatives are included in these quantities
-            void calculateExplicitQuantities(DeferredLogger& deferred_logger) const;
+            void calculateExplicitQuantities() const;
             // some preparation work, mostly related to group control and RESV,
             // at the beginning of each time step (Not report step)
             void prepareTimeStep(DeferredLogger& deferred_logger);
@@ -550,7 +550,7 @@ template<class Scalar> class WellContributions;
             void endReportStep();
 
             // setting the well_solutions_ based on well_state.
-            void updatePrimaryVariables(DeferredLogger& deferred_logger);
+            void updatePrimaryVariables();
 
             void updateAverageFormationFactor();
 

@@ -154,9 +154,9 @@ namespace Opm
     template <typename TypeTag>
     void
     MultisegmentWell<TypeTag>::
-    updatePrimaryVariables(const GroupStateHelperType& groupStateHelper,
-                           DeferredLogger& deferred_logger)
+    updatePrimaryVariables(const GroupStateHelperType& groupStateHelper)
     {
+        auto& deferred_logger = groupStateHelper.deferredLogger();
         const auto& well_state = groupStateHelper.wellState();
         const bool stop_or_zero_rate_target = this->stoppedOrZeroRateTarget(groupStateHelper, deferred_logger);
         this->primary_variables_.update(well_state, stop_or_zero_rate_target);
@@ -203,10 +203,10 @@ namespace Opm
     MultisegmentWell<TypeTag>::
     getWellConvergence(const GroupStateHelperType& groupStateHelper,
                        const std::vector<Scalar>& B_avg,
-                       DeferredLogger& deferred_logger,
                        const bool relax_tolerance) const
     {
         const auto& well_state = groupStateHelper.wellState();
+        auto& deferred_logger = groupStateHelper.deferredLogger();
         return this->MSWEval::getWellConvergence(well_state,
                                                  B_avg,
                                                  deferred_logger,
@@ -464,7 +464,7 @@ namespace Opm
                                                  this->segments_.perforations(),
                                                  well_state_copy);
 
-        well_copy.calculateExplicitQuantities(simulator, groupStateHelper_copy, deferred_logger);
+        well_copy.calculateExplicitQuantities(simulator, groupStateHelper_copy);
         const double dt = simulator.timeStepSize();
         // iterate to get a solution at the given bhp.
         well_copy.iterateWellEqWithControl(simulator, dt, inj_controls, prod_controls, groupStateHelper_copy,
@@ -584,7 +584,7 @@ namespace Opm
                                                  this->segments_.perforations(),
                                                  well_state_copy);
 
-        well_copy.calculateExplicitQuantities(simulator, groupStateHelper_copy, deferred_logger);
+        well_copy.calculateExplicitQuantities(simulator, groupStateHelper_copy);
         const double dt = simulator.timeStepSize();
         // solve equations
         bool converged = false;
@@ -762,10 +762,10 @@ namespace Opm
     void
     MultisegmentWell<TypeTag>::
     calculateExplicitQuantities(const Simulator& simulator,
-                                const GroupStateHelperType& groupStateHelper,
-                                DeferredLogger& deferred_logger)
+                                const GroupStateHelperType& groupStateHelper)
     {
-        updatePrimaryVariables(groupStateHelper, deferred_logger);
+        auto& deferred_logger = groupStateHelper.deferredLogger();
+        updatePrimaryVariables(groupStateHelper);
         computePerfCellPressDiffs(simulator);
         computeInitialSegmentFluids(simulator, deferred_logger);
     }
@@ -1544,7 +1544,7 @@ namespace Opm
                 return false;
         }
 
-        updatePrimaryVariables(groupStateHelper, deferred_logger);
+        updatePrimaryVariables(groupStateHelper);
 
         std::vector<std::vector<Scalar> > residual_history;
         std::vector<Scalar> measure_history;
@@ -1565,7 +1565,7 @@ namespace Opm
                                            well_state, deferred_logger,
                                            /*solving_with_zero_rate=*/false);
 
-            const auto report = getWellConvergence(groupStateHelper, Base::B_avg_, deferred_logger, relax_convergence);
+            const auto report = getWellConvergence(groupStateHelper, Base::B_avg_, relax_convergence);
             if (report.converged()) {
                 converged = true;
                 break;
@@ -1587,7 +1587,7 @@ namespace Opm
             bool min_relaxation_reached = this->update_relaxation_factor(measure_history, relaxation_factor, this->regularize_, deferred_logger);
             if (min_relaxation_reached || this->repeatedStagnation(measure_history, this->regularize_, deferred_logger)) {
                 // try last attempt with relaxed tolerances
-                const auto reportStag = getWellConvergence(groupStateHelper, Base::B_avg_, deferred_logger, true);
+                const auto reportStag = getWellConvergence(groupStateHelper, Base::B_avg_, true);
                 if (reportStag.converged()) {
                     converged = true;
                     std::string message = fmt::format("Well stagnates/oscillates but {} manages to get converged with relaxed tolerances in {} inner iterations."
@@ -1670,7 +1670,7 @@ namespace Opm
                 return false;
         }
 
-        updatePrimaryVariables(groupStateHelper, deferred_logger);
+        updatePrimaryVariables(groupStateHelper);
 
         std::vector<std::vector<Scalar> > residual_history;
         std::vector<Scalar> measure_history;
@@ -1741,7 +1741,7 @@ namespace Opm
                                            well_state, deferred_logger, solving_with_zero_rate);
 
 
-            const auto report = getWellConvergence(groupStateHelper, Base::B_avg_, deferred_logger, relax_convergence);
+            const auto report = getWellConvergence(groupStateHelper, Base::B_avg_, relax_convergence);
             converged = report.converged();
             if (this->parallel_well_info_.communication().size() > 1 &&
                 this->parallel_well_info_.communication().max(converged) != this->parallel_well_info_.communication().min(converged)) {
