@@ -753,7 +753,6 @@ namespace Opm
                      WellStateType& well_state)
     {
         OPM_TIMEFUNCTION();
-        auto& deferred_logger = groupStateHelper.deferredLogger();
 
         // Solve a well using single bhp-constraint (but close if not operable under this)
         auto group_state = GroupState<Scalar>(); // empty group
@@ -803,7 +802,6 @@ namespace Opm
                           WellStateType& well_state)
     {
         OPM_TIMEFUNCTION();
-        auto& deferred_logger = groupStateHelper.deferredLogger();
 
         // Solve a well as stopped with isolation (empty group state for assembly)
         const auto well_status_orig = this->wellStatus_;
@@ -1240,7 +1238,7 @@ namespace Opm
     {
         OPM_TIMEFUNCTION();
         if (this->param_.local_well_solver_control_switching_) {
-            const bool success = updateWellOperabilityFromWellEq(simulator, groupStateHelper, deferred_logger);
+            const bool success = updateWellOperabilityFromWellEq(simulator, groupStateHelper);
             if (!success) {
                 this->operability_status_.solvable = false;
                 deferred_logger.debug("Operability check using well equations did not converge for well "
@@ -1272,8 +1270,7 @@ namespace Opm
     bool
     WellInterface<TypeTag>::
     updateWellOperabilityFromWellEq(const Simulator& simulator,
-                                    const GroupStateHelperType& groupStateHelper,
-                                    DeferredLogger& deferred_logger)
+                                    const GroupStateHelperType& groupStateHelper)
     {
         OPM_TIMEFUNCTION();
         // only makes sense if we're using this parameter is true
@@ -2162,7 +2159,7 @@ namespace Opm
             std::vector<Scalar> rates(this->number_of_phases_, 0.0);
             if (thp_update_iterations) {
                 computeWellRatesWithBhpIterations(simulator, *bhp_at_thp_limit,
-                                                  groupStateHelper, rates, deferred_logger);
+                                                  groupStateHelper, rates);
             } else {
                 computeWellRatesWithBhp(simulator, *bhp_at_thp_limit,
                                         rates, deferred_logger);

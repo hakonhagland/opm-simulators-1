@@ -310,8 +310,7 @@ namespace Opm
         void computeWellRatesWithBhpIterations(const Simulator& ebosSimulator,
                                                const Scalar& bhp,
                                                const GroupStateHelperType& groupStateHelper,
-                                               std::vector<Scalar>& well_flux,
-                                               DeferredLogger& deferred_logger) const override;
+                                               std::vector<Scalar>& well_flux) const override;
 
         std::vector<Scalar>
         computeWellPotentialWithTHP(const Simulator& ebosSimulator,
@@ -321,8 +320,7 @@ namespace Opm
 
         bool computeWellPotentialsImplicit(const Simulator& ebos_simulator,
                                            const GroupStateHelperType& groupStateHelper,
-                                           std::vector<Scalar>& well_potentials,
-                                           DeferredLogger& deferred_logger) const;
+                                           std::vector<Scalar>& well_potentials) const;
 
         // return the density at the perforation[0] of the rank owning this well,
         // value is cached to minimize the number of broadcasts

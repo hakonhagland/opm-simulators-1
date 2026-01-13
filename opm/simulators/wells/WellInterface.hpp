@@ -231,8 +231,7 @@ public:
     virtual void computeWellRatesWithBhpIterations(const Simulator& simulator,
                                                    const Scalar& bhp,
                                                    const GroupStateHelperType& groupStateHelper,
-                                                   std::vector<Scalar>& well_flux,
-                                                   DeferredLogger& deferred_logger) const = 0;
+                                                   std::vector<Scalar>& well_flux) const = 0;
 
     bool wellUnderZeroRateTarget(const GroupStateHelperType& groupStateHelper) const;
 
@@ -317,8 +316,7 @@ public:
                                DeferredLogger& deferred_logger);
 
     bool updateWellOperabilityFromWellEq(const Simulator& simulator,
-                                         const GroupStateHelperType& groupStateHelper,
-                                         DeferredLogger& deferred_logger);
+                                         const GroupStateHelperType& groupStateHelper);
 
     // update perforation water throughput based on solved water rate
     virtual void updateWaterThroughput(const double dt,
