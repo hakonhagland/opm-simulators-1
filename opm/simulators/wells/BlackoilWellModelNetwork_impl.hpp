@@ -236,7 +236,6 @@ computeWellGroupThp(const double dt, DeferredLogger& local_deferredLogger)
                                                          prod_controls,
                                                          well_model_.groupStateHelper(),
                                                          well_state,
-                                                         local_deferredLogger,
                                                          /*fixed_control=*/false,
                                                          /*fixed_status=*/false,
                                                          /*solving_with_zero_rate=*/false);

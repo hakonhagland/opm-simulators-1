@@ -592,7 +592,7 @@ namespace Opm
             );
         } else {
             converged = well_copy.iterateWellEqWithSwitching(
-                simulator, dt, inj_controls, prod_controls, groupStateHelper_copy, well_state_copy, deferred_logger,
+                simulator, dt, inj_controls, prod_controls, groupStateHelper_copy, well_state_copy,
                 /*fixed_control=*/false,
                 /*fixed_status=*/false,
                 /*solving_with_zero_rate=*/false
@@ -1656,11 +1656,12 @@ namespace Opm
                              const Well::ProductionControls& prod_controls,
                              const GroupStateHelperType& groupStateHelper,
                              WellStateType& well_state,
-                             DeferredLogger& deferred_logger,
                              const bool fixed_control /*false*/,
                              const bool fixed_status /*false*/,
                              const bool solving_with_zero_rate /*false*/)
     {
+        auto& deferred_logger = groupStateHelper.deferredLogger();
+
         const int max_iter_number = this->param_.max_inner_iter_ms_wells_;
 
         {

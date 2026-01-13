@@ -544,7 +544,7 @@ namespace Opm
                     );
                 } else {
                     converged = this->iterateWellEqWithSwitching(
-                        simulator, dt, inj_controls, prod_controls, groupStateHelper, well_state, deferred_logger,
+                        simulator, dt, inj_controls, prod_controls, groupStateHelper, well_state,
                         /*fixed_control=*/false, /*fixed_status=*/false, /*solving_with_zero_rate=*/false
                     );
                 }
@@ -628,7 +628,7 @@ namespace Opm
         }
         // solve well-equation
         converged = this->iterateWellEqWithSwitching(
-            simulator, dt, inj_controls, prod_controls, groupStateHelper, well_state, deferred_logger,
+            simulator, dt, inj_controls, prod_controls, groupStateHelper, well_state,
             /*fixed_control=*/false, /*fixed_status=*/false, /*solving_with_zero_rate=*/false
         );
 
@@ -656,7 +656,7 @@ namespace Opm
                     // re-solve with hopefully good initial guess
                     ws.thp = this->getTHPConstraint(summary_state);
                     converged = this->iterateWellEqWithSwitching(
-                        simulator, dt, inj_controls, prod_controls, groupStateHelper, well_state, deferred_logger,
+                        simulator, dt, inj_controls, prod_controls, groupStateHelper, well_state,
                         /*fixed_control=*/false, /*fixed_status=*/false, /*solving_with_zero_rate=*/false
                     );
                 }
@@ -693,7 +693,6 @@ namespace Opm
                                                              prod_controls,
                                                              groupStateHelper,
                                                              well_state,
-                                                             deferred_logger,
                                                              /*fixed_control=*/false,
                                                              /*fixed_status=*/false,
                                                              /*solving_with_zero_rate=*/false);
@@ -785,7 +784,7 @@ namespace Opm
         // solve
         const bool converged =  this->iterateWellEqWithSwitching(
             simulator, dt, inj_controls, prod_controls, groupStateHelper_copy,
-            well_state, deferred_logger,
+            well_state,
             /*fixed_control=*/true,
             /*fixed_status=*/false,
             /*solving_with_zero_rate=*/false
@@ -820,7 +819,6 @@ namespace Opm
             simulator, dt, inj_controls, prod_controls,
             groupStateHelper,
             well_state,
-            deferred_logger,
             /*fixed_control*/true,
             /*fixed_status*/true,
             /*solving_with_zero_rate*/true
@@ -860,7 +858,7 @@ namespace Opm
                     );
                 } else {
                     converged = this->iterateWellEqWithSwitching(
-                        simulator, dt, inj_controls, prod_controls, groupStateHelper, well_state, deferred_logger,
+                        simulator, dt, inj_controls, prod_controls, groupStateHelper, well_state,
                         /*fixed_control=*/false,
                         /*fixed_status=*/false,
                         /*solving_with_zero_rate=*/false

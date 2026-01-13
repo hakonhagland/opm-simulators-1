@@ -279,7 +279,6 @@ namespace Opm {
                                         const Well::ProductionControls& prod_controls,
                                         const GroupStateHelperType& groupStateHelper,
                                         WellStateType& well_state,
-                                        DeferredLogger& deferred_logger,
                                         const bool fixed_control,
                                         const bool fixed_status,
                                         const bool solving_with_zero_rate) override;
