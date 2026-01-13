@@ -344,12 +344,13 @@ namespace Opm
                                    const Well::InjectionControls& inj_controls,
                                    const Well::ProductionControls& prod_controls,
                                    WellStateType& well_state,
-                                   DeferredLogger& deferred_logger,
                                    const bool solving_with_zero_rate)
     {
         // TODO: only_wells should be put back to save some computation
         // for example, the matrices B C does not need to update if only_wells
         if (!this->isOperableAndSolvable() && !this->wellIsStopped()) return;
+
+        auto& deferred_logger = groupStateHelper.deferredLogger();
 
         // clear all entries
         this->linSys_.clear();
@@ -759,10 +760,11 @@ namespace Opm
     updateWellState(const Simulator& simulator,
                     const BVectorWell& dwells,
                     const GroupStateHelperType& groupStateHelper,
-                    WellStateType& well_state,
-                    DeferredLogger& deferred_logger)
+                    WellStateType& well_state)
     {
         if (!this->isOperableAndSolvable() && !this->wellIsStopped()) return;
+
+        auto& deferred_logger = groupStateHelper.deferredLogger();
 
         const bool stop_or_zero_rate_target = this->stoppedOrZeroRateTarget(groupStateHelper);
         updatePrimaryVariablesNewton(dwells, stop_or_zero_rate_target, deferred_logger);
@@ -963,7 +965,7 @@ namespace Opm
         const auto cmode = ws.production_cmode;
         ws.production_cmode = Well::ProducerCMode::BHP;
         const double dt = simulator.timeStepSize();
-        assembleWellEqWithoutIteration(simulator, groupStateHelper, dt, inj_controls, prod_controls, well_state, deferred_logger,
+        assembleWellEqWithoutIteration(simulator, groupStateHelper, dt, inj_controls, prod_controls, well_state,
                                        /*solving_with_zero_rate=*/false);
 
         const size_t nEq = this->primary_variables_.numWellEq();
@@ -1338,9 +1340,9 @@ namespace Opm
     void StandardWell<TypeTag>::
     computeWellConnectionDensitesPressures(const Simulator& simulator,
                                            const GroupStateHelperType& groupStateHelper,
-                                           const WellConnectionProps& props,
-                                           DeferredLogger& deferred_logger)
+                                           const WellConnectionProps& props)
     {
+        auto& deferred_logger = groupStateHelper.deferredLogger();
         const auto& well_state = groupStateHelper.wellState();
         // Cell level dynamic property call-back functions as fall-back
         // option for calculating connection level mixture densities in
@@ -1394,15 +1396,13 @@ namespace Opm
     void
     StandardWell<TypeTag>::
     computeWellConnectionPressures(const Simulator& simulator,
-                                   const GroupStateHelperType& groupStateHelper,
-                                   DeferredLogger& deferred_logger)
+                                   const GroupStateHelperType& groupStateHelper)
     {
          const auto& well_state = groupStateHelper.wellState();
          const auto props = computePropertiesForWellConnectionPressures
              (simulator, well_state);
 
-         computeWellConnectionDensitesPressures(simulator, groupStateHelper,
-                                                props, deferred_logger);
+         computeWellConnectionDensitesPressures(simulator, groupStateHelper, props);
     }
 
 
@@ -1418,15 +1418,13 @@ namespace Opm
     {
         if (!this->isOperableAndSolvable() && !this->wellIsStopped()) return;
 
-        auto& deferred_logger = groupStateHelper.deferredLogger();
-
         // We assemble the well equations, then we check the convergence,
         // which is why we do not put the assembleWellEq here.
         BVectorWell dx_well(1);
         dx_well[0].resize(this->primary_variables_.numWellEq());
         this->linSys_.solve( dx_well);
 
-        updateWellState(simulator, dx_well, groupStateHelper, well_state, deferred_logger);
+        updateWellState(simulator, dx_well, groupStateHelper, well_state);
     }
 
 
@@ -1439,9 +1437,8 @@ namespace Opm
     calculateExplicitQuantities(const Simulator& simulator,
                                 const GroupStateHelperType& groupStateHelper)
     {
-        auto& deferred_logger = groupStateHelper.deferredLogger();
         updatePrimaryVariables(groupStateHelper);
-        computeWellConnectionPressures(simulator, groupStateHelper, deferred_logger);
+        computeWellConnectionPressures(simulator, groupStateHelper);
         this->computeAccumWell();
     }
 
@@ -1489,12 +1486,11 @@ namespace Opm
     {
         if (!this->isOperableAndSolvable() && !this->wellIsStopped()) return;
 
-        auto& deferred_logger = groupStateHelper.deferredLogger();
         BVectorWell xw(1);
         xw[0].resize(this->primary_variables_.numWellEq());
 
         this->linSys_.recoverSolutionWell(x, xw);
-        updateWellState(simulator, xw, groupStateHelper, well_state, deferred_logger);
+        updateWellState(simulator, xw, groupStateHelper, well_state);
     }
 
 
@@ -1612,7 +1608,7 @@ namespace Opm
             deferred_logger.debug(msg);
         }
         well_copy.updatePrimaryVariables(groupStateHelper_copy);
-        well_copy.computeWellConnectionPressures(simulator, groupStateHelper_copy, deferred_logger);
+        well_copy.computeWellConnectionPressures(simulator, groupStateHelper_copy);
         well_copy.computeWellRatesWithBhp(simulator, bhp, well_flux, deferred_logger);
     }
 
@@ -2414,7 +2410,7 @@ namespace Opm
         bool relax_convergence = false;
         this->regularize_ = false;
         do {
-            assembleWellEqWithoutIteration(simulator, groupStateHelper, dt, inj_controls, prod_controls, well_state, deferred_logger,
+            assembleWellEqWithoutIteration(simulator, groupStateHelper, dt, inj_controls, prod_controls, well_state,
                                            /*solving_with_zero_rate=*/false);
 
             if (it > this->param_.strict_inner_iter_wells_) {
@@ -2533,7 +2529,7 @@ namespace Opm
                 }
             }
 
-            assembleWellEqWithoutIteration(simulator, groupStateHelper, dt, inj_controls, prod_controls, well_state, deferred_logger, solving_with_zero_rate);
+            assembleWellEqWithoutIteration(simulator, groupStateHelper, dt, inj_controls, prod_controls, well_state, solving_with_zero_rate);
 
             if (it > this->param_.strict_inner_iter_wells_) {
                 relax_convergence = true;

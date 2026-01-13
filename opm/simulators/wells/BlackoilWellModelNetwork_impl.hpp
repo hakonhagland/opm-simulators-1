@@ -64,7 +64,7 @@ doPreStepRebalance(DeferredLogger& deferred_logger)
 
     const bool changed_well_group =
         well_model_.updateWellControlsAndNetwork(true, dt, deferred_logger);
-    well_model_.assembleWellEqWithoutIteration(dt, deferred_logger);
+    well_model_.assembleWellEqWithoutIteration(dt);
     const bool converged =
         well_model_.getWellConvergence(well_model_.B_avg(), true).converged() &&
         !changed_well_group;
@@ -143,8 +143,7 @@ update(const bool mandatory_network_balance,
                     well->prepareWellBeforeAssembling(well_model_.simulator(),
                                                       dt,
                                                       well_model_.groupStateHelper(),
-                                                      well_model_.wellState(),
-                                                      deferred_logger);
+                                                      well_model_.wellState());
                 }
             }
             well_model_.updateAndCommunicateGroupData(episodeIdx,
@@ -355,8 +354,7 @@ computeWellGroupThp(const double dt, DeferredLogger& local_deferredLogger)
                     well->prepareWellBeforeAssembling(well_model_.simulator(),
                                                       dt,
                                                       well_model_.groupStateHelper(),
-                                                      well_model_.wellState(),
-                                                      local_deferredLogger);
+                                                      well_model_.wellState());
                 }
             }
 

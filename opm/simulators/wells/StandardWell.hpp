@@ -263,8 +263,7 @@ namespace Opm
         void updateWellState(const Simulator& simulator,
                              const BVectorWell& dwells,
                              const GroupStateHelperType& groupStateHelper,
-                             WellStateType& well_state,
-                             DeferredLogger& deferred_logger);
+                             WellStateType& well_state);
 
         using WellConnectionProps = typename StdWellEval::StdWellConnections::Properties;
 
@@ -276,12 +275,10 @@ namespace Opm
 
         void computeWellConnectionDensitesPressures(const Simulator& simulator,
                                                     const GroupStateHelperType& groupStateHelper,
-                                                    const WellConnectionProps& props,
-                                                    DeferredLogger& deferred_logger);
+                                                    const WellConnectionProps& props);
 
         void computeWellConnectionPressures(const Simulator& simulator,
-                                            const GroupStateHelperType& groupStateHelper,
-                                            DeferredLogger& deferred_logger);
+                                            const GroupStateHelperType& groupStateHelper);
 
         template<class Value>
         void computePerfRate(const IntensiveQuantities& intQuants,
@@ -365,7 +362,6 @@ namespace Opm
                                             const Well::InjectionControls& inj_controls,
                                             const Well::ProductionControls& prod_controls,
                                             WellStateType& well_state,
-                                            DeferredLogger& deferred_logger,
                                             const bool solving_with_zero_rate) override;
 
         void assembleWellEqWithoutIterationImpl(const Simulator& simulator,

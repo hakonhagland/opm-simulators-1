@@ -274,7 +274,7 @@ namespace Opm
             BVectorWell xw(1);
             this->linSys_.recoverSolutionWell(x, xw);
 
-            updateWellState(simulator, xw, groupStateHelper, well_state, deferred_logger);
+            updateWellState(simulator, xw, groupStateHelper, well_state);
         }
         catch (const NumericalProblem& exp) {
             // Add information about the well and log to deferred logger
@@ -619,18 +619,17 @@ namespace Opm
     {
         if (!this->isOperableAndSolvable() && !this->wellIsStopped()) return;
 
-        auto& deferred_logger = groupStateHelper.deferredLogger();
-
         // We assemble the well equations, then we check the convergence,
         // which is why we do not put the assembleWellEq here.
         try{
             const BVectorWell dx_well = this->linSys_.solve();
-            updateWellState(simulator, dx_well, groupStateHelper, well_state, deferred_logger);
+            updateWellState(simulator, dx_well, groupStateHelper, well_state);
         }
         catch(const NumericalProblem& exp) {
             // Add information about the well and log to deferred logger
             // (Logging done inside of solve() method will only be seen if
             // this is the process with rank zero)
+            auto& deferred_logger = groupStateHelper.deferredLogger();
             deferred_logger.problem("In MultisegmentWell::solveEqAndUpdateWellState for well "
                                     + this->name() +": "+exp.what());
             throw;
@@ -724,10 +723,11 @@ namespace Opm
                     const BVectorWell& dwells,
                     const GroupStateHelperType& groupStateHelper,
                     WellStateType& well_state,
-                    DeferredLogger& deferred_logger,
                     const Scalar relaxation_factor)
     {
         if (!this->isOperableAndSolvable() && !this->wellIsStopped()) return;
+
+        auto& deferred_logger = groupStateHelper.deferredLogger();
 
         const Scalar dFLimit = this->param_.dwell_fraction_max_;
         const Scalar max_pressure_change = this->param_.max_pressure_change_ms_wells_;
@@ -1446,7 +1446,7 @@ namespace Opm
         const auto cmode = ws.production_cmode;
         ws.production_cmode = Well::ProducerCMode::BHP;
         const double dt = simulator.timeStepSize();
-        assembleWellEqWithoutIteration(simulator, groupStateHelper, dt, inj_controls, prod_controls, well_state, deferred_logger,
+        assembleWellEqWithoutIteration(simulator, groupStateHelper, dt, inj_controls, prod_controls, well_state,
                                        /*solving_with_zero_rate=*/false);
 
         BVectorWell rhs(this->numberOfSegments());
@@ -1561,7 +1561,7 @@ namespace Opm
             }
 
             assembleWellEqWithoutIteration(simulator, groupStateHelper, dt, inj_controls, prod_controls,
-                                           well_state, deferred_logger,
+                                           well_state,
                                            /*solving_with_zero_rate=*/false);
 
             const auto report = getWellConvergence(groupStateHelper, Base::B_avg_, relax_convergence);
@@ -1601,7 +1601,7 @@ namespace Opm
             BVectorWell dx_well;
             try{
                 dx_well = this->linSys_.solve();
-                updateWellState(simulator, dx_well, groupStateHelper, well_state, deferred_logger, relaxation_factor);
+                updateWellState(simulator, dx_well, groupStateHelper, well_state, relaxation_factor);
             }
             catch(const NumericalProblem& exp) {
                 // Add information about the well and log to deferred logger
@@ -1737,7 +1737,7 @@ namespace Opm
             }
 
             assembleWellEqWithoutIteration(simulator, groupStateHelper, dt, inj_controls, prod_controls,
-                                           well_state, deferred_logger, solving_with_zero_rate);
+                                           well_state, solving_with_zero_rate);
 
 
             const auto report = getWellConvergence(groupStateHelper, Base::B_avg_, relax_convergence);
@@ -1782,7 +1782,7 @@ namespace Opm
             }
             try{
                 const BVectorWell dx_well = this->linSys_.solve();
-                updateWellState(simulator, dx_well, groupStateHelper, well_state, deferred_logger, relaxation_factor);
+                updateWellState(simulator, dx_well, groupStateHelper, well_state, relaxation_factor);
             }
             catch(const NumericalProblem& exp) {
                 // Add information about the well and log to deferred logger
@@ -1834,11 +1834,11 @@ namespace Opm
                                    const Well::InjectionControls& inj_controls,
                                    const Well::ProductionControls& prod_controls,
                                    WellStateType& well_state,
-                                   DeferredLogger& deferred_logger,
                                    const bool solving_with_zero_rate)
     {
         if (!this->isOperableAndSolvable() && !this->wellIsStopped()) return;
 
+        auto& deferred_logger = groupStateHelper.deferredLogger();
 
         // update the upwinding segments
         this->segments_.updateUpwindingSegments(this->primary_variables_);

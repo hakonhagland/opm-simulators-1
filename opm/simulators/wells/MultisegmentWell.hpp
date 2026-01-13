@@ -181,7 +181,6 @@ namespace Opm {
                              const BVectorWell& dwells,
                              const GroupStateHelperType& groupStateHelper,
                              WellStateType& well_state,
-                             DeferredLogger& deferred_logger,
                              const Scalar relaxation_factor = 1.0);
 
         // computing the accumulation term for later use in well mass equations
@@ -292,7 +291,6 @@ namespace Opm {
                                             const Well::InjectionControls& inj_controls,
                                             const Well::ProductionControls& prod_controls,
                                             WellStateType& well_state,
-                                            DeferredLogger& deferred_logger,
                                             const bool solving_with_zero_rate) override;
 
         void updateWaterThroughput(const double dt, WellStateType& well_state) const override;

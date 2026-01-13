@@ -137,8 +137,7 @@ private:
     BlackoilWellModel<TypeTag>& wellModel_;
 
     void assembleWellEq(const double dt,
-                        const Domain& domain,
-                        DeferredLogger& deferred_logger);
+                        const Domain& domain);
 
     // These members are used to avoid reallocation in specific functions
     // instead of using local variables.

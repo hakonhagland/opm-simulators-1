@@ -453,7 +453,7 @@ template<class Scalar> class WellContributions;
                                               DeferredLogger& local_deferredLogger);
 
             // TODO: finding a better naming
-            void assembleWellEqWithoutIteration(const double dt, DeferredLogger& deferred_logger);
+            void assembleWellEqWithoutIteration(const double dt);
 
             const std::vector<Scalar>& B_avg() const
             { return B_avg_; }
@@ -572,9 +572,9 @@ template<class Scalar> class WellContributions;
 
             int reportStepIndex() const;
 
-            void assembleWellEq(const double dt, DeferredLogger& deferred_logger);
+            void assembleWellEq(const double dt);
 
-            void prepareWellsBeforeAssembling(const double dt, DeferredLogger& deferred_logger);
+            void prepareWellsBeforeAssembling(const double dt);
 
             void extractLegacyCellPvtRegionIndex_();
 

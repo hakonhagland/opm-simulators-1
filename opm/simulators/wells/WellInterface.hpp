@@ -168,22 +168,19 @@ public:
     void assembleWellEq(const Simulator& simulator,
                         const double dt,
                         const GroupStateHelperType& groupStateHelper,
-                        WellStateType& well_state,
-                        DeferredLogger& deferred_logger);
+                        WellStateType& well_state);
 
     void assembleWellEqWithoutIteration(const Simulator& simulator,
                                         const GroupStateHelperType& groupStateHelper,
                                         const double dt,
                                         WellStateType& well_state,
-                                        DeferredLogger& deferred_logger,
                                         const bool solving_with_zero_rate);
 
     // TODO: better name or further refactoring the function to make it more clear
     void prepareWellBeforeAssembling(const Simulator& simulator,
                                      const double dt,
                                      const GroupStateHelperType& groupStateHelper,
-                                     WellStateType& well_state,
-                                     DeferredLogger& deferred_logger);
+                                     WellStateType& well_state);
 
     virtual void computeWellRatesWithBhp(const Simulator& ebosSimulator,
                                          const Scalar& bhp,
@@ -414,7 +411,6 @@ protected:
                                                 const WellInjectionControls& inj_controls,
                                                 const WellProductionControls& prod_controls,
                                                 WellStateType& well_state,
-                                                DeferredLogger& deferred_logger,
                                                 const bool solving_with_zero_rate) = 0;
 
     // iterate well equations with the specified control until converged

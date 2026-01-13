@@ -1203,7 +1203,7 @@ namespace Opm {
             return;
         }
 
-        assembleWellEqWithoutIteration(dt, local_deferredLogger);
+        assembleWellEqWithoutIteration(dt);
         // Pre-compute cell rates to we don't have to do this for every cell during linearization...
         updateCellRates();
 
@@ -1315,7 +1315,7 @@ namespace Opm {
                                                           this->groupState(),
                                                           local_deferredLogger);
             }
-            prepareWellsBeforeAssembling(dt, local_deferredLogger);
+            prepareWellsBeforeAssembling(dt);
         }
         OPM_END_PARALLEL_TRY_CATCH_LOG(local_deferredLogger,
                                        "updateWellControlsAndNetworkIteration() failed: ",
@@ -1342,11 +1342,11 @@ namespace Opm {
     template<typename TypeTag>
     void
     BlackoilWellModel<TypeTag>::
-    assembleWellEq(const double dt, DeferredLogger& deferred_logger)
+    assembleWellEq(const double dt)
     {
         OPM_TIMEFUNCTION();
         for (auto& well : well_container_) {
-            well->assembleWellEq(simulator_, dt, this->groupStateHelper(), deferred_logger);
+            well->assembleWellEq(simulator_, dt, this->groupStateHelper(), this->wellState());
         }
     }
 
@@ -1354,12 +1354,12 @@ namespace Opm {
     template<typename TypeTag>
     void
     BlackoilWellModel<TypeTag>::
-    prepareWellsBeforeAssembling(const double dt, DeferredLogger& deferred_logger)
+    prepareWellsBeforeAssembling(const double dt)
     {
         OPM_TIMEFUNCTION();
         for (auto& well : well_container_) {
             well->prepareWellBeforeAssembling(
-                simulator_, dt, this->groupStateHelper(), this->wellState(), deferred_logger
+                simulator_, dt, this->groupStateHelper(), this->wellState()
             );
         }
     }
@@ -1368,16 +1368,16 @@ namespace Opm {
     template<typename TypeTag>
     void
     BlackoilWellModel<TypeTag>::
-    assembleWellEqWithoutIteration(const double dt, DeferredLogger& deferred_logger)
+    assembleWellEqWithoutIteration(const double dt)
     {
         OPM_TIMEFUNCTION();
+        auto& deferred_logger = this->groupStateHelper().deferredLogger();
         // We make sure that all processes throw in case there is an exception
         // on one of them (WetGasPvt::saturationPressure might throw if not converged)
         OPM_BEGIN_PARALLEL_TRY_CATCH();
 
         for (auto& well: well_container_) {
             well->assembleWellEqWithoutIteration(simulator_, this->groupStateHelper(), dt, this->wellState(),
-                                                 deferred_logger,
                                                  /*solving_with_zero_rate=*/false);
         }
         OPM_END_PARALLEL_TRY_CATCH_LOG(deferred_logger, "BlackoilWellModel::assembleWellEqWithoutIteration failed: ",

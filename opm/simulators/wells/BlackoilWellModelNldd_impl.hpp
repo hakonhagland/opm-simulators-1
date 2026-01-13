@@ -48,7 +48,7 @@ assemble(const int /*iterationIdx*/,
 
     DeferredLogger local_deferredLogger;
     this->updateWellControls(local_deferredLogger, domain);
-    this->assembleWellEq(dt, domain, local_deferredLogger);
+    this->assembleWellEq(dt, domain);
 
     // Update cellRates_ with current contributions from wells in this domain for reservoir linearization
     wellModel_.updateCellRatesForDomain(domain.index, this->well_domain());
@@ -58,8 +58,7 @@ template<typename TypeTag>
 void
 BlackoilWellModelNldd<TypeTag>::
 assembleWellEq(const double dt,
-               const Domain& domain,
-               DeferredLogger& deferred_logger)
+               const Domain& domain)
 {
     OPM_TIMEBLOCK(assembleWellEq);
     for (const auto& well : wellModel_.localNonshutWells()) {
@@ -67,8 +66,7 @@ assembleWellEq(const double dt,
             well->assembleWellEq(wellModel_.simulator(),
                                  dt,
                                  wellModel_.groupStateHelper(),
-                                 wellModel_.wellState(),
-                                 deferred_logger);
+                                 wellModel_.wellState());
         }
     }
 }
