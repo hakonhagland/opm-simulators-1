@@ -73,8 +73,7 @@ doPreStepRebalance(DeferredLogger& deferred_logger)
     for (auto& well : this->well_model_) {
         well->solveEqAndUpdateWellState(well_model_.simulator(),
                                         well_model_.groupStateHelper(),
-                                        well_state,
-                                        deferred_logger);
+                                        well_state);
     }
     OPM_END_PARALLEL_TRY_CATCH("BlackoilWellModelNetwork::doPreStepRebalance() failed: ",
                                 well_model_.simulator().vanguard().grid().comm());

@@ -168,8 +168,7 @@ namespace Opm
 
         void solveEqAndUpdateWellState(const Simulator& simulator,
                                        const GroupStateHelperType& groupStateHelper,
-                                       WellStateType& well_state,
-                                       DeferredLogger& deferred_logger) override;
+                                       WellStateType& well_state) override;
 
         void calculateExplicitQuantities(const Simulator& simulator,
                                          const GroupStateHelperType& groupStateHelper) override; // should be const?

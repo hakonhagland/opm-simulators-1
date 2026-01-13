@@ -1414,10 +1414,11 @@ namespace Opm
     StandardWell<TypeTag>::
     solveEqAndUpdateWellState(const Simulator& simulator,
                               const GroupStateHelperType& groupStateHelper,
-                              WellStateType& well_state,
-                              DeferredLogger& deferred_logger)
+                              WellStateType& well_state)
     {
         if (!this->isOperableAndSolvable() && !this->wellIsStopped()) return;
+
+        auto& deferred_logger = groupStateHelper.deferredLogger();
 
         // We assemble the well equations, then we check the convergence,
         // which is why we do not put the assembleWellEq here.
@@ -2429,7 +2430,7 @@ namespace Opm
             }
 
             ++it;
-            solveEqAndUpdateWellState(simulator, groupStateHelper, well_state, deferred_logger);
+            solveEqAndUpdateWellState(simulator, groupStateHelper, well_state);
 
             // TODO: when this function is used for well testing purposes, will need to check the controls, so that we will obtain convergence
             // under the most restrictive control. Based on this converged results, we can check whether to re-open the well. Either we refactor
@@ -2554,7 +2555,7 @@ namespace Opm
             }
 
             ++it;
-            solveEqAndUpdateWellState(simulator, groupStateHelper, well_state, deferred_logger);
+            solveEqAndUpdateWellState(simulator, groupStateHelper, well_state);
 
         } while (it < max_iter);
 

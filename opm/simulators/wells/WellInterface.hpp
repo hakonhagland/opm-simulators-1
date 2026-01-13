@@ -163,8 +163,7 @@ public:
 
     virtual void solveEqAndUpdateWellState(const Simulator& simulator,
                                            const GroupStateHelperType& groupStateHelper,
-                                           WellStateType& well_state,
-                                           DeferredLogger& deferred_logger) = 0;
+                                           WellStateType& well_state) = 0;
 
     void assembleWellEq(const Simulator& simulator,
                         const double dt,
