@@ -182,10 +182,9 @@ namespace Opm
     MultisegmentWell<TypeTag>::
     updateWellStateWithTarget(const Simulator& simulator,
                               const GroupStateHelperType& groupStateHelper,
-                              WellStateType& well_state,
-                              DeferredLogger&  deferred_logger) const
+                              WellStateType& well_state) const
     {
-        Base::updateWellStateWithTarget(simulator, groupStateHelper, well_state, deferred_logger);
+        Base::updateWellStateWithTarget(simulator, groupStateHelper, well_state);
         // scale segment rates based on the wellRates
         // and segment pressure based on bhp
         this->scaleSegmentRatesWithWellRates(this->segments_.inlets(),
@@ -264,13 +263,13 @@ namespace Opm
     recoverWellSolutionAndUpdateWellState(const Simulator& simulator,
                                           const BVector& x,
                                           const GroupStateHelperType& groupStateHelper,
-                                          WellStateType& well_state,
-                                          DeferredLogger& deferred_logger)
+                                          WellStateType& well_state)
     {
         if (!this->isOperableAndSolvable() && !this->wellIsStopped()) {
             return;
         }
 
+        auto& deferred_logger = groupStateHelper.deferredLogger();
         try {
             BVectorWell xw(1);
             this->linSys_.recoverSolutionWell(x, xw);

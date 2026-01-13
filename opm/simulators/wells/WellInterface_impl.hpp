@@ -264,7 +264,7 @@ namespace Opm
             if (iterationIdx >= nupcol || this->well_control_log_.empty()) {
                 this->well_control_log_.push_back(from);
             }
-            updateWellStateWithTarget(simulator, groupStateHelper, well_state, deferred_logger);
+            updateWellStateWithTarget(simulator, groupStateHelper, well_state);
             updatePrimaryVariables(groupStateHelper);
         }
 
@@ -339,7 +339,7 @@ namespace Opm
                              ws.thp = this->getTHPConstraint(summary_state);
                         } else {
                             // don't call for thp since this might trigger additional local solve
-                            updateWellStateWithTarget(simulator, groupStateHelper, well_state, deferred_logger);
+                            updateWellStateWithTarget(simulator, groupStateHelper, well_state);
                         }
                         updatePrimaryVariables(groupStateHelper);
                     }
@@ -884,10 +884,10 @@ namespace Opm
     WellInterface<TypeTag>::
     solveWellEquation(const Simulator& simulator,
                       const GroupStateHelperType& groupStateHelper,
-                      WellStateType& well_state,
-                      DeferredLogger& deferred_logger)
+                      WellStateType& well_state)
     {
         OPM_TIMEFUNCTION();
+        auto& deferred_logger = groupStateHelper.deferredLogger();
         if (!this->isOperableAndSolvable() && !this->wellIsStopped())
             return;
 
@@ -1302,10 +1302,10 @@ namespace Opm
     WellInterface<TypeTag>::
     updateWellStateWithTarget(const Simulator& simulator,
                               const GroupStateHelperType& groupStateHelper,
-                              WellStateType& well_state,
-                              DeferredLogger& deferred_logger) const
+                              WellStateType& well_state) const
     {
         OPM_TIMEFUNCTION();
+        auto& deferred_logger = groupStateHelper.deferredLogger();
         // only bhp and wellRates are used to initilize the primaryvariables for standard wells
         const auto& well = this->well_ecl_;
         const int well_index = this->index_of_well_;

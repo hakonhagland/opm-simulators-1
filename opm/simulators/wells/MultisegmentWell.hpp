@@ -92,8 +92,7 @@ namespace Opm {
         /// updating the well state based the current control mode
         void updateWellStateWithTarget(const Simulator& simulator,
                                        const GroupStateHelperType& groupStateHelper,
-                                       WellStateType& well_state,
-                                       DeferredLogger& deferred_logger) const override;
+                                       WellStateType& well_state) const override;
 
         /// updating the segment pressure and rates based the current bhp and well rates
         void scaleSegmentRatesAndPressure(WellStateType& well_state) const override;
@@ -113,8 +112,7 @@ namespace Opm {
         void recoverWellSolutionAndUpdateWellState(const Simulator& simulator,
                                                    const BVector& x,
                                                    const GroupStateHelperType& groupStateHelper,
-                                                   WellStateType& well_state,
-                                                   DeferredLogger& deferred_logger) override;
+                                                   WellStateType& well_state) override;
 
         /// computing the well potentials for group control
         void computeWellPotentials(const Simulator& simulator,

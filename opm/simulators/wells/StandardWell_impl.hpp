@@ -1484,11 +1484,11 @@ namespace Opm
     recoverWellSolutionAndUpdateWellState(const Simulator& simulator,
                                           const BVector& x,
                                           const GroupStateHelperType& groupStateHelper,
-                                          WellStateType& well_state,
-                                          DeferredLogger& deferred_logger)
+                                          WellStateType& well_state)
     {
         if (!this->isOperableAndSolvable() && !this->wellIsStopped()) return;
 
+        auto& deferred_logger = groupStateHelper.deferredLogger();
         BVectorWell xw(1);
         xw[0].resize(this->primary_variables_.numWellEq());
 

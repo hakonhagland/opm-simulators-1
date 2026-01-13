@@ -516,10 +516,10 @@ namespace Opm {
                     try {
                         well->scaleSegmentRatesAndPressure(this->wellState());
                         well->calculateExplicitQuantities(simulator_, this->groupStateHelper());
-                        well->updateWellStateWithTarget(simulator_, this->groupStateHelper(), this->wellState(), local_deferredLogger);
+                        well->updateWellStateWithTarget(simulator_, this->groupStateHelper(), this->wellState());
                         well->updatePrimaryVariables(this->groupStateHelper());
                         well->solveWellEquation(
-                            simulator_, this->groupStateHelper(), this->wellState(), local_deferredLogger
+                            simulator_, this->groupStateHelper(), this->wellState()
                         );
                     } catch (const std::exception& e) {
                         const std::string msg = "Compute initial well solution for new well " + well->name() + " failed. Continue with zero initial rates";
@@ -1551,7 +1551,7 @@ namespace Opm {
                     x_local_[i] = x[cells[i]];
                 }
                 well->recoverWellSolutionAndUpdateWellState(simulator_, x_local_,
-                                                            this->groupStateHelper(), this->wellState(), local_deferredLogger);
+                                                            this->groupStateHelper(), this->wellState());
             }
         }
         OPM_END_PARALLEL_TRY_CATCH_LOG(local_deferredLogger,
@@ -1741,7 +1741,7 @@ namespace Opm {
                 ws.injection_cmode == Well::InjectorCMode::GRUP)
             {
                 well->updateWellStateWithTarget(
-                    simulator_, this->groupStateHelper(), this->wellState(), deferred_logger
+                    simulator_, this->groupStateHelper(), this->wellState()
                 );
             }
         }
@@ -1983,7 +1983,7 @@ namespace Opm {
             auto& events = this->wellState().well(well->indexOfWell()).events;
             if (events.hasEvent(WellState<Scalar, IndexTraits>::event_mask)) {
                 well->updateWellStateWithTarget(
-                    simulator_, this->groupStateHelper(), this->wellState(), deferred_logger
+                    simulator_, this->groupStateHelper(), this->wellState()
                 );
                 well->updatePrimaryVariables(this->groupStateHelper());
                 // There is no new well control change input within a report step,
@@ -1998,7 +1998,7 @@ namespace Opm {
             if (param_.solve_welleq_initially_ && well->isOperableAndSolvable()) {
                 try {
                     well->solveWellEquation(
-                        simulator_, this->groupStateHelper(), this->wellState(), deferred_logger
+                        simulator_, this->groupStateHelper(), this->wellState()
                     );
                 } catch (const std::exception& e) {
                     const std::string msg = "Compute initial well solution for " + well->name() + " initially failed. Continue with the previous rates";

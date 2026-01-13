@@ -155,8 +155,7 @@ namespace Opm
         void recoverWellSolutionAndUpdateWellState(const Simulator& simulator,
                                                    const BVector& x,
                                                    const GroupStateHelperType& groupStateHelper,
-                                                   WellStateType& well_state,
-                                                   DeferredLogger& deferred_logger) override;
+                                                   WellStateType& well_state) override;
 
         /// computing the well potentials for group control
         void computeWellPotentials(const Simulator& simulator,

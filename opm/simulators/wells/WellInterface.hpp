@@ -211,8 +211,7 @@ public:
     virtual void recoverWellSolutionAndUpdateWellState(const Simulator& simulator,
                                                        const BVector& x,
                                                        const GroupStateHelperType& groupStateHelper,
-                                                       WellStateType& well_state,
-                                                       DeferredLogger& deferred_logger) = 0;
+                                                       WellStateType& well_state) = 0;
 
     /// Ax = Ax - C D^-1 B x
     virtual void apply(const BVector& x, BVector& Ax) const = 0;
@@ -229,8 +228,7 @@ public:
 
     virtual void updateWellStateWithTarget(const Simulator& simulator,
                                            const GroupStateHelperType& groupStateHelper,
-                                           WellStateType& well_state,
-                                           DeferredLogger& deferred_logger) const;
+                                           WellStateType& well_state) const;
 
     virtual void scaleSegmentRatesAndPressure(WellStateType& well_state) const;
 
@@ -345,8 +343,7 @@ public:
 
     void solveWellEquation(const Simulator& simulator,
                            const GroupStateHelperType& groupStateHelper,
-                           WellStateType& well_state,
-                           DeferredLogger& deferred_logger);
+                           WellStateType& well_state);
 
     const std::vector<RateVector>& connectionRates() const
     {

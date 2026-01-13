@@ -119,8 +119,7 @@ recoverWellSolutionAndUpdateWellState(const BVector& x,
             well->recoverWellSolutionAndUpdateWellState(wellModel_.simulator(),
                                                         x_local_,
                                                         wellModel_.groupStateHelper(),
-                                                        wellModel_.wellState(),
-                                                        local_deferredLogger);
+                                                        wellModel_.wellState());
         }
     }
     // TODO: avoid losing the logging information that could
