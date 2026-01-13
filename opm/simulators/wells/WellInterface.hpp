@@ -240,11 +240,9 @@ public:
                                                    std::vector<Scalar>& well_flux,
                                                    DeferredLogger& deferred_logger) const = 0;
 
-    bool wellUnderZeroRateTarget(const GroupStateHelperType& groupStateHelper,
-                                 DeferredLogger& deferred_logger) const;
+    bool wellUnderZeroRateTarget(const GroupStateHelperType& groupStateHelper) const;
 
-    bool stoppedOrZeroRateTarget(const GroupStateHelperType& groupStateHelper,
-                                 DeferredLogger& deferred_logger) const;
+    bool stoppedOrZeroRateTarget(const GroupStateHelperType& groupStateHelper) const;
 
     bool updateWellStateWithTHPTargetProd(const Simulator& simulator,
                                           WellStateType& well_state,
@@ -252,7 +250,6 @@ public:
                                           DeferredLogger& deferred_logger) const;
 
     bool wellUnderZeroGroupRateTarget(const GroupStateHelperType& groupStateHelper,
-                                      DeferredLogger& deferred_logger,
                                       const std::optional<bool> group_control = std::nullopt) const;
 
     enum class IndividualOrGroup { Individual, Group, Both };

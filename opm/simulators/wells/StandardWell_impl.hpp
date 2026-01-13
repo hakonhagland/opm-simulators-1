@@ -467,7 +467,7 @@ namespace Opm
                                  this->linSys_);
         }
 
-        const bool stopped_or_zero_target = this->stoppedOrZeroRateTarget(groupStateHelper, deferred_logger);
+        const bool stopped_or_zero_target = this->stoppedOrZeroRateTarget(groupStateHelper);
         {
             // When solving_with_zero_rate=true (called from solveWellWithZeroRate),
             // we use an empty GroupState to isolate the well from group constraints during assembly.
@@ -764,7 +764,7 @@ namespace Opm
     {
         if (!this->isOperableAndSolvable() && !this->wellIsStopped()) return;
 
-        const bool stop_or_zero_rate_target = this->stoppedOrZeroRateTarget(groupStateHelper, deferred_logger);
+        const bool stop_or_zero_rate_target = this->stoppedOrZeroRateTarget(groupStateHelper);
         updatePrimaryVariablesNewton(dwells, stop_or_zero_rate_target, deferred_logger);
 
         const auto& summary_state = simulator.vanguard().summaryState();
@@ -1232,7 +1232,7 @@ namespace Opm
         constexpr Scalar stopped_factor = 1.e-4;
         // use stricter tolerance for dynamic thp to ameliorate network convergence
         constexpr Scalar dynamic_thp_factor = 1.e-1;
-        if (this->stoppedOrZeroRateTarget(groupStateHelper, deferred_logger)) {
+        if (this->stoppedOrZeroRateTarget(groupStateHelper)) {
             tol_wells = tol_wells*stopped_factor;
         } else if (this->getDynamicThpLimit()) {
             tol_wells = tol_wells*dynamic_thp_factor;
@@ -1374,7 +1374,7 @@ namespace Opm
         };
 
         const auto stopped_or_zero_rate_target = this->
-            stoppedOrZeroRateTarget(groupStateHelper, deferred_logger);
+            stoppedOrZeroRateTarget(groupStateHelper);
 
         this->connections_
             .computeProperties(stopped_or_zero_rate_target, well_state,
@@ -1813,7 +1813,7 @@ namespace Opm
         // for newly opened wells we dont compute the potentials implicit
         // group controlled wells with defaulted guiderates will have zero targets as
         // the potentials are used to compute the well fractions.
-        if (this->param_.local_well_solver_control_switching_ && !(this->changed_to_open_this_step_ && this->wellUnderZeroRateTarget(groupStateHelper, deferred_logger))) {
+        if (this->param_.local_well_solver_control_switching_ && !(this->changed_to_open_this_step_ && this->wellUnderZeroRateTarget(groupStateHelper))) {
             converged_implicit = computeWellPotentialsImplicit(
                 simulator, groupStateHelper, well_potentials, deferred_logger
             );
@@ -1880,7 +1880,7 @@ namespace Opm
 
         auto& deferred_logger = groupStateHelper.deferredLogger();
         const auto& well_state = groupStateHelper.wellState();
-        const bool stop_or_zero_rate_target = this->stoppedOrZeroRateTarget(groupStateHelper, deferred_logger);
+        const bool stop_or_zero_rate_target = this->stoppedOrZeroRateTarget(groupStateHelper);
         this->primary_variables_.update(well_state, stop_or_zero_rate_target, deferred_logger);
 
         // other primary variables related to polymer injection
@@ -2497,7 +2497,7 @@ namespace Opm
         const bool allow_open = well_state.well(this->index_of_well_).status == WellStatus::OPEN;
         // don't allow switcing for wells under zero rate target or requested fixed status and control
         const bool allow_switching =
-            !this->wellUnderZeroRateTarget(groupStateHelper, deferred_logger) &&
+            !this->wellUnderZeroRateTarget(groupStateHelper) &&
             (!fixed_control || !fixed_status) && allow_open;
 
         bool changed = false;

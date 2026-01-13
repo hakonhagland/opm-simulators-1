@@ -156,9 +156,8 @@ namespace Opm
     MultisegmentWell<TypeTag>::
     updatePrimaryVariables(const GroupStateHelperType& groupStateHelper)
     {
-        auto& deferred_logger = groupStateHelper.deferredLogger();
         const auto& well_state = groupStateHelper.wellState();
-        const bool stop_or_zero_rate_target = this->stoppedOrZeroRateTarget(groupStateHelper, deferred_logger);
+        const bool stop_or_zero_rate_target = this->stoppedOrZeroRateTarget(groupStateHelper);
         this->primary_variables_.update(well_state, stop_or_zero_rate_target);
     }
 
@@ -733,7 +732,7 @@ namespace Opm
         const Scalar dFLimit = this->param_.dwell_fraction_max_;
         const Scalar max_pressure_change = this->param_.max_pressure_change_ms_wells_;
         const bool stop_or_zero_rate_target =
-            this->stoppedOrZeroRateTarget(groupStateHelper, deferred_logger);
+            this->stoppedOrZeroRateTarget(groupStateHelper);
         this->primary_variables_.updateNewton(dwells,
                                               relaxation_factor,
                                               dFLimit,
@@ -1698,7 +1697,7 @@ namespace Opm
         // don't allow opening wells that has a stopped well status
         const bool allow_open = well_state.well(this->index_of_well_).status == WellStatus::OPEN;
         // don't allow switcing for wells under zero rate target or requested fixed status and control
-        const bool allow_switching = !this->wellUnderZeroRateTarget(groupStateHelper, deferred_logger) &&
+        const bool allow_switching = !this->wellUnderZeroRateTarget(groupStateHelper) &&
                                      (!fixed_control || !fixed_status) && allow_open;
         bool final_check = false;
         // well needs to be set operable or else solving/updating of re-opened wells is skipped
@@ -1982,7 +1981,7 @@ namespace Opm
 
             // the fourth equation, the pressure drop equation
             if (seg == 0) { // top segment, pressure equation is the control equation
-                const bool stopped_or_zero_target = this->stoppedOrZeroRateTarget(groupStateHelper, deferred_logger);
+                const bool stopped_or_zero_target = this->stoppedOrZeroRateTarget(groupStateHelper);
                 // When solving with zero rate (well isolation), use empty group_state to isolate
                 // from group constraints in assembly.
                 // Otherwise use real group state from groupStateHelper.

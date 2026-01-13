@@ -1815,7 +1815,7 @@ namespace Opm {
                                        this->groupStateHelper(),
                                        local_deferredLogger);
             const bool under_zero_target =
-                well->wellUnderZeroGroupRateTarget(this->groupStateHelper(), local_deferredLogger);
+                well->wellUnderZeroGroupRateTarget(this->groupStateHelper());
             well->updateWellTestState(this->wellState().well(wname),
                                       simulationTime,
                                       /*writeMessageToOPMLog=*/ true,

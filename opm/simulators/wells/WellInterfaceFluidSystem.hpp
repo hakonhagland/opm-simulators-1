@@ -116,8 +116,7 @@ protected:
                                  Scalar efficiencyFactor,
                                  DeferredLogger& deferred_logger) const;
 
-    bool zeroGroupRateTarget(const GroupStateHelperType& groupStateHelper,
-                             DeferredLogger& deferred_logger) const;
+    bool zeroGroupRateTarget(const GroupStateHelperType& groupStateHelper) const;
 
     // For the conversion between the surface volume rate and reservoir voidage rate
     const RateConverterType& rateConverter_;
