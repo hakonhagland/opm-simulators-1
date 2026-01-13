@@ -296,9 +296,9 @@ namespace Opm
     computeWellPotentials(const Simulator& simulator,
                           const WellStateType& well_state,
                           const GroupStateHelperType& groupStateHelper,
-                          std::vector<Scalar>& well_potentials,
-                          DeferredLogger& deferred_logger)
+                          std::vector<Scalar>& well_potentials)
     {
+        auto& deferred_logger = groupStateHelper.deferredLogger();
         const auto [compute_potential, bhp_controlled_well] =
             this->WellInterfaceGeneric<Scalar, IndexTraits>::computeWellPotentials(well_potentials, well_state);
 
@@ -319,10 +319,10 @@ namespace Opm
             // does the well have a THP related constraint?
             const auto& summaryState = simulator.vanguard().summaryState();
             if (!Base::wellHasTHPConstraints(summaryState) || bhp_controlled_well) {
-                computeWellRatesAtBhpLimit(simulator, groupStateHelper, well_potentials, deferred_logger);
+                computeWellRatesAtBhpLimit(simulator, groupStateHelper, well_potentials);
             } else {
                 well_potentials = computeWellPotentialWithTHP(
-                    well_state, simulator, groupStateHelper, deferred_logger);
+                    well_state, simulator, groupStateHelper);
             }
         }
         deferred_logger.debug("Cost in iterations of finding well potential for well "
@@ -341,8 +341,7 @@ namespace Opm
     MultisegmentWell<TypeTag>::
     computeWellRatesAtBhpLimit(const Simulator& simulator,
                                const GroupStateHelperType& groupStateHelper,
-                               std::vector<Scalar>& well_flux,
-                               DeferredLogger& deferred_logger) const
+                               std::vector<Scalar>& well_flux) const
     {
         if (this->well_ecl_.isInjector()) {
             const auto controls = this->well_ecl_.injectionControls(simulator.vanguard().summaryState());
@@ -485,9 +484,9 @@ namespace Opm
     MultisegmentWell<TypeTag>::
     computeWellPotentialWithTHP(const WellStateType& well_state,
                                 const Simulator& simulator,
-                                const GroupStateHelperType& groupStateHelper,
-                                DeferredLogger& deferred_logger) const
+                                const GroupStateHelperType& groupStateHelper) const
     {
+        auto& deferred_logger = groupStateHelper.deferredLogger();
         std::vector<Scalar> potentials(this->number_of_phases_, 0.0);
         const auto& summary_state = simulator.vanguard().summaryState();
 

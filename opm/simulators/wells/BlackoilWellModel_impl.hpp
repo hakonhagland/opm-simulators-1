@@ -1667,7 +1667,7 @@ namespace Opm {
                     for (const auto& well : well_container_) {
                         const auto mode = WellInterface<TypeTag>::IndividualOrGroup::Group;
                         const bool changed_well = well->updateWellControl(
-                            simulator_, mode, this->groupStateHelper(), this->wellState(), deferred_logger
+                            simulator_, mode, this->groupStateHelper(), this->wellState()
                         );
                         if (changed_well) {
                             changed_well_to_group = changed_well || changed_well_to_group;
@@ -1692,7 +1692,7 @@ namespace Opm {
                     for (const auto& well : well_container_) {
                         const auto mode = WellInterface<TypeTag>::IndividualOrGroup::Individual;
                         const bool changed_well = well->updateWellControl(
-                            simulator_, mode, this->groupStateHelper(), this->wellState(), deferred_logger
+                            simulator_, mode, this->groupStateHelper(), this->wellState()
                         );
                         if (changed_well) {
                             changed_well_individual = changed_well || changed_well_individual;
@@ -1812,8 +1812,7 @@ namespace Opm {
             const auto wasClosed = wellTestState.well_is_closed(wname);
             well->checkWellOperability(simulator_,
                                        this->wellState(),
-                                       this->groupStateHelper(),
-                                       local_deferredLogger);
+                                       this->groupStateHelper());
             const bool under_zero_target =
                 well->wellUnderZeroGroupRateTarget(this->groupStateHelper());
             well->updateWellTestState(this->wellState().well(wname),
@@ -1877,8 +1876,7 @@ namespace Opm {
     BlackoilWellModel<TypeTag>::computePotentials(const std::size_t widx,
                                                   const WellState<Scalar, IndexTraits>& well_state_copy,
                                                   std::string& exc_msg,
-                                                  ExceptionType::ExcEnum& exc_type,
-                                                  DeferredLogger& deferred_logger)
+                                                  ExceptionType::ExcEnum& exc_type)
     {
         OPM_TIMEFUNCTION();
         const int np = this->numPhases();
@@ -1887,7 +1885,7 @@ namespace Opm {
         std::string cur_exc_msg;
         auto cur_exc_type = ExceptionType::NONE;
         try {
-            well->computeWellPotentials(simulator_, well_state_copy, this->groupStateHelper(), potentials, deferred_logger);
+            well->computeWellPotentials(simulator_, well_state_copy, this->groupStateHelper(), potentials);
         }
         // catch all possible exception and store type and message.
         OPM_PARALLEL_CATCH_CLAUSE(cur_exc_type, cur_exc_msg);

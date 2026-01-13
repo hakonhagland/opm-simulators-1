@@ -106,8 +106,7 @@ public:
                   const double dt,
                   const Domain& domain);
 
-    void updateWellControls(DeferredLogger& deferred_logger,
-                            const Domain& domain);
+    void updateWellControls(const Domain& domain);
 
     void setupDomains(const std::vector<Domain>& domains);
 

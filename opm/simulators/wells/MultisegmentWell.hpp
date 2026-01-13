@@ -118,8 +118,7 @@ namespace Opm {
         void computeWellPotentials(const Simulator& simulator,
                                    const WellStateType& well_state,
                                    const GroupStateHelperType& groupStateHelper,
-                                   std::vector<Scalar>& well_potentials,
-                                   DeferredLogger& deferred_logger) override;
+                                   std::vector<Scalar>& well_potentials) override;
 
         void updatePrimaryVariables(const GroupStateHelperType& groupStateHelper) override;
 
@@ -239,8 +238,7 @@ namespace Opm {
 
         void computeWellRatesAtBhpLimit(const Simulator& simulator,
                                         const GroupStateHelperType& groupStateHelper,
-                                        std::vector<Scalar>& well_flux,
-                                        DeferredLogger& deferred_logger) const;
+                                        std::vector<Scalar>& well_flux) const;
 
         void computeWellRatesWithBhp(const Simulator& simulator,
                                      const Scalar& bhp,
@@ -255,8 +253,7 @@ namespace Opm {
         std::vector<Scalar>
         computeWellPotentialWithTHP(const WellStateType& well_state,
                                     const Simulator& simulator,
-                                    const GroupStateHelperType& groupStateHelper,
-                                    DeferredLogger& deferred_logger) const;
+                                    const GroupStateHelperType& groupStateHelper) const;
 
         bool computeWellPotentialsImplicit(const Simulator& simulator,
                                            const GroupStateHelperType& groupStateHelper,

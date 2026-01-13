@@ -219,8 +219,7 @@ public:
     virtual void computeWellPotentials(const Simulator& simulator,
                                        const WellStateType& well_state,
                                        const GroupStateHelperType& groupStateHelper,
-                                       std::vector<Scalar>& well_potentials,
-                                       DeferredLogger& deferred_logger) = 0;
+                                       std::vector<Scalar>& well_potentials) = 0;
 
     virtual void updateWellStateWithTarget(const Simulator& simulator,
                                            const GroupStateHelperType& groupStateHelper,
@@ -239,8 +238,7 @@ public:
 
     bool updateWellStateWithTHPTargetProd(const Simulator& simulator,
                                           WellStateType& well_state,
-                                          const GroupStateHelperType& groupStateHelper,
-                                          DeferredLogger& deferred_logger) const;
+                                          const GroupStateHelperType& groupStateHelper) const;
 
     bool wellUnderZeroGroupRateTarget(const GroupStateHelperType& groupStateHelper,
                                       const std::optional<bool> group_control = std::nullopt) const;
@@ -249,8 +247,7 @@ public:
     bool updateWellControl(const Simulator& simulator,
                            const IndividualOrGroup iog,
                            const GroupStateHelperType& groupStateHelper,
-                           WellStateType& well_state,
-                           DeferredLogger& deferred_logger) /* const */;
+                           WellStateType& well_state) /* const */;
 
     bool updateWellControlAndStatusLocalIteration(const Simulator& simulator,
                                                   const GroupStateHelperType& groupStateHelper,
@@ -299,8 +296,7 @@ public:
 
     void checkWellOperability(const Simulator& simulator,
                               const WellStateType& well_state,
-                              const GroupStateHelperType& groupStateHelper,
-                              DeferredLogger& deferred_logger);
+                              const GroupStateHelperType& groupStateHelper);
 
     void gliftBeginTimeStepWellTestUpdateALQ(const Simulator& simulator,
                                              WellStateType& well_state,
@@ -312,8 +308,7 @@ public:
     // mostly related to BHP limit and THP limit
     void updateWellOperability(const Simulator& simulator,
                                const WellStateType& well_state,
-                               const GroupStateHelperType& groupStateHelper,
-                               DeferredLogger& deferred_logger);
+                               const GroupStateHelperType& groupStateHelper);
 
     bool updateWellOperabilityFromWellEq(const Simulator& simulator,
                                          const GroupStateHelperType& groupStateHelper);

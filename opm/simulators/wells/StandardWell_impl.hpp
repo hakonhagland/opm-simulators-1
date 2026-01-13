@@ -1618,9 +1618,9 @@ namespace Opm
     StandardWell<TypeTag>::
     computeWellPotentialWithTHP(const Simulator& simulator,
                                const GroupStateHelperType& groupStateHelper,
-                               DeferredLogger& deferred_logger,
                                const WellStateType& well_state) const
     {
+        auto& deferred_logger = groupStateHelper.deferredLogger();
         std::vector<Scalar> potentials(this->number_of_phases_, 0.0);
         const auto& summary_state = simulator.vanguard().summaryState();
 
@@ -1793,9 +1793,9 @@ namespace Opm
     computeWellPotentials(const Simulator& simulator,
                           const WellStateType& well_state,
                           const GroupStateHelperType& groupStateHelper,
-                          std::vector<Scalar>& well_potentials,
-                          DeferredLogger& deferred_logger) // const
+                          std::vector<Scalar>& well_potentials) // const
     {
+        auto& deferred_logger = groupStateHelper.deferredLogger();
         const auto [compute_potential, bhp_controlled_well] =
             this->WellInterfaceGeneric<Scalar, IndexTraits>::computeWellPotentials(well_potentials, well_state);
 
@@ -1835,7 +1835,7 @@ namespace Opm
                 computeWellRatesWithBhpIterations(simulator, bhp, groupStateHelper, well_potentials);
             } else {
                 // the well has a THP related constraint
-                well_potentials = computeWellPotentialWithTHP(simulator, groupStateHelper, deferred_logger, well_state);
+                well_potentials = computeWellPotentialWithTHP(simulator, groupStateHelper, well_state);
             }
         }
 

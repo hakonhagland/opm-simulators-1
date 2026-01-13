@@ -557,8 +557,7 @@ template<class Scalar> class WellContributions;
             void computePotentials(const std::size_t widx,
                                    const WellState<Scalar, IndexTraits>& well_state_copy,
                                    std::string& exc_msg,
-                                   ExceptionType::ExcEnum& exc_type,
-                                   DeferredLogger& deferred_logger) override;
+                                   ExceptionType::ExcEnum& exc_type) override;
 
             const std::vector<Scalar>& wellPerfEfficiencyFactors() const;
 

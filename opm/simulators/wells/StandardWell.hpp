@@ -161,8 +161,7 @@ namespace Opm
         void computeWellPotentials(const Simulator& simulator,
                                    const WellStateType& well_state,
                                    const GroupStateHelperType& groupStateHelper,
-                                   std::vector<Scalar>& well_potentials,
-                                   DeferredLogger& deferred_logger) /* const */ override;
+                                   std::vector<Scalar>& well_potentials) /* const */ override;
 
         void updatePrimaryVariables(const GroupStateHelperType& groupStateHelper) override;
 
@@ -315,7 +314,6 @@ namespace Opm
         std::vector<Scalar>
         computeWellPotentialWithTHP(const Simulator& ebosSimulator,
                                     const GroupStateHelperType& groupStateHelper,
-                                    DeferredLogger& deferred_logger,
                                     const WellStateType& well_state) const;
 
         bool computeWellPotentialsImplicit(const Simulator& ebos_simulator,

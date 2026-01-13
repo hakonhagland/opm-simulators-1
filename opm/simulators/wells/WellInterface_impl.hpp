@@ -189,9 +189,9 @@ namespace Opm
     updateWellControl(const Simulator& simulator,
                       const IndividualOrGroup iog,
                       const GroupStateHelperType& groupStateHelper,
-                      WellStateType& well_state,
-                      DeferredLogger& deferred_logger) /* const */
+                      WellStateType& well_state) /* const */
     {
+        auto& deferred_logger = groupStateHelper.deferredLogger();
         OPM_TIMEFUNCTION();
         if (stoppedOrZeroRateTarget(groupStateHelper)) {
             return false;
@@ -456,7 +456,7 @@ namespace Opm
             }
 
 
-            updateWellOperability(simulator, well_state_copy, groupStateHelper_copy, deferred_logger);
+            updateWellOperability(simulator, well_state_copy, groupStateHelper_copy);
             if ( !this->isOperableAndSolvable() ) {
                 const auto msg = fmt::format("WTEST: Well {} is not operable (physical)", this->name());
                 deferred_logger.debug(msg);
@@ -464,7 +464,7 @@ namespace Opm
             }
             std::vector<Scalar> potentials;
             try {
-                computeWellPotentials(simulator, well_state_copy, groupStateHelper_copy, potentials, deferred_logger);
+                computeWellPotentials(simulator, well_state_copy, groupStateHelper_copy, potentials);
             } catch (const std::exception& e) {
                 const std::string msg = fmt::format("well {}: computeWellPotentials() "
                                                     "failed during testing for re-opening: ",
@@ -992,7 +992,7 @@ namespace Opm
         const bool old_well_operable = this->operability_status_.isOperableAndSolvable();
 
         if (this->param_.check_well_operability_iter_)
-            checkWellOperability(simulator, well_state, groupStateHelper, deferred_logger);
+            checkWellOperability(simulator, well_state, groupStateHelper);
 
         // only use inner well iterations for the first newton iterations.
         const int iteration_idx = simulator.model().newtonMethod().numIterations();
@@ -1051,7 +1051,7 @@ namespace Opm
             auto well_state_copy = well_state;
             std::vector<Scalar> potentials;
             try {
-                computeWellPotentials(simulator, well_state_copy, groupStateHelper, potentials, deferred_logger);
+                computeWellPotentials(simulator, well_state_copy, groupStateHelper, potentials);
             } catch (const std::exception& e) {
                 const std::string msg = fmt::format("well {}: computeWellPotentials() failed "
                                                     "during attempt to recompute potentials for well: ",
@@ -1143,9 +1143,9 @@ namespace Opm
     WellInterface<TypeTag>::
     checkWellOperability(const Simulator& simulator,
                          const WellStateType& well_state,
-                         const GroupStateHelperType& groupStateHelper,
-                         DeferredLogger& deferred_logger)
+                         const GroupStateHelperType& groupStateHelper)
     {
+        auto& deferred_logger = groupStateHelper.deferredLogger();
         OPM_TIMEFUNCTION();
         if (!this->param_.check_well_operability_) {
             return;
@@ -1155,12 +1155,12 @@ namespace Opm
             return;
         }
 
-        updateWellOperability(simulator, well_state, groupStateHelper, deferred_logger);
+        updateWellOperability(simulator, well_state, groupStateHelper);
         if (!this->operability_status_.isOperableAndSolvable()) {
             this->operability_status_.use_vfpexplicit = true;
             deferred_logger.debug("EXPLICIT_LOOKUP_VFP",
                                 "well not operable, trying with explicit vfp lookup: " + this->name());
-            updateWellOperability(simulator, well_state, groupStateHelper, deferred_logger);
+            updateWellOperability(simulator, well_state, groupStateHelper);
         }
     }
 
@@ -1233,9 +1233,9 @@ namespace Opm
     WellInterface<TypeTag>::
     updateWellOperability(const Simulator& simulator,
                           const WellStateType& well_state,
-                          const GroupStateHelperType& groupStateHelper,
-                          DeferredLogger& deferred_logger)
+                          const GroupStateHelperType& groupStateHelper)
     {
+        auto& deferred_logger = groupStateHelper.deferredLogger();
         OPM_TIMEFUNCTION();
         if (this->param_.local_well_solver_control_switching_) {
             const bool success = updateWellOperabilityFromWellEq(simulator, groupStateHelper);
@@ -1622,7 +1622,7 @@ namespace Opm
             }
             case Well::ProducerCMode::THP:
             {
-                const bool update_success = updateWellStateWithTHPTargetProd(simulator, well_state, groupStateHelper, deferred_logger);
+                const bool update_success = updateWellStateWithTHPTargetProd(simulator, well_state, groupStateHelper);
 
                 if (!update_success) {
                     // the following is the original way of initializing well state with THP constraint
@@ -2147,9 +2147,9 @@ namespace Opm
     WellInterface<TypeTag>::
     updateWellStateWithTHPTargetProd(const Simulator& simulator,
                                      WellStateType& well_state,
-                                     const GroupStateHelperType& groupStateHelper,
-                                     DeferredLogger& deferred_logger) const
+                                     const GroupStateHelperType& groupStateHelper) const
     {
+        auto& deferred_logger = groupStateHelper.deferredLogger();
         OPM_TIMEFUNCTION();
         const auto& summary_state = simulator.vanguard().summaryState();
 

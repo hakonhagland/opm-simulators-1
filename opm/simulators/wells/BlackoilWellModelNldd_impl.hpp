@@ -47,7 +47,7 @@ assemble(const int /*iterationIdx*/,
     // iterationIdx is 0).
 
     DeferredLogger local_deferredLogger;
-    this->updateWellControls(local_deferredLogger, domain);
+    this->updateWellControls(domain);
     this->assembleWellEq(dt, domain);
 
     // Update cellRates_ with current contributions from wells in this domain for reservoir linearization
@@ -174,8 +174,7 @@ getWellConvergence(const Domain& domain,
 template<typename TypeTag>
 void
 BlackoilWellModelNldd<TypeTag>::
-updateWellControls(DeferredLogger& deferred_logger,
-                   const Domain& domain)
+updateWellControls(const Domain& domain)
 {
     OPM_TIMEBLOCK(updateWellControls);
     if (!wellModel_.wellsActive()) {
@@ -192,8 +191,7 @@ updateWellControls(DeferredLogger& deferred_logger,
             well->updateWellControl(wellModel_.simulator(),
                                     mode,
                                     wellModel_.groupStateHelper(),
-                                    wellModel_.wellState(),
-                                    deferred_logger);
+                                    wellModel_.wellState());
         }
     }
 }
