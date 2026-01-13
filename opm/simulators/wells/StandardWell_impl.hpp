@@ -1598,7 +1598,7 @@ namespace Opm
 
         const double dt = simulator.timeStepSize();
         const bool converged = well_copy.iterateWellEqWithControl(
-            simulator, dt, inj_controls, prod_controls, groupStateHelper_copy, well_state_copy, deferred_logger
+            simulator, dt, inj_controls, prod_controls, groupStateHelper_copy, well_state_copy
         );
         if (!converged) {
             const std::string msg = " well " + name() + " did not get converged during well potential calculations "
@@ -2397,9 +2397,10 @@ namespace Opm
                              const Well::InjectionControls& inj_controls,
                              const Well::ProductionControls& prod_controls,
                              const GroupStateHelperType& groupStateHelper,
-                             WellStateType& well_state,
-                             DeferredLogger& deferred_logger)
+                             WellStateType& well_state)
     {
+        auto& deferred_logger = groupStateHelper.deferredLogger();
+
         updatePrimaryVariables(groupStateHelper);
 
         const int max_iter = this->param_.max_inner_iter_wells_;

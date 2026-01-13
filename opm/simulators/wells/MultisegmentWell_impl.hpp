@@ -466,7 +466,7 @@ namespace Opm
         const double dt = simulator.timeStepSize();
         // iterate to get a solution at the given bhp.
         well_copy.iterateWellEqWithControl(simulator, dt, inj_controls, prod_controls, groupStateHelper_copy,
-                                           well_state_copy, deferred_logger);
+                                           well_state_copy);
 
         // compute the potential and store in the flux vector.
         well_flux.clear();
@@ -1529,10 +1529,11 @@ namespace Opm
                              const Well::InjectionControls& inj_controls,
                              const Well::ProductionControls& prod_controls,
                              const GroupStateHelperType& groupStateHelper,
-                             WellStateType& well_state,
-                             DeferredLogger& deferred_logger)
+                             WellStateType& well_state)
     {
         if (!this->isOperableAndSolvable() && !this->wellIsStopped()) return true;
+
+        auto& deferred_logger = groupStateHelper.deferredLogger();
 
         const int max_iter_number = this->param_.max_inner_iter_ms_wells_;
 

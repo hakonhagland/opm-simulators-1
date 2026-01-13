@@ -419,8 +419,7 @@ protected:
                                           const WellInjectionControls& inj_controls,
                                           const WellProductionControls& prod_controls,
                                           const GroupStateHelperType& groupStateHelper,
-                                          WellStateType& well_state,
-                                          DeferredLogger& deferred_logger) = 0;
+                                          WellStateType& well_state) = 0;
 
     bool iterateWellEquations(const Simulator& simulator,
                               const double dt,

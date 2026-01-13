@@ -195,8 +195,7 @@ namespace Opm
                                       const Well::InjectionControls& inj_controls,
                                       const Well::ProductionControls& prod_controls,
                                       const GroupStateHelperType& groupStateHelper,
-                                      WellStateType& well_state,
-                                      DeferredLogger& deferred_logger) override;
+                                      WellStateType& well_state) override;
 
         // iterate well equations including control switching
         bool iterateWellEqWithSwitching(const Simulator& simulator,

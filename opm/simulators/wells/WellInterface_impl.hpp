@@ -536,7 +536,7 @@ namespace Opm
         try {
             // TODO: the following two functions will be refactored to be one to reduce the code duplication
             if (!this->param_.local_well_solver_control_switching_){
-                converged = this->iterateWellEqWithControl(simulator, dt, inj_controls, prod_controls, groupStateHelper, well_state, deferred_logger);
+                converged = this->iterateWellEqWithControl(simulator, dt, inj_controls, prod_controls, groupStateHelper, well_state);
             } else {
                 if (this->param_.use_implicit_ipr_ && this->well_ecl_.isProducer() && (well_state.well(this->index_of_well_).status == WellStatus::OPEN)) {
                     converged = solveWellWithOperabilityCheck(
@@ -851,7 +851,7 @@ namespace Opm
             // TODO: the following two functions will be refactored to be one to reduce the code duplication
             if (!this->param_.local_well_solver_control_switching_){
                 converged = this->iterateWellEqWithControl(
-                    simulator, dt, inj_controls, prod_controls, groupStateHelper, well_state, deferred_logger
+                    simulator, dt, inj_controls, prod_controls, groupStateHelper, well_state
                 );
             } else {
                 if (this->param_.use_implicit_ipr_ && this->well_ecl_.isProducer() && (well_state.well(this->index_of_well_).status == WellStatus::OPEN)) {
