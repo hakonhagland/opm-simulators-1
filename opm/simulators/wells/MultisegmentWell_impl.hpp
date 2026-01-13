@@ -588,7 +588,7 @@ namespace Opm
         bool converged = false;
         if (this->well_ecl_.isProducer()) {
             converged = well_copy.solveWellWithOperabilityCheck(
-                simulator, dt, inj_controls, prod_controls, groupStateHelper_copy, well_state_copy, deferred_logger
+                simulator, dt, inj_controls, prod_controls, groupStateHelper_copy, well_state_copy
             );
         } else {
             converged = well_copy.iterateWellEqWithSwitching(

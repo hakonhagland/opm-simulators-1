@@ -350,14 +350,11 @@ namespace Opm
         // for example, the matrices B C does not need to update if only_wells
         if (!this->isOperableAndSolvable() && !this->wellIsStopped()) return;
 
-        auto& deferred_logger = groupStateHelper.deferredLogger();
-
         // clear all entries
         this->linSys_.clear();
 
         assembleWellEqWithoutIterationImpl(simulator, groupStateHelper, dt, inj_controls,
-                                           prod_controls, well_state,
-                                           deferred_logger, solving_with_zero_rate);
+                                           prod_controls, well_state, solving_with_zero_rate);
     }
 
 
@@ -372,9 +369,10 @@ namespace Opm
                                        const Well::InjectionControls& inj_controls,
                                        const Well::ProductionControls& prod_controls,
                                        WellStateType& well_state,
-                                       DeferredLogger& deferred_logger,
                                        const bool solving_with_zero_rate)
     {
+        auto& deferred_logger = groupStateHelper.deferredLogger();
+
         // try to regularize equation if the well does not converge
         const Scalar regularization_factor =  this->regularize_? this->param_.regularization_factor_wells_ : 1.0;
         const Scalar volume = 0.1 * unit::cubic(unit::feet) * regularization_factor;
@@ -1709,7 +1707,7 @@ namespace Opm
         bool converged = false;
         if (this->well_ecl_.isProducer()) {
             converged = well_copy.solveWellWithOperabilityCheck(
-                simulator, dt, inj_controls, prod_controls, groupStateHelper_copy, well_state_copy, deferred_logger
+                simulator, dt, inj_controls, prod_controls, groupStateHelper_copy, well_state_copy
             );
         } else {
             converged = well_copy.iterateWellEqWithSwitching(

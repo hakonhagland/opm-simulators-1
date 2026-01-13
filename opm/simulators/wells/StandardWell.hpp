@@ -370,7 +370,6 @@ namespace Opm
                                                 const Well::InjectionControls& inj_controls,
                                                 const Well::ProductionControls& prod_controls,
                                                 WellStateType& well_state,
-                                                DeferredLogger& deferred_logger,
                                                 const bool solving_with_zero_rate);
 
         void calculateSinglePerf(const Simulator& simulator,

@@ -425,42 +425,36 @@ protected:
     bool iterateWellEquations(const Simulator& simulator,
                               const double dt,
                               const GroupStateHelperType& groupStateHelper,
-                              WellStateType& well_state,
-                              DeferredLogger& deferred_logger);
+                              WellStateType& well_state);
 
     bool solveWellWithOperabilityCheck(const Simulator& simulator,
                                        const double dt,
                                        const Well::InjectionControls& inj_controls,
                                        const Well::ProductionControls& prod_controls,
                                        const GroupStateHelperType& groupStateHelper,
-                                       WellStateType& well_state,
-                                       DeferredLogger& deferred_logger);
+                                       WellStateType& well_state);
 
     std::optional<Scalar>
     estimateOperableBhp(const Simulator& ebos_simulator,
                         const double dt,
                         const GroupStateHelperType& groupStateHelper,
                         const SummaryState& summary_state,
-                        WellStateType& well_state,
-                        DeferredLogger& deferred_logger);
+                        WellStateType& well_state);
 
     bool solveWellWithBhp(const Simulator& simulator,
                           const double dt,
                           const Scalar bhp,
                           const GroupStateHelperType& groupStateHelper,
-                          WellStateType& well_state,
-                          DeferredLogger& deferred_logger);
+                          WellStateType& well_state);
 
     bool solveWellWithZeroRate(const Simulator& simulator,
                                const double dt,
                                const GroupStateHelperType& groupStateHelper,
-                               WellStateType& well_state,
-                               DeferredLogger& deferred_logger);
+                               WellStateType& well_state);
 
     bool solveWellForTesting(const Simulator& simulator,
                              const GroupStateHelperType& groupStateHelper,
-                             WellStateType& well_state,
-                             DeferredLogger& deferred_logger);
+                             WellStateType& well_state);
 
 
     template<class GasLiftSingleWell>
