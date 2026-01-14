@@ -74,8 +74,7 @@ public:
                                 const GroupStateHelperType& groupStateHelper,
                                 const InjectorType& injectorType,
                                 const RateConvFunc& rateConverter,
-                                Scalar efficiencyFactor,
-                                DeferredLogger& deferred_logger) const;
+                                Scalar efficiencyFactor) const;
 
     template<class EvalWell>
     void getGroupProductionControl(const Group& group,
@@ -84,25 +83,18 @@ public:
                                    const std::vector<EvalWell>& rates,
                                    const RateConvFunc& rateConverter,
                                    Scalar efficiencyFactor,
-                                   EvalWell& control_eq,
-                                   DeferredLogger& deferred_logger) const;
+                                   EvalWell& control_eq) const;
 
     Scalar getGroupProductionTargetRate(const Group& group,
                                         const GroupStateHelperType& groupStateHelper,
                                         const RateConvFunc& rateConverter,
-                                        Scalar efficiencyFactor,
-                                        DeferredLogger& deferred_logger) const;
+                                        Scalar efficiencyFactor) const;
 
     static std::pair<Scalar, Group::ProductionCMode> getAutoChokeGroupProductionTargetRate(const Group& bottom_group,
                                                         const Group& group,
                                                         const GroupStateHelperType& groupStateHelper,
-                                                        const Schedule& schedule,
-                                                        const SummaryState& summaryState,
                                                         const std::vector<Scalar>& resv_coeff,
-                                                        Scalar efficiencyFactor,
-                                                        const int reportStepIdx,
-                                                        const GuideRate* guideRate,
-                                                        DeferredLogger& deferred_logger);
+                                                        Scalar efficiencyFactor);
 
 private:
     const WellInterfaceGeneric<Scalar, IndexTraits>& well_; //!< Reference to well interface

@@ -199,13 +199,8 @@ computeWellGroupThp(const double dt, DeferredLogger& local_deferredLogger)
                     getAutoChokeGroupProductionTargetRate(group,
                                                           parentGroup,
                                                           well_model_.groupStateHelper(),
-                                                          well_model_.schedule(),
-                                                          summary_state,
                                                           resv_coeff,
-                                                          efficiencyFactor,
-                                                          reportStepIdx,
-                                                          &well_model_.guideRate(),
-                                                          local_deferredLogger);
+                                                          efficiencyFactor);
                 target_tmp = target.first;
                 cmode_tmp = target.second;
             }

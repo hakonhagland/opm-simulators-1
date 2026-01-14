@@ -174,8 +174,7 @@ assembleControlEqProd(const GroupStateHelperType& groupStateHelper,
                                                            active_rates,
                                                            rCoeff,
                                                            efficiencyFactor,
-                                                           control_eq,
-                                                           deferred_logger);
+                                                           control_eq);
         break;
     }
     case Well::ProducerCMode::CMODE_UNDEFINED: {

@@ -238,7 +238,7 @@ namespace Opm
             );
         } else {
             assert(iog == IndividualOrGroup::Both);
-            changed = this->checkConstraints(groupStateHelper, schedule, summaryState, well_state, deferred_logger);
+            changed = this->checkConstraints(groupStateHelper, schedule, summaryState, well_state);
         }
         Parallel::Communication cc = simulator.vanguard().grid().comm();
         // checking whether control changed
@@ -1424,8 +1424,7 @@ namespace Opm
                         this->getGroupInjectionTargetRate(group,
                                                           groupStateHelper,
                                                           injectorType,
-                                                          efficiencyFactor,
-                                                          deferred_logger);
+                                                          efficiencyFactor);
                 if (target)
                     ws.surface_rates[phasePos] = *target;
                 break;
@@ -1652,8 +1651,7 @@ namespace Opm
                                                 well_state[well.name()].efficiency_scaling_factor;
                 Scalar scale = this->getGroupProductionTargetRate(group,
                                                                   groupStateHelper,
-                                                                  efficiencyFactor,
-                                                                  deferred_logger);
+                                                                  efficiencyFactor);
 
                 // we don't want to scale with zero and get zero rates.
                 if (scale > 0) {
