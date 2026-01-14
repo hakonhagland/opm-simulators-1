@@ -211,14 +211,12 @@ namespace Opm
         Scalar computeWellRatesAndBhpWithThpAlqProd(const Simulator& ebos_simulator,
                                                     const GroupStateHelperType& groupStateHelper,
                                                     const SummaryState &summary_state,
-                                                    DeferredLogger& deferred_logger,
                                                     std::vector<Scalar>& potentials,
                                                     Scalar alq) const;
 
         void computeWellRatesWithThpAlqProd(const Simulator& ebos_simulator,
                                             const GroupStateHelperType& groupStateHelper,
                                             const SummaryState& summary_state,
-                                            DeferredLogger& deferred_logger,
                                             std::vector<Scalar>& potentials,
                                             Scalar alq) const;
 
@@ -227,7 +225,6 @@ namespace Opm
                                         const GroupStateHelperType& groupStateHelper,
                                         const SummaryState& summary_state,
                                         const Scalar alq_value,
-                                        DeferredLogger& deferred_logger,
                                         bool iterate_if_no_solution) const override;
 
         void updateIPRImplicit(const Simulator& simulator,
@@ -449,14 +446,12 @@ namespace Opm
         computeBhpAtThpLimitProd(const WellStateType& well_state,
                                  const Simulator& simulator,
                                  const GroupStateHelperType& groupStateHelper,
-                                 const SummaryState& summary_state,
-                                 DeferredLogger& deferred_logger) const;
+                                 const SummaryState& summary_state) const;
 
         std::optional<Scalar>
         computeBhpAtThpLimitInj(const Simulator& simulator,
                                 const GroupStateHelperType& groupStateHelper,
-                                const SummaryState& summary_state,
-                                DeferredLogger& deferred_logger) const;
+                                const SummaryState& summary_state) const;
 
     private:
         Eval connectionRateEnergy(const std::vector<EvalWell>& cq_s,

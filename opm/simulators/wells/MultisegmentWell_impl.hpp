@@ -491,7 +491,7 @@ namespace Opm
 
         const auto& well = this->well_ecl_;
         if (well.isInjector()) {
-            auto bhp_at_thp_limit = computeBhpAtThpLimitInj(simulator, groupStateHelper, summary_state, deferred_logger);
+            auto bhp_at_thp_limit = computeBhpAtThpLimitInj(simulator, groupStateHelper, summary_state);
             if (bhp_at_thp_limit) {
                 const auto& controls = well.injectionControls(summary_state);
                 const Scalar bhp = std::min(*bhp_at_thp_limit,
@@ -509,7 +509,7 @@ namespace Opm
             }
         } else {
             auto bhp_at_thp_limit = computeBhpAtThpLimitProd(
-                  well_state, simulator, groupStateHelper, summary_state, deferred_logger);
+                  well_state, simulator, groupStateHelper, summary_state);
             if (bhp_at_thp_limit) {
                 const auto& controls = well.productionControls(summary_state);
                 const Scalar bhp = std::max(*bhp_at_thp_limit,
@@ -1476,8 +1476,8 @@ namespace Opm
         const auto& summaryState = simulator.vanguard().summaryState();
         const auto obtain_bhp = this->isProducer()
             ? computeBhpAtThpLimitProd(
-                        well_state, simulator, groupStateHelper, summaryState, deferred_logger)
-            : computeBhpAtThpLimitInj(simulator, groupStateHelper, summaryState, deferred_logger);
+                        well_state, simulator, groupStateHelper, summaryState)
+            : computeBhpAtThpLimitInj(simulator, groupStateHelper, summaryState);
 
         if (obtain_bhp) {
             this->operability_status_.can_obtain_bhp_with_thp_limit = true;
@@ -1709,7 +1709,7 @@ namespace Opm
                 const Scalar wqTotal = this->primary_variables_.getWQTotal().value();
                 bool changed = this->updateWellControlAndStatusLocalIteration(
                     simulator, groupStateHelper, inj_controls, prod_controls, wqTotal,
-                    well_state, deferred_logger, fixed_control, fixed_status,
+                    well_state, fixed_control, fixed_status,
                     solving_with_zero_rate
                 );
                 if (changed) {
@@ -2117,15 +2117,13 @@ namespace Opm
     computeBhpAtThpLimitProd(const WellStateType& well_state,
                              const Simulator& simulator,
                              const GroupStateHelperType& groupStateHelper,
-                             const SummaryState& summary_state,
-                             DeferredLogger& deferred_logger) const
+                             const SummaryState& summary_state) const
     {
         return this->MultisegmentWell<TypeTag>::computeBhpAtThpLimitProdWithAlq(
                                                simulator,
                                                groupStateHelper,
                                                summary_state,
                                                this->getALQ(well_state),
-                                               deferred_logger,
                                                /*iterate_if_no_solution */ true);
     }
 
@@ -2138,10 +2136,10 @@ namespace Opm
                                     const GroupStateHelperType& groupStateHelper,
                                     const SummaryState& summary_state,
                                     const Scalar alq_value,
-                                    DeferredLogger& deferred_logger,
                                     bool iterate_if_no_solution) const
     {
         OPM_TIMEFUNCTION();
+        auto& deferred_logger = groupStateHelper.deferredLogger();
         // Make the frates() function.
         auto frates = [this, &simulator, &deferred_logger](const Scalar bhp) {
             // Not solving the well equations here, which means we are
@@ -2193,9 +2191,9 @@ namespace Opm
     MultisegmentWell<TypeTag>::
     computeBhpAtThpLimitInj(const Simulator& simulator,
                             const GroupStateHelperType& groupStateHelper,
-                            const SummaryState& summary_state,
-                            DeferredLogger& deferred_logger) const
+                            const SummaryState& summary_state) const
     {
+        auto& deferred_logger = groupStateHelper.deferredLogger();
         // Make the frates() function.
         auto frates = [this, &simulator, &deferred_logger](const Scalar bhp) {
             // Not solving the well equations here, which means we are

@@ -675,8 +675,7 @@ namespace Opm {
                                   this->wellState(),
                                   this->wellTestState(),
                                   ecl_well_map,
-                                  this->well_open_times_,
-                                  deferred_logger);
+                                  this->well_open_times_);
             } catch (const std::exception& e) {
                 const std::string msg = fmt::format("Exception during testing of well: {}. The well will not open.\n Exception message: {}", wellEcl.name(), e.what());
                 deferred_logger.warning("WELL_TESTING_FAILED", msg);

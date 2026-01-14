@@ -280,12 +280,12 @@ namespace Opm
                                              const Well::ProductionControls& prod_controls,
                                              const Scalar wqTotal,
                                              WellStateType& well_state,
-                                             DeferredLogger& deferred_logger,
                                              const bool fixed_control,
                                              const bool fixed_status,
                                              const bool solving_with_zero_rate)
     {
         OPM_TIMEFUNCTION();
+        auto& deferred_logger = groupStateHelper.deferredLogger();
         const auto& summary_state = simulator.vanguard().summaryState();
         const auto& schedule = simulator.vanguard().schedule();
         auto& ws = well_state.well(this->index_of_well_);
@@ -398,10 +398,10 @@ namespace Opm
                 WellStateType& well_state,
                 WellTestState& well_test_state,
                 GLiftEclWells& ecl_well_map,
-                std::map<std::string, double>& open_times,
-                DeferredLogger& deferred_logger)
+                std::map<std::string, double>& open_times)
     {
         OPM_TIMEFUNCTION();
+        auto& deferred_logger = groupStateHelper.deferredLogger();
         const auto& group_state = groupStateHelper.groupState();
         deferred_logger.info(" well " + this->name() + " is being tested");
 
@@ -2152,7 +2152,7 @@ namespace Opm
         const auto& summary_state = simulator.vanguard().summaryState();
 
         auto bhp_at_thp_limit = computeBhpAtThpLimitProdWithAlq(
-            simulator, groupStateHelper, summary_state, this->getALQ(well_state), deferred_logger, /*iterate_if_no_solution */ false);
+            simulator, groupStateHelper, summary_state, this->getALQ(well_state), /*iterate_if_no_solution */ false);
         if (bhp_at_thp_limit) {
             std::vector<Scalar> rates(this->number_of_phases_, 0.0);
             if (thp_update_iterations) {
@@ -2179,8 +2179,7 @@ namespace Opm
                                             const WellStateType& well_state,
                                             Scalar bhp,
                                             const SummaryState& summary_state,
-                                            const Scalar alq_value,
-                                            DeferredLogger& deferred_logger)
+                                            const Scalar alq_value)
     {
         OPM_TIMEFUNCTION();
         WellStateType well_state_copy = well_state;
@@ -2201,7 +2200,7 @@ namespace Opm
         // For zero rates or unconverged bhp the implicit IPR is problematic.
         // Use the old approach for now
         if (zero_rates || !converged) {
-            return  this->computeBhpAtThpLimitProdWithAlq(simulator, groupStateHelper_copy, summary_state, alq_value, deferred_logger, /*iterate_if_no_solution */ false);
+            return  this->computeBhpAtThpLimitProdWithAlq(simulator, groupStateHelper_copy, summary_state, alq_value, /*iterate_if_no_solution */ false);
         }
         this->updateIPRImplicit(simulator, groupStateHelper_copy, well_state_copy);
         this->adaptRatesForVFP(rates);

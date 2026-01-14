@@ -192,7 +192,6 @@ public:
                                     const GroupStateHelperType& groupStateHelper,
                                     const SummaryState& summary_state,
                                     const Scalar alq_value,
-                                    DeferredLogger& deferred_logger,
                                     bool iterate_if_no_solution) const = 0;
 
     std::optional<Scalar>
@@ -200,8 +199,7 @@ public:
                                             const WellStateType& well_state,
                                             Scalar bhp,
                                             const SummaryState& summary_state,
-                                            const Scalar alq_value,
-                                            DeferredLogger& deferred_logger);
+                                            const Scalar alq_value);
     /// using the solution x to recover the solution xw for wells and applying
     /// xw to update Well State
     virtual void recoverWellSolutionAndUpdateWellState(const Simulator& simulator,
@@ -255,7 +253,6 @@ public:
                                                   const Well::ProductionControls& prod_controls,
                                                   const Scalar WQTotal,
                                                   WellStateType& well_state,
-                                                  DeferredLogger& deferred_logger,
                                                   const bool fixed_control,
                                                   const bool fixed_status,
                                                   const bool solving_with_zero_rate);
@@ -291,8 +288,7 @@ public:
                      WellStateType& well_state,
                      WellTestState& welltest_state,
                      GLiftEclWells& ecl_well_map,
-                     std::map<std::string, double>& open_times,
-                     DeferredLogger& deferred_logger);
+                     std::map<std::string, double>& open_times);
 
     void checkWellOperability(const Simulator& simulator,
                               const WellStateType& well_state,
