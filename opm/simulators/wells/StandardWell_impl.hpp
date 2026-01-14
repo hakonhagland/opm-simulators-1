@@ -920,9 +920,9 @@ namespace Opm
     StandardWell<TypeTag>::
     updateIPRImplicit(const Simulator& simulator,
                       const GroupStateHelperType& groupStateHelper,
-                      WellStateType& well_state,
-                      DeferredLogger& deferred_logger)
+                      WellStateType& well_state)
     {
+        auto& deferred_logger = groupStateHelper.deferredLogger();
         // Compute IPR based on *converged* well-equation:
         // For a component rate r the derivative dr/dbhp is obtained by
         // dr/dbhp = - (partial r/partial x) * inv(partial Eq/partial x) * (partial Eq/partial bhp_target)
@@ -1066,9 +1066,9 @@ namespace Opm
     StandardWell<TypeTag>::
     checkOperabilityUnderTHPLimit(const Simulator& simulator,
                                   const WellStateType& well_state,
-                                  const GroupStateHelperType& groupStateHelper,
-                                  DeferredLogger& deferred_logger)
+                                  const GroupStateHelperType& groupStateHelper)
     {
+        auto& deferred_logger = groupStateHelper.deferredLogger();
         const auto& summaryState = simulator.vanguard().summaryState();
         const auto obtain_bhp = this->isProducer() ? computeBhpAtThpLimitProd(well_state, simulator, groupStateHelper, summaryState, deferred_logger)
         : computeBhpAtThpLimitInj(simulator, groupStateHelper, summaryState, deferred_logger);

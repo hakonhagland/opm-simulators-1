@@ -411,7 +411,6 @@ namespace Opm
                                       std::vector<Scalar>& well_flux) const
     {
         OPM_TIMEFUNCTION();
-        [[maybe_unused]] auto& deferred_logger = groupStateHelper.deferredLogger();
         // creating a copy of the well itself, to avoid messing up the explicit information
         // during this copy, the only information not copied properly is the well controls
         MultisegmentWell<TypeTag> well_copy(*this);
@@ -1401,9 +1400,9 @@ namespace Opm
     MultisegmentWell<TypeTag>::
     updateIPRImplicit(const Simulator& simulator,
                       const GroupStateHelperType& groupStateHelper,
-                      WellStateType& well_state,
-                      DeferredLogger& deferred_logger)
+                      WellStateType& well_state)
     {
+        auto& deferred_logger = groupStateHelper.deferredLogger();
         // Compute IPR based on *converged* well-equation:
         // For a component rate r the derivative dr/dbhp is obtained by
         // dr/dbhp = - (partial r/partial x) * inv(partial Eq/partial x) * (partial Eq/partial bhp_target)
@@ -1471,9 +1470,9 @@ namespace Opm
     MultisegmentWell<TypeTag>::
     checkOperabilityUnderTHPLimit(const Simulator& simulator,
                                   const WellStateType& well_state,
-                                  const GroupStateHelperType& groupStateHelper,
-                                  DeferredLogger& deferred_logger)
+                                  const GroupStateHelperType& groupStateHelper)
     {
+        auto& deferred_logger = groupStateHelper.deferredLogger();
         const auto& summaryState = simulator.vanguard().summaryState();
         const auto obtain_bhp = this->isProducer()
             ? computeBhpAtThpLimitProd(

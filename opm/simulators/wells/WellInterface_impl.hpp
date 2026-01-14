@@ -638,7 +638,7 @@ namespace Opm
         if (converged && !stoppedOrZeroRateTarget(groupStateHelper) && isThp) {
             auto rates = well_state.well(this->index_of_well_).surface_rates;
             this->adaptRatesForVFP(rates);
-            this->updateIPRImplicit(simulator, groupStateHelper, well_state, deferred_logger);
+            this->updateIPRImplicit(simulator, groupStateHelper, well_state);
             bool is_stable = WellBhpThpCalculator(*this).isStableSolution(well_state, this->well_ecl_, rates, summary_state);
             if (!is_stable) {
                 // solution converged to an unstable point!
@@ -713,8 +713,6 @@ namespace Opm
                         const SummaryState& summary_state,
                         WellStateType& well_state)
     {
-        auto& deferred_logger = groupStateHelper.deferredLogger();
-
         if (!this->wellHasTHPConstraints(summary_state)) {
             const Scalar bhp_limit = WellBhpThpCalculator(*this).mostStrictBhpFromBhpLimits(summary_state);
             const bool converged = solveWellWithBhp(
@@ -737,7 +735,7 @@ namespace Opm
         if (!converged || this->wellIsStopped()) {
             return std::nullopt;
         }
-        this->updateIPRImplicit(simulator, groupStateHelper, well_state, deferred_logger);
+        this->updateIPRImplicit(simulator, groupStateHelper, well_state);
         auto rates = well_state.well(this->index_of_well_).surface_rates;
         this->adaptRatesForVFP(rates);
         return WellBhpThpCalculator(*this).estimateStableBhp(well_state, this->well_ecl_, rates, this->getRefDensity(), summary_state);
@@ -1262,7 +1260,7 @@ namespace Opm
         }
         // we do some extra checking for wells under THP control.
         if (check_thp) {
-            checkOperabilityUnderTHPLimit(simulator, well_state, groupStateHelper, deferred_logger);
+            checkOperabilityUnderTHPLimit(simulator, well_state, groupStateHelper);
         }
     }
 
@@ -2205,7 +2203,7 @@ namespace Opm
         if (zero_rates || !converged) {
             return  this->computeBhpAtThpLimitProdWithAlq(simulator, groupStateHelper_copy, summary_state, alq_value, deferred_logger, /*iterate_if_no_solution */ false);
         }
-        this->updateIPRImplicit(simulator, groupStateHelper_copy, well_state_copy, deferred_logger);
+        this->updateIPRImplicit(simulator, groupStateHelper_copy, well_state_copy);
         this->adaptRatesForVFP(rates);
         return WellBhpThpCalculator(*this).estimateStableBhp(well_state_copy, this->well_ecl_, rates, this->getRefDensity(), summary_state, alq_value);
     }

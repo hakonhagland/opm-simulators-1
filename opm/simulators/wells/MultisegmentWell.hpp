@@ -131,8 +131,7 @@ namespace Opm {
 
         void updateIPRImplicit(const Simulator& simulator,
                                const GroupStateHelperType& groupStateHelper,
-                               WellStateType& well_state,
-                               DeferredLogger& deferred_logger) override;
+                               WellStateType& well_state) override;
 
         void updateProductivityIndex(const Simulator& simulator,
                                      const WellProdIndexCalculator<Scalar>& wellPICalc,
@@ -326,8 +325,7 @@ namespace Opm {
         // check whether the well is operable under THP limit with current reservoir condition
         void checkOperabilityUnderTHPLimit(const Simulator& ebos_simulator,
                                            const WellStateType& well_state,
-                                           const GroupStateHelperType& groupStateHelper,
-                                           DeferredLogger& deferred_logger) override;
+                                           const GroupStateHelperType& groupStateHelper) override;
 
         // updating the inflow based on the current reservoir condition
         void updateIPR(const Simulator& ebos_simulator,

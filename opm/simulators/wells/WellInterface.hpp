@@ -359,8 +359,7 @@ public:
 
     virtual void updateIPRImplicit(const Simulator& simulator,
                                    const GroupStateHelperType& groupStateHelper,
-                                   WellStateType& well_state,
-                                   DeferredLogger& deferred_logger) = 0;
+                                   WellStateType& well_state) = 0;
 
 protected:
     // simulation parameters
@@ -391,8 +390,7 @@ protected:
     // check whether the well is operable under THP limit with current reservoir condition
     virtual void checkOperabilityUnderTHPLimit(const Simulator& simulator,
                                                const WellStateType& well_state,
-                                               const GroupStateHelperType& groupStateHelper,
-                                               DeferredLogger& deferred_logger) = 0;
+                                               const GroupStateHelperType& groupStateHelper) = 0;
 
     virtual void updateIPR(const Simulator& simulator,
                            DeferredLogger& deferred_logger) const = 0;
