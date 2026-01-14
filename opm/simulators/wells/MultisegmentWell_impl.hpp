@@ -2000,8 +2000,7 @@ namespace Opm
                                         this->getRefDensity(),
                                         this->primary_variables_,
                                         this->linSys_,
-                                        stopped_or_zero_target,
-                                        deferred_logger);
+                                        stopped_or_zero_target);
             } else {
                 const UnitSystem& unit_system = simulator.vanguard().eclState().getDeckUnitSystem();
                 const auto& summary_state = simulator.vanguard().summaryState();

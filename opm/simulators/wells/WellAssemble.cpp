@@ -59,9 +59,9 @@ assembleControlEqProd(const GroupStateHelperType& groupStateHelper,
                       const EvalWell& bhp,
                       const std::vector<EvalWell>& rates, // Always 3 canonical rates.
                       const std::function<EvalWell()>& bhp_from_thp,
-                      EvalWell& control_eq,
-                      DeferredLogger& deferred_logger) const
+                      EvalWell& control_eq) const
 {
+    auto& deferred_logger = groupStateHelper.deferredLogger();
     const auto& well_state = groupStateHelper.wellState();
     const auto& group_state = groupStateHelper.groupState();
     const auto current = well_state.well(well_.indexOfWell()).production_cmode;
@@ -200,9 +200,9 @@ assembleControlEqInj(const GroupStateHelperType& groupStateHelper,
                      const EvalWell& bhp,
                      const EvalWell& injection_rate,
                      const std::function<EvalWell()>& bhp_from_thp,
-                     EvalWell& control_eq,
-                     DeferredLogger& deferred_logger) const
+                     EvalWell& control_eq) const
 {
+    auto& deferred_logger = groupStateHelper.deferredLogger();
     const auto& well_state = groupStateHelper.wellState();
     const auto& group_state = groupStateHelper.groupState();
     auto current = well_state.well(well_.indexOfWell()).injection_cmode;
@@ -295,16 +295,14 @@ assembleControlEqProd<__VA_ARGS__>(const GroupStateHelper<typename A::Scalar, ty
                                    const __VA_ARGS__&,                    \
                                    const std::vector<__VA_ARGS__>&,       \
                                    const std::function<__VA_ARGS__()>&,   \
-                                   __VA_ARGS__&,                          \
-                                   DeferredLogger&) const;                \
+                                   __VA_ARGS__&) const;                   \
 template void WellAssemble<A>::                                           \
 assembleControlEqInj<__VA_ARGS__>(const GroupStateHelper<typename A::Scalar, typename A::IndexTraitsType>&,   \
                                   const Well::InjectionControls&,         \
                                   const __VA_ARGS__&,                     \
                                   const __VA_ARGS__&,                     \
                                   const std::function<__VA_ARGS__()>&,    \
-                                  __VA_ARGS__&,                           \
-                                  DeferredLogger&) const;
+                                  __VA_ARGS__&) const;
 
 template<class Scalar>
 using FS = BlackOilFluidSystem<Scalar, BlackOilDefaultFluidSystemIndices>;

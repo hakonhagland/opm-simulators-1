@@ -483,8 +483,7 @@ namespace Opm
                                   this->primary_variables_,
                                   this->getRefDensity(),
                                   this->linSys_,
-                                  stopped_or_zero_target,
-                                  deferred_logger);
+                                  stopped_or_zero_target);
         }
 
         // do the local inversion of D.
