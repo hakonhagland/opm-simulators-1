@@ -268,17 +268,13 @@ assembleControlEqInj(const GroupStateHelperType& groupStateHelper,
             }
         };
         WellGroupControls(well_).getGroupInjectionControl(group,
-                                                          groupStateHelper.wellState(),
-                                                          groupStateHelper.groupState(),
-                                                          groupStateHelper.schedule(),
-                                                          groupStateHelper.summaryState(),
+                                                          groupStateHelper,
                                                           injectorType,
                                                           bhp,
                                                           injection_rate,
                                                           rCoeff,
                                                           efficiencyFactor,
-                                                          control_eq,
-                                                          deferred_logger);
+                                                          control_eq);
         break;
     }
     case Well::InjectorCMode::CMODE_UNDEFINED: {

@@ -57,17 +57,13 @@ public:
 
     template<class EvalWell>
     void getGroupInjectionControl(const Group& group,
-                                  const WellState<Scalar, IndexTraits>& well_state,
-                                  const GroupState<Scalar>& group_state,
-                                  const Schedule& schedule,
-                                  const SummaryState& summaryState,
+                                  const GroupStateHelperType& groupStateHelper,
                                   const InjectorType& injectorType,
                                   const EvalWell& bhp,
                                   const EvalWell& injection_rate,
                                   const RateConvFunc& rateConverter,
                                   Scalar efficiencyFactor,
-                                  EvalWell& control_eq,
-                                  DeferredLogger& deferred_logger) const;
+                                  EvalWell& control_eq) const;
 
     std::optional<Scalar>
     getGroupInjectionTargetRate(const Group& group,
