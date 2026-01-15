@@ -490,7 +490,8 @@ namespace Opm {
             const Group& fieldGroup = this->schedule().getGroup("FIELD", reportStepIdx);
             this->groupStateHelper().updateGpMaintTargetForGroups(fieldGroup,
                                                           regionalAveragePressureCalculator_,
-                                                          dt);
+                                                          dt,
+                                                          local_deferredLogger);
         }
 
         this->updateAndCommunicateGroupData(reportStepIdx,

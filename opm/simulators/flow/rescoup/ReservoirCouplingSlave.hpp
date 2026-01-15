@@ -57,6 +57,7 @@ public:
     const std::map<std::string, std::string>& getSlaveToMasterGroupNameMap() const {
         return slave_to_master_group_map_; }
     void initTimeStepping();
+    bool isSlaveGroup(const std::string& group_name) const;
     ReservoirCoupling::Logger& logger() { return this->logger_; }
     ReservoirCoupling::Logger& logger() const { return this->logger_; }
     void maybeActivate(int report_step);
