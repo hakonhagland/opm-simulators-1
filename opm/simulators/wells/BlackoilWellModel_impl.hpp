@@ -394,7 +394,7 @@ namespace Opm {
             // to make sure we get the correct mapping.
             this->updateAndCommunicateGroupData(reportStepIdx,
                                     simulator_.model().newtonMethod().numIterations(),
-                                    param_.nupcol_group_rate_tolerance_, /*update_wellgrouptarget*/ false,
+                                    param_.nupcol_group_rate_tolerance_,
                                     local_deferredLogger);
 
             // Wells are active if they are active wells on at least one process.
@@ -494,11 +494,7 @@ namespace Opm {
                                                           local_deferredLogger);
         }
 
-        this->updateAndCommunicateGroupData(reportStepIdx,
-                                    simulator_.model().newtonMethod().numIterations(),
-                                    param_.nupcol_group_rate_tolerance_,
-                                    /*update_wellgrouptarget*/ true,
-                                    local_deferredLogger);
+        this->updateWellGroupTargets(local_deferredLogger);
         try {
             // Compute initial well solution for new wells and injectors that change injection type i.e. WAG.
             for (auto& well : well_container_) {
@@ -1300,7 +1296,8 @@ namespace Opm {
         const int iterationIdx = simulator_.model().newtonMethod().numIterations();
         const int reportStepIdx = simulator_.episodeIndex();
         this->updateAndCommunicateGroupData(reportStepIdx, iterationIdx,
-            param_.nupcol_group_rate_tolerance_, /*update_wellgrouptarget*/ true, local_deferredLogger);
+            param_.nupcol_group_rate_tolerance_, local_deferredLogger);
+        this->updateWellGroupTargets(local_deferredLogger);
         // We need to call updateWellControls before we update the network as
         // network updates are only done on thp controlled wells.
         // Note that well controls are allowed to change during updateNetwork
@@ -1743,8 +1740,8 @@ namespace Opm {
         this->updateAndCommunicateGroupData(reportStepIdx,
                                             iterationIdx,
                                             param_.nupcol_group_rate_tolerance_,
-                                            /*update_wellgrouptarget*/ true,
                                             deferred_logger);
+        this->updateWellGroupTargets(deferred_logger);
 
         // updateWellStateWithTarget might throw for multisegment wells hence we
         // have a parallel try catch here to thrown on all processes.
@@ -1766,8 +1763,8 @@ namespace Opm {
         this->updateAndCommunicateGroupData(reportStepIdx,
                                             iterationIdx,
                                             param_.nupcol_group_rate_tolerance_,
-                                            /*update_wellgrouptarget*/ true,
                                             deferred_logger);
+        this->updateWellGroupTargets(deferred_logger);
     }
 
     template<typename TypeTag>

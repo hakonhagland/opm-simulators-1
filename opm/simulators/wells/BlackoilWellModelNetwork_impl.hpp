@@ -151,8 +151,8 @@ update(const bool mandatory_network_balance,
             well_model_.updateAndCommunicateGroupData(episodeIdx,
                                                       iterationIdx,
                                                       well_model_.param().nupcol_group_rate_tolerance_,
-                                                      /*update_wellgrouptarget*/ true,
                                                       deferred_logger);
+            well_model_.updateWellGroupTargets(deferred_logger);
         }
         more_network_update = more_network_sub_update || well_group_thp_updated;
     }
