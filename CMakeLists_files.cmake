@@ -672,6 +672,7 @@ list (APPEND TEST_DATA_FILES
   tests/options_flexiblesolver.json
   tests/options_flexiblesolver_simple.json
   tests/GCONSUMP.DATA
+  tests/GCONSUMP_COMPLEX.DATA
   tests/GROUP_HIGHER_CONSTRAINTS.DATA
   tests/GLIFT1.DATA
   tests/RC-01_MAST_PRED.DATA

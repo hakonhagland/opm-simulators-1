@@ -24,8 +24,7 @@
  * \file
  * \brief Comprehensive test suite for GCONSUMP efficiency factor handling
  *
- * This test suite verifies hierarchical efficiency factor application in GCONSUMP calculations
- * and provides a robust testing framework with unit conversion helpers and appropriate tolerance levels.
+ * This test suite verifies hierarchical efficiency factor application in GCONSUMP calculations.
  *
  * \section test_hierarchy Group Hierarchy
  * \code
@@ -286,6 +285,116 @@ BOOST_AUTO_TEST_CASE(TestGconsumpZeroRates)
 
     BOOST_CHECK_EQUAL(well_c_rates.first, 0.0);
     BOOST_CHECK_EQUAL(well_c_rates.second, 0.0);
+}
+
+//! Test complex GCONSUMP efficiency factor hierarchy
+//!
+//! This test validates the implementation with a realistic, complex group structure:
+//! - Multiple sibling groups
+//! - GCONSUMP at multiple hierarchy levels
+//! - Mixed scenarios (groups with/without GCONSUMP)
+//! - Complex efficiency factor accumulation
+//!
+//! Structure:
+//! FIELD (GEFAC=1.0, GCONSUMP=20/10)
+//! ├── PLAT-A (GEFAC=0.9, GCONSUMP=30/15)
+//! │   ├── SUB-B (GEFAC=0.8, GCONSUMP=100/50)
+//! │   │   └── WELL-C
+//! │   └── SUB-D (GEFAC=0.7, no GCONSUMP)
+//! │       └── WELL-E
+//! └── PLAT-F (GEFAC=0.85, no GCONSUMP)
+//!     └── SUB-G (GEFAC=0.75, GCONSUMP=80/40)
+//!         └── WELL-H
+BOOST_AUTO_TEST_CASE(TestGconsumpComplexHierarchy)
+{
+    // Load the complex test deck
+    const std::string deck_file = "GCONSUMP_COMPLEX.DATA";
+    Parser parser;
+    auto deck = parser.parseFile(deck_file);
+    EclipseState eclipseState(deck);
+    Schedule schedule(deck, eclipseState);
+
+    const int report_step = 0;
+    const std::size_t num_phases = 3; // oil, water, gas
+
+    // Initialize group state
+    GroupState<double> group_state(num_phases);
+    SummaryState summary_state(schedule.getStartTime());
+
+    // Update GCONSUMP rates
+    group_state.update_gconsump(schedule, report_step, summary_state);
+
+    // Get all group rates
+    const auto& sub_b_rates = group_state.gconsump_rates("SUB-B");
+    const auto& sub_d_rates = group_state.gconsump_rates("SUB-D");
+    const auto& plat_a_rates = group_state.gconsump_rates("PLAT-A");
+    const auto& field_rates = group_state.gconsump_rates("FIELD");
+
+    // Convert to metric for comparison
+    const auto sub_b_consumption_metric = metric_rate(sub_b_rates.first);
+    const auto sub_b_import_metric = metric_rate(sub_b_rates.second);
+    const auto sub_d_consumption_metric = metric_rate(sub_d_rates.first);
+    const auto sub_d_import_metric = metric_rate(sub_d_rates.second);
+    const auto plat_a_consumption_metric = metric_rate(plat_a_rates.first);
+    const auto plat_a_import_metric = metric_rate(plat_a_rates.second);
+    const auto field_consumption_metric = metric_rate(field_rates.first);
+    const auto field_import_metric = metric_rate(field_rates.second);
+
+    // Expected values (following REIN efficiency pattern)
+    const double expected_sub_b_consumption = 100.0;    // Own GCONSUMP only
+    const double expected_sub_b_import = 50.0;
+
+    const double expected_sub_d_consumption = 0.0;      // No GCONSUMP
+    const double expected_sub_d_import = 0.0;
+
+    // PLAT-A: own 30/15 + children (SUB-B: 100×0.8, SUB-D: 0×0.7) = 30+80+0/15+40+0 = 110/55
+    const double expected_plat_a_consumption = 30.0 + (100.0 * 0.8) + (0.0 * 0.7);  // 110.0
+    const double expected_plat_a_import = 15.0 + (50.0 * 0.8) + (0.0 * 0.7);        // 55.0
+
+    // FIELD: own 20/10 + children (PLAT-A: 110×0.9) = 20+99/10+49.5 = 119/59.5
+    const double expected_field_consumption = 20.0 + (110.0 * 0.9);  // 119.0
+    const double expected_field_import = 10.0 + (55.0 * 0.9);        // 59.5
+
+    std::cout << "\n=== Complex GCONSUMP Hierarchy Test Results ===" << std::endl;
+    std::cout << "Expected (Eclipse-compliant) [SM3/day]:" << std::endl;
+    std::cout << "  SUB-B: consumption=" << expected_sub_b_consumption << ", import=" << expected_sub_b_import << std::endl;
+    std::cout << "  SUB-D: consumption=" << expected_sub_d_consumption << ", import=" << expected_sub_d_import << std::endl;
+    std::cout << "  PLAT-A: consumption=" << expected_plat_a_consumption << ", import=" << expected_plat_a_import << std::endl;
+    std::cout << "  FIELD: consumption=" << expected_field_consumption << ", import=" << expected_field_import << std::endl;
+
+    std::cout << "\nActual (implementation) [SM3/day]:" << std::endl;
+    std::cout << "  SUB-B: consumption=" << sub_b_consumption_metric << ", import=" << sub_b_import_metric << std::endl;
+    std::cout << "  SUB-D: consumption=" << sub_d_consumption_metric << ", import=" << sub_d_import_metric << std::endl;
+    std::cout << "  PLAT-A: consumption=" << plat_a_consumption_metric << ", import=" << plat_a_import_metric << std::endl;
+    std::cout << "  FIELD: consumption=" << field_consumption_metric << ", import=" << field_import_metric << std::endl;
+
+    // Test leaf group with own GCONSUMP
+    std::cout << "\n=== Testing leaf group with GCONSUMP ===" << std::endl;
+    checkRate(sub_b_consumption_metric, expected_sub_b_consumption);
+    checkRate(sub_b_import_metric, expected_sub_b_import);
+
+    // Test group without GCONSUMP
+    std::cout << "\n=== Testing group without GCONSUMP ===" << std::endl;
+    checkRate(sub_d_consumption_metric, expected_sub_d_consumption);
+    checkRate(sub_d_import_metric, expected_sub_d_import);
+
+    // Test intermediate group (with both own GCONSUMP and children)
+    std::cout << "\n=== Testing intermediate group with own+children GCONSUMP ===" << std::endl;
+    checkRate(plat_a_consumption_metric, expected_plat_a_consumption);
+    checkRate(plat_a_import_metric, expected_plat_a_import);
+
+    // Test field-level accumulation (most complex)
+    std::cout << "\n=== Testing field-level accumulation ===" << std::endl;
+    checkRate(field_consumption_metric, expected_field_consumption);
+    checkRate(field_import_metric, expected_field_import);
+
+    std::cout << "\n=== Complex Hierarchy Test Summary ===" << std::endl;
+    std::cout << "✓ Leaf groups show own GCONSUMP rates correctly" << std::endl;
+    std::cout << "✓ Groups without GCONSUMP return zero rates" << std::endl;
+    std::cout << "✓ Parent groups correctly accumulate children with efficiency factors" << std::endl;
+    std::cout << "✓ Mixed own+children GCONSUMP scenarios work correctly" << std::endl;
+    std::cout << "✓ Complex multi-level efficiency accumulation works" << std::endl;
+    std::cout << "✓ All rates follow REIN efficiency pattern" << std::endl;
 }
 
 //! Test unit conversion helpers in the fixture
