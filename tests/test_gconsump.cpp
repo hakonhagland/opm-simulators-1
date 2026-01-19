@@ -44,8 +44,41 @@
 using namespace Opm;
 
 // Using shared ToleranceAndUnitFixture from ToleranceAndUnitFixture.hpp
+//! \brief Test fixture for group constraint tests to avoid code duplication
+//!
+//! Tests can customize behavior via configuration options before calling setup().
+struct GConsumpEfficiencyFactorTestFixture : ToleranceAndUnitFixture
+{
+    void setup(const std::string& deck_file = "GCONSUMP.DATA")
+    {
+        // Load the test deck with GCONSUMP and GEFAC specification
+        Parser parser;
+        auto deck = parser.parseFile(deck_file);
+        EclipseState eclipseState{deck};
+        schedule_ = Schedule{deck, eclipseState};
+        report_step_ = 0;
+        num_phases_ = 3;
+        group_state_ = GroupState<double>{num_phases_};
+        summary_state_ = SummaryState{schedule_.getStartTime()};
+        group_state_.update_gconsump(schedule_, report_step_, summary_state_);
+    }
 
-BOOST_FIXTURE_TEST_SUITE(GConsumpEfficiencyFactorTests, ToleranceAndUnitFixture)
+    Schedule& schedule() { return schedule_; }
+    int report_step() { return report_step_; }
+    const ScheduleState& scheduleState() { return schedule()[report_step()]; }
+    const GConSump& gconsump() { return scheduleState().gconsump(); }
+    GroupState<double>& group_state() { return group_state_; }
+    SummaryState& summary_state() { return summary_state_; }
+
+private:
+    Schedule schedule_;
+    int report_step_;
+    std::size_t num_phases_;
+    GroupState<double> group_state_;
+    SummaryState summary_state_;
+};
+
+BOOST_FIXTURE_TEST_SUITE(GConsumpEfficiencyFactorTests, GConsumpEfficiencyFactorTestFixture)
 
 //! Test GCONSUMP efficiency factor implementation following REIN pattern
 //!
@@ -53,30 +86,11 @@ BOOST_FIXTURE_TEST_SUITE(GConsumpEfficiencyFactorTests, ToleranceAndUnitFixture)
 //! but parent groups apply child efficiency factors when accumulating contributions.
 BOOST_AUTO_TEST_CASE(TestGconsumpEfficiencyFactorBug)
 {
-    // Load the test deck with GCONSUMP and GEFAC specification
-    const std::string deck_file = "GCONSUMP.DATA";
-    Parser parser;
-    auto deck = parser.parseFile(deck_file);
-    EclipseState eclipseState(deck);
-    Schedule schedule(deck, eclipseState);
-    const int report_step = 0;
-    const auto& sched_state = schedule[report_step];
-    const auto& gconsump = sched_state.gconsump();
+    setup();
 
-    const std::size_t num_phases = 3; // oil, water, gas
-
-    // Initialize group state
-    GroupState<double> group_state(num_phases);
-
-    // Create summary state for UDQ support
-    SummaryState summary_state(schedule.getStartTime());
-
-    // Update GCONSUMP rates - this is where the bug manifests
-    group_state.update_gconsump(schedule, report_step, summary_state);
-
-    const auto& group_sub_b = schedule.getGroup("SUB-B", report_step);
-    const auto& group_plat_a = schedule.getGroup("PLAT-A", report_step);
-    const auto& group_field = schedule.getGroup("FIELD", report_step);
+    const auto& group_sub_b = schedule().getGroup("SUB-B", report_step());
+    const auto& group_plat_a = schedule().getGroup("PLAT-A", report_step());
+    const auto& group_field = schedule().getGroup("FIELD", report_step());
 
     const auto& sub_b_efficiency = group_sub_b.getGroupEfficiencyFactor();
     const auto& plat_a_efficiency = group_plat_a.getGroupEfficiencyFactor();
@@ -88,32 +102,24 @@ BOOST_AUTO_TEST_CASE(TestGconsumpEfficiencyFactorBug)
     checkClose(field_efficiency, 1.0);
 
     // Note: Cumulative efficiency calculation is for reference only
-    // The actual efficiency application follows the REIN pattern:
-    // - Groups are NOT affected by their own efficiency
-    // - Parent groups apply child efficiency when accumulating child contributions
     const double cumulative_efficiency = sub_b_efficiency * plat_a_efficiency;
     checkClose(cumulative_efficiency, 0.72);
 
     // Get the efficiency-adjusted rates from update_gconsump()
-    const auto& sub_b_rates = group_state.gconsump_rates("SUB-B");
-    const auto& plat_a_rates = group_state.gconsump_rates("PLAT-A");
-    const auto& field_rates = group_state.gconsump_rates("FIELD");
+    const auto& sub_b_rates = group_state().gconsump_rates("SUB-B");
+    const auto& plat_a_rates = group_state().gconsump_rates("PLAT-A");
+    const auto& field_rates = group_state().gconsump_rates("FIELD");
 
     // Raw GCONSUMP values for SUB-B from deck
-    const auto& group_gc = gconsump.get("SUB-B", summary_state);
+    const auto& group_gc = gconsump().get("SUB-B", summary_state());
     const double raw_consumption = metric_rate(group_gc.consumption_rate);
     const double raw_import = metric_rate(group_gc.import_rate);
 
     // Eclipse-compliant expected values (correct efficiency pattern)
-    // SUB-B: raw rates (not affected by its own efficiency)
     const double expected_sub_b_consumption = raw_consumption;    // 100.0
     const double expected_sub_b_import = raw_import;              // 50.0
-
-    // PLAT-A: SUB-B's rates × SUB-B's efficiency (0.8)
     const double expected_plat_a_consumption = raw_consumption * sub_b_efficiency;  // 80.0
     const double expected_plat_a_import = raw_import * sub_b_efficiency;            // 40.0
-
-    // FIELD: PLAT-A's rates × PLAT-A's efficiency (0.9)
     const double expected_field_consumption = expected_plat_a_consumption * plat_a_efficiency;  // 72.0
     const double expected_field_import = expected_plat_a_import * plat_a_efficiency;            // 36.0
 
@@ -126,17 +132,10 @@ BOOST_AUTO_TEST_CASE(TestGconsumpEfficiencyFactorBug)
     const double actual_field_import_metric = metric_rate(field_rates.second);
 
     // Test the corrected GCONSUMP efficiency factor implementation
-    // Note: All comparisons are done in metric units (SM3/day) for direct comparison with Eclipse deck values
-
-    // SUB-B rates should be raw (NOT affected by its own efficiency)
     checkRate(actual_sub_b_consumption_metric, expected_sub_b_consumption);
     checkRate(actual_sub_b_import_metric, expected_sub_b_import);
-
-    // PLAT-A accumulates SUB-B's contribution with SUB-B's efficiency factor
     checkRate(actual_plat_a_consumption_metric, expected_plat_a_consumption);
     checkRate(actual_plat_a_import_metric, expected_plat_a_import);
-
-    // FIELD accumulates PLAT-A's contribution with PLAT-A's efficiency factor
     checkRate(actual_field_consumption_metric, expected_field_consumption);
     checkRate(actual_field_import_metric, expected_field_import);
 }
@@ -144,25 +143,10 @@ BOOST_AUTO_TEST_CASE(TestGconsumpEfficiencyFactorBug)
 //! Test for groups without GCONSUMP - should return zero rates
 BOOST_AUTO_TEST_CASE(TestGconsumpZeroRates)
 {
-    // Load the test deck
-    const std::string deck_file = "GCONSUMP.DATA";
-    Parser parser;
-    auto deck = parser.parseFile(deck_file);
-    EclipseState eclipseState(deck);
-    Schedule schedule(deck, eclipseState);
-
-    const int report_step = 0;
-    const std::size_t num_phases = 3; // oil, water, gas
-
-    // Initialize group state
-    GroupState<double> group_state(num_phases);
-    SummaryState summary_state(schedule.getStartTime());
-
-    // Update GCONSUMP rates
-    group_state.update_gconsump(schedule, report_step, summary_state);
+    setup();
 
     // WELL-C has no GCONSUMP specified - should return zero rates
-    const auto& well_c_rates = group_state.gconsump_rates("WELL-C");
+    const auto& well_c_rates = group_state().gconsump_rates("WELL-C");
 
     BOOST_CHECK_EQUAL(well_c_rates.first, 0.0);
     BOOST_CHECK_EQUAL(well_c_rates.second, 0.0);
@@ -174,28 +158,13 @@ BOOST_AUTO_TEST_CASE(TestGconsumpZeroRates)
 //! sibling groups, and mixed scenarios (groups with/without GCONSUMP).
 BOOST_AUTO_TEST_CASE(TestGconsumpComplexHierarchy)
 {
-    // Load the complex test deck
-    const std::string deck_file = "GCONSUMP_COMPLEX.DATA";
-    Parser parser;
-    auto deck = parser.parseFile(deck_file);
-    EclipseState eclipseState(deck);
-    Schedule schedule(deck, eclipseState);
-
-    const int report_step = 0;
-    const std::size_t num_phases = 3; // oil, water, gas
-
-    // Initialize group state
-    GroupState<double> group_state(num_phases);
-    SummaryState summary_state(schedule.getStartTime());
-
-    // Update GCONSUMP rates
-    group_state.update_gconsump(schedule, report_step, summary_state);
+    setup("GCONSUMP_COMPLEX.DATA");
 
     // Get all group rates
-    const auto& sub_b_rates = group_state.gconsump_rates("SUB-B");
-    const auto& sub_d_rates = group_state.gconsump_rates("SUB-D");
-    const auto& plat_a_rates = group_state.gconsump_rates("PLAT-A");
-    const auto& field_rates = group_state.gconsump_rates("FIELD");
+    const auto& sub_b_rates = group_state().gconsump_rates("SUB-B");
+    const auto& sub_d_rates = group_state().gconsump_rates("SUB-D");
+    const auto& plat_a_rates = group_state().gconsump_rates("PLAT-A");
+    const auto& field_rates = group_state().gconsump_rates("FIELD");
 
     // Convert to metric for comparison
     const auto sub_b_consumption_metric = metric_rate(sub_b_rates.first);
