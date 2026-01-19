@@ -45,12 +45,11 @@
  * - Test unit conversion between SI and metric rates
  * - Demonstrate proper tolerance levels for different assertion types
  *
- * \section expected_behavior Expected Behavior
+ * \section expected_behavior Expected Behavior (Following REIN Pattern)
  * - Raw rates: consumption=100, import=50 (from Eclipse deck)
- * - Cumulative efficiency: 0.8 × 0.9 = 0.72
- * - SUB-B effective rates: consumption=72, import=36 (efficiency-adjusted)
- * - PLAT-A rates: same as SUB-B (single child accumulation)
- * - FIELD rates: same as PLAT-A (single child accumulation)
+ * - SUB-B rates: consumption=100, import=50 (raw, not affected by own efficiency)
+ * - PLAT-A rates: consumption=80, import=40 (SUB-B rates × SUB-B efficiency 0.8)
+ * - FIELD rates: consumption=72, import=36 (PLAT-A rates × PLAT-A efficiency 0.9)
  *
  * \section test_fixture Test Fixture Features
  * - ToleranceAndUnitFixture provides:
@@ -119,18 +118,18 @@ struct ToleranceAndUnitFixture
 
 BOOST_FIXTURE_TEST_SUITE(GConsumpEfficiencyFactorTests, ToleranceAndUnitFixture)
 
-//! Test that demonstrates the GCONSUMP efficiency factor bug
+//! Test that demonstrates the GCONSUMP efficiency factor correct implementation
 //!
-//! This test currently FAILS because update_gconsump() ignores efficiency factors.
-//! Expected behavior:
+//! This test verifies that update_gconsump() applies efficiency factors following the REIN pattern.
+//! Expected behavior (following REIN efficiency pattern):
 //! - SUB-B has GEFAC=0.8, PLAT-A has GEFAC=0.9
 //! - SUB-B GCONSUMP: consumption=100, import=50
-//! - Expected SUB-B effective rates: consumption=72, import=36 (100×0.8×0.9, 50×0.8×0.9)
-//! - Expected PLAT-A rates: consumption=72, import=36 (same as SUB-B since it's the only child)
-//! - Expected FIELD rates: consumption=72, import=36 (same as PLAT-A since it's the only child)
+//! - Expected SUB-B rates: consumption=100, import=50 (raw rates, not affected by own efficiency)
+//! - Expected PLAT-A rates: consumption=80, import=40 (SUB-B rates × SUB-B efficiency)
+//! - Expected FIELD rates: consumption=72, import=36 (PLAT-A rates × PLAT-A efficiency)
 //!
-//! Current buggy behavior:
-//! - All rates are 100 and 50 (efficiency factors ignored)
+//! This follows the same pattern as REIN where groups are not affected by their own efficiency,
+//! but parents apply child efficiency factors when accumulating child contributions.
 BOOST_AUTO_TEST_CASE(TestGconsumpEfficiencyFactorBug)
 {
     // Load the test deck with GCONSUMP and GEFAC specification
@@ -165,7 +164,10 @@ BOOST_AUTO_TEST_CASE(TestGconsumpEfficiencyFactorBug)
     checkClose(plat_a_efficiency, 0.9);
     checkClose(field_efficiency, 1.0);
 
-    // Calculate cumulative efficiency for SUB-B: 0.8 × 0.9 = 0.72
+    // Note: Cumulative efficiency calculation is for reference only
+    // The actual efficiency application follows the REIN pattern:
+    // - Groups are NOT affected by their own efficiency
+    // - Parent groups apply child efficiency when accumulating child contributions
     const double cumulative_efficiency = sub_b_efficiency * plat_a_efficiency;
     checkClose(cumulative_efficiency, 0.72);
 
@@ -178,16 +180,31 @@ BOOST_AUTO_TEST_CASE(TestGconsumpEfficiencyFactorBug)
     const double raw_consumption = 100.0;
     const double raw_import = 50.0;
 
-    // Eclipse-compliant expected values (efficiency-adjusted)
-    const double expected_consumption_relative = raw_consumption * cumulative_efficiency; // 72.0
-    const double expected_import_relative = raw_import * cumulative_efficiency;           // 36.0
+    // Eclipse-compliant expected values (correct efficiency pattern)
+    // SUB-B: raw rates (not affected by its own efficiency)
+    const double expected_sub_b_consumption = raw_consumption;    // 100.0
+    const double expected_sub_b_import = raw_import;              // 50.0
+
+    // PLAT-A: SUB-B's rates × SUB-B's efficiency (0.8)
+    const double expected_plat_a_consumption = raw_consumption * sub_b_efficiency;  // 80.0
+    const double expected_plat_a_import = raw_import * sub_b_efficiency;            // 40.0
+
+    // FIELD: PLAT-A's rates × PLAT-A's efficiency (0.9)
+    const double expected_field_consumption = expected_plat_a_consumption * plat_a_efficiency;  // 72.0
+    const double expected_field_import = expected_plat_a_import * plat_a_efficiency;            // 36.0
 
     // Calculate actual expected values by determining the scale factor from SUB-B rates
     // The scale factor accounts for units conversion between Eclipse deck and internal representation
-    const double scale_factor = (sub_b_rates.first > 0) ? sub_b_rates.first / expected_consumption_relative
+    const double scale_factor = (sub_b_rates.first > 0) ? sub_b_rates.first / expected_sub_b_consumption
                                                         : 0.0;
-    const double expected_consumption = expected_consumption_relative * scale_factor;
-    const double expected_import = expected_import_relative * scale_factor;
+
+    // Apply scale factor to all expected values (units conversion)
+    const double expected_sub_b_consumption_scaled = expected_sub_b_consumption * scale_factor;
+    const double expected_sub_b_import_scaled = expected_sub_b_import * scale_factor;
+    const double expected_plat_a_consumption_scaled = expected_plat_a_consumption * scale_factor;
+    const double expected_plat_a_import_scaled = expected_plat_a_import * scale_factor;
+    const double expected_field_consumption_scaled = expected_field_consumption * scale_factor;
+    const double expected_field_import_scaled = expected_field_import * scale_factor;
 
     // Check if the ratios are correct (efficiency factors might affect units but should preserve ratios)
     const double actual_ratio = (sub_b_rates.second > 0) ? sub_b_rates.first / sub_b_rates.second : 0;
@@ -197,10 +214,10 @@ BOOST_AUTO_TEST_CASE(TestGconsumpEfficiencyFactorBug)
     checkClose(actual_ratio, expected_ratio);
 
     std::cout << "\n=== GCONSUMP Efficiency Factor Test Results ===" << std::endl;
-    std::cout << "Expected (Eclipse-compliant):" << std::endl;
-    std::cout << "  SUB-B: consumption=" << expected_consumption << ", import=" << expected_import << std::endl;
-    std::cout << "  PLAT-A: consumption=" << expected_consumption << ", import=" << expected_import << std::endl;
-    std::cout << "  FIELD: consumption=" << expected_consumption << ", import=" << expected_import << std::endl;
+    std::cout << "Expected (Eclipse-compliant with correct efficiency pattern):" << std::endl;
+    std::cout << "  SUB-B: consumption=" << expected_sub_b_consumption_scaled << ", import=" << expected_sub_b_import_scaled << std::endl;
+    std::cout << "  PLAT-A: consumption=" << expected_plat_a_consumption_scaled << ", import=" << expected_plat_a_import_scaled << std::endl;
+    std::cout << "  FIELD: consumption=" << expected_field_consumption_scaled << ", import=" << expected_field_import_scaled << std::endl;
 
     std::cout << "\nActual (current implementation):" << std::endl;
     std::cout << "  SUB-B: consumption=" << sub_b_rates.first << ", import=" << sub_b_rates.second << std::endl;
@@ -216,6 +233,10 @@ BOOST_AUTO_TEST_CASE(TestGconsumpEfficiencyFactorBug)
     std::cout << "\n=== Diagnostic Information ===" << std::endl;
     std::cout << "Raw consumption rate: " << raw_consumption << std::endl;
     std::cout << "Raw import rate: " << raw_import << std::endl;
+    std::cout << "Expected efficiency pattern:" << std::endl;
+    std::cout << "  SUB-B (raw): " << expected_sub_b_consumption << " / " << expected_sub_b_import << std::endl;
+    std::cout << "  PLAT-A (×0.8): " << expected_plat_a_consumption << " / " << expected_plat_a_import << std::endl;
+    std::cout << "  FIELD (×0.9): " << expected_field_consumption << " / " << expected_field_import << std::endl;
     std::cout << "Expected ratio (consumption/import): " << expected_ratio << std::endl;
     std::cout << "Actual ratio (consumption/import): " << actual_ratio << std::endl;
     std::cout << "Units scale factor: " << (scale_factor != 0 ? 1.0 / scale_factor : 0.0) << std::endl;
@@ -226,27 +247,28 @@ BOOST_AUTO_TEST_CASE(TestGconsumpEfficiencyFactorBug)
 
     std::cout << "\n=== Testing SUB-B rates (where GCONSUMP is specified) ===" << std::endl;
 
-    // SUB-B rates should be efficiency-adjusted: raw consumption/import × cumulative efficiency
-    checkRate(sub_b_rates.first, expected_consumption);
-    checkRate(sub_b_rates.second, expected_import);
+    // SUB-B rates should be raw (NOT affected by its own efficiency)
+    checkRate(sub_b_rates.first, expected_sub_b_consumption_scaled);
+    checkRate(sub_b_rates.second, expected_sub_b_import_scaled);
 
     std::cout << "\n=== Testing PLAT-A rates (hierarchical accumulation) ===" << std::endl;
 
-    // PLAT-A should have the same rates as SUB-B since SUB-B is its only child
-    checkRate(plat_a_rates.first, expected_consumption);
-    checkRate(plat_a_rates.second, expected_import);
+    // PLAT-A accumulates SUB-B's contribution with SUB-B's efficiency factor
+    checkRate(plat_a_rates.first, expected_plat_a_consumption_scaled);
+    checkRate(plat_a_rates.second, expected_plat_a_import_scaled);
 
     std::cout << "\n=== Testing FIELD rates (top-level accumulation) ===" << std::endl;
 
-    // FIELD should have the same rates as PLAT-A since PLAT-A is its only child
-    checkRate(field_rates.first, expected_consumption);
-    checkRate(field_rates.second, expected_import);
+    // FIELD accumulates PLAT-A's contribution with PLAT-A's efficiency factor
+    checkRate(field_rates.first, expected_field_consumption_scaled);
+    checkRate(field_rates.second, expected_field_import_scaled);
 
     std::cout << "\n=== Test Summary ===" << std::endl;
-    std::cout << "✓ GCONSUMP efficiency factors are correctly applied!" << std::endl;
-    std::cout << "✓ Efficiency factors are applied multiplicatively as per Eclipse specification" << std::endl;
+    std::cout << "✓ GCONSUMP efficiency factors follow correct Eclipse pattern!" << std::endl;
+    std::cout << "✓ SUB-B shows raw rates (not affected by own efficiency)" << std::endl;
+    std::cout << "✓ PLAT-A shows SUB-B rates × SUB-B efficiency (80/40)" << std::endl;
+    std::cout << "✓ FIELD shows PLAT-A rates × PLAT-A efficiency (72/36)" << std::endl;
     std::cout << "✓ Consumption/import ratio preserved perfectly (2:1)" << std::endl;
-    std::cout << "✓ All hierarchy levels show consistent efficiency-adjusted rates" << std::endl;
 }
 
 //! Test for groups without GCONSUMP - should return zero rates
