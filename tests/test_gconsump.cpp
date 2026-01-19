@@ -60,6 +60,7 @@
 
 #define BOOST_TEST_MODULE GConsumpEfficiencyFactor
 #include <opm/input/eclipse/Schedule/Schedule.hpp>
+#include <opm/input/eclipse/Schedule/Group/GConSump.hpp>
 #include <opm/input/eclipse/Schedule/Group/Group.hpp>
 #include <opm/input/eclipse/Schedule/SummaryState.hpp>
 #include <opm/input/eclipse/Parser/Parser.hpp>
@@ -138,8 +139,10 @@ BOOST_AUTO_TEST_CASE(TestGconsumpEfficiencyFactorBug)
     auto deck = parser.parseFile(deck_file);
     EclipseState eclipseState(deck);
     Schedule schedule(deck, eclipseState);
-
     const int report_step = 0;
+    const auto& sched_state = schedule[report_step];
+    const auto& gconsump = sched_state.gconsump();
+
     const std::size_t num_phases = 3; // oil, water, gas
 
     // Initialize group state
@@ -176,9 +179,10 @@ BOOST_AUTO_TEST_CASE(TestGconsumpEfficiencyFactorBug)
     const auto& plat_a_rates = group_state.gconsump_rates("PLAT-A");
     const auto& field_rates = group_state.gconsump_rates("FIELD");
 
-    // Raw GCONSUMP values from Eclipse deck
-    const double raw_consumption = 100.0;
-    const double raw_import = 50.0;
+    // Raw GCONSUMP values for SUB-B from deck
+    const auto& group_gc = gconsump.get("SUB-B", summary_state);
+    const double raw_consumption = metric_rate(group_gc.consumption_rate);
+    const double raw_import = metric_rate(group_gc.import_rate);
 
     // Eclipse-compliant expected values (correct efficiency pattern)
     // SUB-B: raw rates (not affected by its own efficiency)
