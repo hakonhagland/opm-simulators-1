@@ -553,8 +553,8 @@ update_gconsump(const Schedule& schedule, const int report_step, const SummarySt
             // Add consumption/import rates at current level
             if (gconsump.has(group_name)) {
                 const auto& group_gc = gconsump.get(group_name, summary_state);
-                rates.first += static_cast<Scalar>(group_gc.consumption_rate);
-                rates.second += static_cast<Scalar>(group_gc.import_rate);
+                rates.first += static_cast<Scalar>(group_gc.consumption_rate * parent_gefac);
+                rates.second += static_cast<Scalar>(group_gc.import_rate * parent_gefac);
                 has_values = true;
             }
 
