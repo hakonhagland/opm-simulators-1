@@ -17,9 +17,8 @@
 -- This setup tests:
 -- - Hierarchical efficiency factor application (multiplicative: 0.8 × 0.9 = 0.72)
 -- - GCONSUMP rate accumulation with efficiency factors
--- - Eclipse-compliant behavior: consumption=72, import=36 (100×0.72, 50×0.72)
 --
--- Expected results after fixing the bug:
+-- Expected results:
 -- - SUB-B effective rates: consumption=72, import=36
 -- - PLAT-A rates: consumption=72, import=36 (accumulated from SUB-B)
 -- - FIELD rates: consumption=72, import=36 (accumulated from PLAT-A)
@@ -139,16 +138,13 @@ GRUPTREE
 'SUB-B'     'PLAT-A' /
 /
 
--- Group efficiency factors (hierarchical, multiplicative per Eclipse spec)
+-- Group efficiency factors
 GEFAC
 'PLAT-A'    0.9 /
 'SUB-B'     0.8 /
 /
 
 -- Gas consumption and import for SUB-B group
--- According to Eclipse spec with efficiency factors:
--- Effective consumption = 100 × 0.8 × 0.9 = 72
--- Effective import = 50 × 0.8 × 0.9 = 36
 GCONSUMP
 'SUB-B'   100   50 /
 /
