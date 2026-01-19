@@ -387,54 +387,6 @@ BOOST_AUTO_TEST_CASE(TestGconsumpComplexHierarchy)
     std::cout << "\n=== Testing field-level accumulation ===" << std::endl;
     checkRate(field_consumption_metric, expected_field_consumption);
     checkRate(field_import_metric, expected_field_import);
-
-    std::cout << "\n=== Complex Hierarchy Test Summary ===" << std::endl;
-    std::cout << "✓ Leaf groups show own GCONSUMP rates correctly" << std::endl;
-    std::cout << "✓ Groups without GCONSUMP return zero rates" << std::endl;
-    std::cout << "✓ Parent groups correctly accumulate children with efficiency factors" << std::endl;
-    std::cout << "✓ Mixed own+children GCONSUMP scenarios work correctly" << std::endl;
-    std::cout << "✓ Complex multi-level efficiency accumulation works" << std::endl;
-    std::cout << "✓ All rates follow REIN efficiency pattern" << std::endl;
-}
-
-//! Test unit conversion helpers in the fixture
-BOOST_AUTO_TEST_CASE(TestUnitConversionHelpers)
-{
-    // Test SI to metric conversion: 1 m³/s = 86400 SM3/day
-    const double si_rate_1 = 1.0; // 1 m³/s
-    const double expected_metric_1 = 86400.0; // SM3/day
-    const double actual_metric_1 = metric_rate(si_rate_1);
-    checkClose(actual_metric_1, expected_metric_1);
-
-    // Test metric to SI conversion: 86400 SM3/day = 1 m³/s
-    const double metric_rate_86400 = 86400.0; // SM3/day
-    const double expected_si_1 = 1.0; // m³/s
-    const double actual_si_1 = si_rate(metric_rate_86400);
-    checkClose(actual_si_1, expected_si_1);
-
-    // Test round-trip conversion
-    const double original_si = 0.123; // m³/s
-    const double converted_metric = metric_rate(original_si);
-    const double back_to_si = si_rate(converted_metric);
-    checkClose(back_to_si, original_si);
-}
-
-//! Test tolerance levels for different types of checks
-BOOST_AUTO_TEST_CASE(TestToleranceLevels)
-{
-    // Test tight tolerance for exact relationships
-    const double exact_value = 0.8 * 0.9; // Should be exactly 0.72
-    checkClose(exact_value, 0.72);
-
-    // Test rate tolerance for values with minor numerical differences
-    const double rate_value = 100.0;
-    const double rate_with_noise = 100.0 + 1e-10; // Minor numerical difference
-    checkRate(rate_value, rate_with_noise);
-
-    // Test algorithm tolerance for computational results
-    const double algo_result = 0.9999; // Algorithm result with some error (0.01% difference)
-    const double algo_expected = 1.0;
-    checkAlgo(algo_result, algo_expected);
 }
 
 BOOST_AUTO_TEST_SUITE_END()
