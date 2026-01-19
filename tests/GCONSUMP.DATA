@@ -17,11 +17,6 @@
 -- This setup tests:
 -- - Hierarchical efficiency factor application (multiplicative: 0.8 × 0.9 = 0.72)
 -- - GCONSUMP rate accumulation with efficiency factors
---
--- Expected results:
--- - SUB-B effective rates: consumption=72, import=36
--- - PLAT-A rates: consumption=72, import=36 (accumulated from SUB-B)
--- - FIELD rates: consumption=72, import=36 (accumulated from PLAT-A)
 
 RUNSPEC
 

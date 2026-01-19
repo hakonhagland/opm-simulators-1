@@ -20,12 +20,6 @@
 -- - GCONSUMP at multiple hierarchy levels (FIELD, PLAT-A, SUB-B)
 -- - Mixed scenarios (groups with/without GCONSUMP)
 -- - Complex efficiency factor accumulation
---
--- Expected results (following REIN pattern):
--- - SUB-B: consumption=100, import=50 (own rates only)
--- - SUB-D: consumption=0, import=0 (no GCONSUMP)
--- - PLAT-A: consumption=110, import=55 (own 30/15 + children: 100×0.8 + 0×0.7 = 80/40)
--- - FIELD: consumption=119, import=59.5 (own 20/10 + children: 110×0.9 = 99/49.5)
 
 RUNSPEC
 

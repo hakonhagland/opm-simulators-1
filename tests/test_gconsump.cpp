@@ -84,6 +84,14 @@ BOOST_FIXTURE_TEST_SUITE(GConsumpEfficiencyFactorTests, GConsumpEfficiencyFactor
 //!
 //! Verifies that groups are not affected by their own efficiency factors,
 //! but parent groups apply child efficiency factors when accumulating contributions.
+//!
+//! Group hierarchy:
+//! \code
+//!   FIELD (GEFAC=1.0)
+//!   └── PLAT-A (GEFAC=0.9)
+//!       └── SUB-B (GEFAC=0.8, GCONSUMP=100/50)
+//!           └── WELL-C
+//! \endcode
 BOOST_AUTO_TEST_CASE(TestGconsumpEfficiencyFactorBug)
 {
     setup();
@@ -141,6 +149,14 @@ BOOST_AUTO_TEST_CASE(TestGconsumpEfficiencyFactorBug)
 }
 
 //! Test for groups without GCONSUMP - should return zero rates
+//!
+//! Group hierarchy:
+//! \code
+//!   FIELD (GEFAC=1.0)
+//!   └── PLAT-A (GEFAC=0.9)
+//!       └── SUB-B (GEFAC=0.8, GCONSUMP=100/50)
+//!           └── WELL-C (no GCONSUMP - should return 0/0)
+//! \endcode
 BOOST_AUTO_TEST_CASE(TestGconsumpZeroRates)
 {
     setup();
@@ -156,6 +172,16 @@ BOOST_AUTO_TEST_CASE(TestGconsumpZeroRates)
 //!
 //! Tests realistic scenarios with GCONSUMP at multiple hierarchy levels,
 //! sibling groups, and mixed scenarios (groups with/without GCONSUMP).
+//!
+//! Group hierarchy:
+//! \code
+//!   FIELD (GEFAC=1.0, GCONSUMP=20/10)
+//!   └── PLAT-A (GEFAC=0.9, GCONSUMP=30/15)
+//!       ├── SUB-B (GEFAC=0.8, GCONSUMP=100/50)
+//!       │   └── WELL-C
+//!       └── SUB-D (GEFAC=0.7, no GCONSUMP)
+//!           └── WELL-E
+//! \endcode
 BOOST_AUTO_TEST_CASE(TestGconsumpComplexHierarchy)
 {
     setup("GCONSUMP_COMPLEX.DATA");
