@@ -193,36 +193,31 @@ BOOST_AUTO_TEST_CASE(TestGconsumpEfficiencyFactorBug)
     const double expected_field_consumption = expected_plat_a_consumption * plat_a_efficiency;  // 72.0
     const double expected_field_import = expected_plat_a_import * plat_a_efficiency;            // 36.0
 
-    // Calculate actual expected values by determining the scale factor from SUB-B rates
-    // The scale factor accounts for units conversion between Eclipse deck and internal representation
-    const double scale_factor = (sub_b_rates.first > 0) ? sub_b_rates.first / expected_sub_b_consumption
-                                                        : 0.0;
-
-    // Apply scale factor to all expected values (units conversion)
-    const double expected_sub_b_consumption_scaled = expected_sub_b_consumption * scale_factor;
-    const double expected_sub_b_import_scaled = expected_sub_b_import * scale_factor;
-    const double expected_plat_a_consumption_scaled = expected_plat_a_consumption * scale_factor;
-    const double expected_plat_a_import_scaled = expected_plat_a_import * scale_factor;
-    const double expected_field_consumption_scaled = expected_field_consumption * scale_factor;
-    const double expected_field_import_scaled = expected_field_import * scale_factor;
+    // Convert actual SI rates to metric for direct comparison with expected metric values
+    const double actual_sub_b_consumption_metric = metric_rate(sub_b_rates.first);
+    const double actual_sub_b_import_metric = metric_rate(sub_b_rates.second);
+    const double actual_plat_a_consumption_metric = metric_rate(plat_a_rates.first);
+    const double actual_plat_a_import_metric = metric_rate(plat_a_rates.second);
+    const double actual_field_consumption_metric = metric_rate(field_rates.first);
+    const double actual_field_import_metric = metric_rate(field_rates.second);
 
     // Check if the ratios are correct (efficiency factors might affect units but should preserve ratios)
-    const double actual_ratio = (sub_b_rates.second > 0) ? sub_b_rates.first / sub_b_rates.second : 0;
+    const double actual_ratio = (actual_sub_b_import_metric > 0) ? actual_sub_b_consumption_metric / actual_sub_b_import_metric : 0;
     const double expected_ratio = raw_consumption / raw_import; // 2.0
 
     // Validate that the consumption/import ratio is preserved (efficiency should not change relative proportions)
     checkClose(actual_ratio, expected_ratio);
 
     std::cout << "\n=== GCONSUMP Efficiency Factor Test Results ===" << std::endl;
-    std::cout << "Expected (Eclipse-compliant with correct efficiency pattern):" << std::endl;
-    std::cout << "  SUB-B: consumption=" << expected_sub_b_consumption_scaled << ", import=" << expected_sub_b_import_scaled << std::endl;
-    std::cout << "  PLAT-A: consumption=" << expected_plat_a_consumption_scaled << ", import=" << expected_plat_a_import_scaled << std::endl;
-    std::cout << "  FIELD: consumption=" << expected_field_consumption_scaled << ", import=" << expected_field_import_scaled << std::endl;
+    std::cout << "Expected (Eclipse-compliant with correct efficiency pattern) [SM3/day]:" << std::endl;
+    std::cout << "  SUB-B: consumption=" << expected_sub_b_consumption << ", import=" << expected_sub_b_import << std::endl;
+    std::cout << "  PLAT-A: consumption=" << expected_plat_a_consumption << ", import=" << expected_plat_a_import << std::endl;
+    std::cout << "  FIELD: consumption=" << expected_field_consumption << ", import=" << expected_field_import << std::endl;
 
-    std::cout << "\nActual (current implementation):" << std::endl;
-    std::cout << "  SUB-B: consumption=" << sub_b_rates.first << ", import=" << sub_b_rates.second << std::endl;
-    std::cout << "  PLAT-A: consumption=" << plat_a_rates.first << ", import=" << plat_a_rates.second << std::endl;
-    std::cout << "  FIELD: consumption=" << field_rates.first << ", import=" << field_rates.second << std::endl;
+    std::cout << "\nActual (current implementation) [SM3/day]:" << std::endl;
+    std::cout << "  SUB-B: consumption=" << actual_sub_b_consumption_metric << ", import=" << actual_sub_b_import_metric << std::endl;
+    std::cout << "  PLAT-A: consumption=" << actual_plat_a_consumption_metric << ", import=" << actual_plat_a_import_metric << std::endl;
+    std::cout << "  FIELD: consumption=" << actual_field_consumption_metric << ", import=" << actual_field_import_metric << std::endl;
 
     std::cout << "\n=== Efficiency Factor Validation ===" << std::endl;
     std::cout << "SUB-B efficiency factor: " << sub_b_efficiency << std::endl;
@@ -231,44 +226,35 @@ BOOST_AUTO_TEST_CASE(TestGconsumpEfficiencyFactorBug)
     std::cout << "Cumulative efficiency (SUB-B): " << cumulative_efficiency << std::endl;
 
     std::cout << "\n=== Diagnostic Information ===" << std::endl;
-    std::cout << "Raw consumption rate: " << raw_consumption << std::endl;
-    std::cout << "Raw import rate: " << raw_import << std::endl;
-    std::cout << "Expected efficiency pattern:" << std::endl;
+    std::cout << "Raw GCONSUMP specification [SM3/day]: consumption=" << raw_consumption << ", import=" << raw_import << std::endl;
+    std::cout << "Expected efficiency pattern [SM3/day]:" << std::endl;
     std::cout << "  SUB-B (raw): " << expected_sub_b_consumption << " / " << expected_sub_b_import << std::endl;
     std::cout << "  PLAT-A (×0.8): " << expected_plat_a_consumption << " / " << expected_plat_a_import << std::endl;
     std::cout << "  FIELD (×0.9): " << expected_field_consumption << " / " << expected_field_import << std::endl;
     std::cout << "Expected ratio (consumption/import): " << expected_ratio << std::endl;
     std::cout << "Actual ratio (consumption/import): " << actual_ratio << std::endl;
-    std::cout << "Units scale factor: " << (scale_factor != 0 ? 1.0 / scale_factor : 0.0) << std::endl;
     std::cout << "Efficiency factors correctly applied: " << (std::abs(actual_ratio - expected_ratio) < tight_tol ? "YES" : "NO") << std::endl;
 
-    // Note: These tests use the corrected expected values that account for units conversion
-    // The efficiency factors are now correctly applied (confirmed by perfect ratio match)
+    // Note: All comparisons are done in metric units (SM3/day) for direct comparison with Eclipse deck values
+    // The efficiency factors follow the REIN pattern where groups are not affected by their own efficiency
 
     std::cout << "\n=== Testing SUB-B rates (where GCONSUMP is specified) ===" << std::endl;
 
     // SUB-B rates should be raw (NOT affected by its own efficiency)
-    checkRate(sub_b_rates.first, expected_sub_b_consumption_scaled);
-    checkRate(sub_b_rates.second, expected_sub_b_import_scaled);
+    checkRate(actual_sub_b_consumption_metric, expected_sub_b_consumption);
+    checkRate(actual_sub_b_import_metric, expected_sub_b_import);
 
     std::cout << "\n=== Testing PLAT-A rates (hierarchical accumulation) ===" << std::endl;
 
     // PLAT-A accumulates SUB-B's contribution with SUB-B's efficiency factor
-    checkRate(plat_a_rates.first, expected_plat_a_consumption_scaled);
-    checkRate(plat_a_rates.second, expected_plat_a_import_scaled);
+    checkRate(actual_plat_a_consumption_metric, expected_plat_a_consumption);
+    checkRate(actual_plat_a_import_metric, expected_plat_a_import);
 
     std::cout << "\n=== Testing FIELD rates (top-level accumulation) ===" << std::endl;
 
     // FIELD accumulates PLAT-A's contribution with PLAT-A's efficiency factor
-    checkRate(field_rates.first, expected_field_consumption_scaled);
-    checkRate(field_rates.second, expected_field_import_scaled);
-
-    std::cout << "\n=== Test Summary ===" << std::endl;
-    std::cout << "✓ GCONSUMP efficiency factors follow correct Eclipse pattern!" << std::endl;
-    std::cout << "✓ SUB-B shows raw rates (not affected by own efficiency)" << std::endl;
-    std::cout << "✓ PLAT-A shows SUB-B rates × SUB-B efficiency (80/40)" << std::endl;
-    std::cout << "✓ FIELD shows PLAT-A rates × PLAT-A efficiency (72/36)" << std::endl;
-    std::cout << "✓ Consumption/import ratio preserved perfectly (2:1)" << std::endl;
+    checkRate(actual_field_consumption_metric, expected_field_consumption);
+    checkRate(actual_field_import_metric, expected_field_import);
 }
 
 //! Test for groups without GCONSUMP - should return zero rates
