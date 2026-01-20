@@ -418,8 +418,7 @@ public:
 
     void updateGroupProductionRates(const Group& group);
 
-    void updateGroupTargetReduction(const Group& group,
-                                    const bool is_injector);
+    void updateGroupTargetReduction() const;
 
     void updateNetworkLeafNodeProductionRates();
 

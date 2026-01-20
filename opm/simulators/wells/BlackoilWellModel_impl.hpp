@@ -489,9 +489,10 @@ namespace Opm {
                                                           dt);
         }
 
-        this->updateAndCommunicateGroupData(reportStepIdx,
-                                    simulator_.model().newtonMethod().numIterations(),
-                                    param_.nupcol_group_rate_tolerance_);
+        // Update group target reductions after guide rates have been updated.
+        // Only the reduction rates need recalculation - other group data is unchanged.
+        this->groupStateHelper().updateGroupTargetReduction();
+        this->groupState().communicate_rates(simulator_.vanguard().grid().comm());
         this->updateWellGroupTargets();
         try {
             // Compute initial well solution for new wells and injectors that change injection type i.e. WAG.

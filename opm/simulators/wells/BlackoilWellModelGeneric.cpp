@@ -1309,8 +1309,7 @@ updateAndCommunicateGroupData(const int reportStepIdx,
     }
     // the group target reduction rates needs to be update since wells may have switched to/from GRUP control
     // The group target reduction does not honor NUPCOL.
-    group_state_helper.updateGroupTargetReduction(fieldGroup, /*is_injector=*/false);
-    group_state_helper.updateGroupTargetReduction(fieldGroup, /*is_injector=*/true);
+    group_state_helper.updateGroupTargetReduction();
     {
         // Temporarily use the nupcol well state for all helper functions
         // At the end of this scope, the well state will be restored to its original value
