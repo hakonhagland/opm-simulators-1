@@ -65,6 +65,7 @@
 
 #include <fmt/format.h>
 
+#include <unistd.h>    // OPM_PATCHER_SINGLE_SIMULATORBLACKOIL
 namespace Opm::Parameters {
 
 struct EnableAdaptiveTimeStepping { static constexpr bool value = true; };
@@ -487,6 +488,21 @@ public:
             else if (this->reservoirCouplingSlave_) {
                 this->reservoirCouplingSlave_->maybeActivate(timer.currentStepNum());
             }
+            // OPM_PATCHER_START_SIMULATORBLACKOIL
+            // This allows GDB to attach to the running process
+            if (this->reservoirCouplingMaster_ || this->reservoirCouplingSlave_) {
+                static bool initiate_debugging = true;
+                if (initiate_debugging) {
+                    initiate_debugging = false;
+                    volatile bool wait_for_debugger = true;
+                    std::cout << "PID: " << getpid() << std::endl;
+                    std::cout.flush();
+                    while (wait_for_debugger) {
+                        sleep(1);
+                    }
+                }
+            }
+            // OPM_PATCHER_END_SIMULATORBLACKOIL
 #endif
             const auto& events = schedule()[timer.currentStepNum()].events();
             bool event = events.hasEvent(ScheduleEvents::NEW_WELL) ||
