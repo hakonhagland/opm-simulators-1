@@ -122,7 +122,6 @@ public:
         TargetCalculatorType getTargetCalculator(const Group& group);
         TargetInfo getGroupTargetNoGuideRate(const Group& group);
         const GuideRate& guideRate() const { return this->parent_calculator_.guideRate(); }
-<<<<<<< HEAD
         bool hasGuideRate(const Group& group) const { return this->hasGuideRate(group.name()); }
         bool hasGuideRate(const std::string& name) const {
             if (this->targetType() == TargetType::Injection) {
@@ -132,10 +131,6 @@ public:
         }
         bool hasFldOrNoneControl(const Group& group);
         Phase injectionPhase_() const;
-=======
-        bool hasFldOrNoneControl(const Group& group);
-        Phase injectionPhase_();
->>>>>>> 597bc0969 (Fix GCW calculation for reservoir coupling master groups)
         const Group& originalGroup() const { return this->original_group_; }
         const PhaseUsageInfo<IndexTraits>& phaseUsage() const { return this->parent_calculator_.phaseUsage(); }
         int pvtreg() const { return this->parent_calculator_.pvtreg(); }
@@ -154,11 +149,6 @@ public:
         const GroupStateHelperType& groupStateHelper() const { return this->parent_calculator_.groupStateHelper(); }
     private:
         std::optional<TargetInfo> calculateGroupTargetRecursive_(const Group& group, const Scalar efficiency_factor);
-<<<<<<< HEAD
-=======
-        bool hasGuideRate_(const Group& group) const { return this->guideRate().has(group.name()); }
-        bool hasGuideRate_(const std::string& name) const { return this->guideRate().has(name); }
->>>>>>> 597bc0969 (Fix GCW calculation for reservoir coupling master groups)
         const Group& parentGroup(const Group& group) const {
             return this->schedule().getGroup(group.parent(), this->reportStepIdx());
         }
