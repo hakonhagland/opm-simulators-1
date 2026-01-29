@@ -166,7 +166,7 @@ initStartOfReportStep(int report_step_idx)
 {
     assert(this->report_step_data_);
     this->report_step_data_->setReportStepIdx(report_step_idx);
-    this->logger_.info("Initializing start of report step");
+    this->logger_.debug("Initializing start of report step");
 }
 
 template <class Scalar>
