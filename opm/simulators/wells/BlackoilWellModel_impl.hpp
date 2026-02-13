@@ -615,6 +615,7 @@ namespace Opm {
     BlackoilWellModel<TypeTag>::
     receiveGroupTargetsFromMaster(int reportStepIdx)
     {
+        this->groupState().clear_master_targets();
         RescoupReceiveGroupTargets<Scalar, IndexTraits> target_receiver{
             this->guide_rate_handler_,
             this->wellState(),

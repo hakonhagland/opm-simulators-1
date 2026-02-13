@@ -26,6 +26,7 @@
 #include <opm/input/eclipse/Schedule/Network/ExtNetwork.hpp>
 #include <opm/material/fluidsystems/BlackOilDefaultFluidSystemIndices.hpp>
 #include <opm/simulators/utils/DeferredLoggingErrorHelpers.hpp>
+#include <opm/input/eclipse/Schedule/ResCoup/ReservoirCouplingInfo.hpp>
 #include <opm/simulators/wells/FractionCalculator.hpp>
 #include <opm/simulators/wells/TargetCalculator.hpp>
 
@@ -420,6 +421,26 @@ getInjectionGroupTarget(
     const auto& pu = this->phaseUsage();
     const int pos = this->phaseToActivePhaseIdx(injection_phase);
     Group::InjectionCMode cmode = this->groupState().injection_control(group.name(), injection_phase);
+
+    // Check for master target override (reservoir coupling slave)
+    if (this->isReservoirCouplingSlave()
+        && this->groupState().has_master_injection_target(group.name(), injection_phase))
+    {
+        auto [master_target, master_cmode] =
+            this->groupState().master_injection_target(group.name(), injection_phase);
+        auto filter = this->getInjectionFilterFlag_(group.name(), injection_phase);
+        using FilterFlag = ReservoirCoupling::GrupSlav::FilterFlag;
+        if (filter == FilterFlag::MAST) {
+            return master_target;
+        }
+        if (filter == FilterFlag::BOTH) {
+            Scalar slave_target = this->getSlaveInjectionTarget_(
+                group, injection_phase, resv_coeff, cmode);
+            return std::min(master_target, slave_target);
+        }
+        // FilterFlag::SLAV: fall through to original (non-RC) logic below
+    }
+
     Group::InjectionControls ctrl = group.injectionControls(injection_phase, this->summary_state_);
     bool use_gpmaint = group.has_gpmaint_control(injection_phase, cmode)
                                 && this->groupState().has_gpmaint_target(group.name());
@@ -493,6 +514,25 @@ GroupStateHelper<Scalar, IndexTraits>::
 getProductionGroupTarget(const Group& group) const
 {
     Group::ProductionCMode cmode = this->groupState().production_control(group.name());
+
+    // Check for master target override (reservoir coupling slave)
+    if (this->isReservoirCouplingSlave()
+        && this->groupState().has_master_production_target(group.name()))
+    {
+        auto [master_target, master_cmode] =
+            this->groupState().master_production_target(group.name());
+        auto filter = this->getProductionFilterFlag_(group.name(), master_cmode);
+        using FilterFlag = ReservoirCoupling::GrupSlav::FilterFlag;
+        if (filter == FilterFlag::MAST) {
+            return master_target;
+        }
+        if (filter == FilterFlag::BOTH) {
+            Scalar slave_target = this->getSlaveProductionTarget_(group, cmode);
+            return std::min(master_target, slave_target);
+        }
+        // FilterFlag::SLAV: fall through to original (non-RC) logic below
+    }
+
     Group::ProductionControls ctrl = group.productionControls(this->summary_state_);
     switch (cmode) {
     case Group::ProductionCMode::ORAT:
@@ -2040,6 +2080,162 @@ GroupStateHelper<Scalar, IndexTraits>::updateGroupTargetReductionRecursive_(
     }
 }
 
+
+// -------------------------------------------------------------------------
+// Reservoir coupling helper methods for GRUPSLAV filter flags
+// -------------------------------------------------------------------------
+
+template <typename Scalar, typename IndexTraits>
+ReservoirCoupling::GrupSlav::FilterFlag
+GroupStateHelper<Scalar, IndexTraits>::
+getProductionFilterFlag_(const std::string& group_name,
+                         Group::ProductionCMode cmode) const
+{
+    const auto& rescoup_info = this->schedule_[this->report_step_].rescoup();
+    if (!rescoup_info.hasGrupSlav(group_name)) {
+        return ReservoirCoupling::GrupSlav::FilterFlag::MAST;
+    }
+    const auto& grup_slav = rescoup_info.grupSlav(group_name);
+    switch (cmode) {
+    case Group::ProductionCMode::ORAT:
+        return grup_slav.oilProdFlag();
+    case Group::ProductionCMode::WRAT:
+    case Group::ProductionCMode::LRAT:
+        return grup_slav.liquidProdFlag();
+    case Group::ProductionCMode::GRAT:
+        return grup_slav.gasProdFlag();
+    case Group::ProductionCMode::RESV:
+        return grup_slav.fluidVolumeProdFlag();
+    default:
+        return ReservoirCoupling::GrupSlav::FilterFlag::MAST;
+    }
+}
+
+template <typename Scalar, typename IndexTraits>
+ReservoirCoupling::GrupSlav::FilterFlag
+GroupStateHelper<Scalar, IndexTraits>::
+getInjectionFilterFlag_(const std::string& group_name,
+                        Phase injection_phase) const
+{
+    const auto& rescoup_info = this->schedule_[this->report_step_].rescoup();
+    if (!rescoup_info.hasGrupSlav(group_name)) {
+        return ReservoirCoupling::GrupSlav::FilterFlag::MAST;
+    }
+    const auto& grup_slav = rescoup_info.grupSlav(group_name);
+    switch (injection_phase) {
+    case Phase::OIL:
+        return grup_slav.oilInjFlag();
+    case Phase::WATER:
+        return grup_slav.waterInjFlag();
+    case Phase::GAS:
+        return grup_slav.gasInjFlag();
+    default:
+        return ReservoirCoupling::GrupSlav::FilterFlag::MAST;
+    }
+}
+
+template <typename Scalar, typename IndexTraits>
+Scalar
+GroupStateHelper<Scalar, IndexTraits>::
+getSlaveProductionTarget_(const Group& group,
+                           Group::ProductionCMode cmode) const
+{
+    Group::ProductionControls ctrl = group.productionControls(this->summary_state_);
+    switch (cmode) {
+    case Group::ProductionCMode::ORAT:
+        return ctrl.oil_target;
+    case Group::ProductionCMode::WRAT:
+        return ctrl.water_target;
+    case Group::ProductionCMode::GRAT:
+    {
+        Scalar grat_target_from_sales = 0.0;
+        if (this->groupState().has_grat_sales_target(group.name())) {
+            grat_target_from_sales = this->groupState().grat_sales_target(group.name());
+        }
+        if (grat_target_from_sales > 0)
+            return grat_target_from_sales;
+        return ctrl.gas_target;
+    }
+    case Group::ProductionCMode::LRAT:
+        return ctrl.liquid_target;
+    case Group::ProductionCMode::RESV:
+    {
+        bool use_gpmaint = group.has_gpmaint_control(cmode);
+        if (use_gpmaint && this->groupState().has_gpmaint_target(group.name()))
+            return this->groupState().gpmaint_target(group.name());
+        return ctrl.resv_target;
+    }
+    default:
+        OPM_DEFLOG_THROW(std::logic_error,
+                         "Invalid Group::ProductionCMode in getSlaveProductionTarget_",
+                         this->deferredLogger());
+        return 0.0;
+    }
+}
+
+template <typename Scalar, typename IndexTraits>
+Scalar
+GroupStateHelper<Scalar, IndexTraits>::
+getSlaveInjectionTarget_(const Group& group,
+                          const Phase& injection_phase,
+                          const std::vector<Scalar>& resv_coeff,
+                          Group::InjectionCMode cmode) const
+{
+    const auto& pu = this->phaseUsage();
+    const int pos = this->phaseToActivePhaseIdx(injection_phase);
+    Group::InjectionControls ctrl = group.injectionControls(injection_phase, this->summary_state_);
+    bool use_gpmaint = group.has_gpmaint_control(injection_phase, cmode)
+                                && this->groupState().has_gpmaint_target(group.name());
+    switch (cmode) {
+    case Group::InjectionCMode::RATE:
+        if (use_gpmaint)
+            return this->groupState().gpmaint_target(group.name());
+        return ctrl.surface_max_rate;
+    case Group::InjectionCMode::RESV:
+        if (use_gpmaint)
+            return this->groupState().gpmaint_target(group.name()) / resv_coeff[pos];
+        return ctrl.resv_max_rate / resv_coeff[pos];
+    case Group::InjectionCMode::REIN: {
+        Scalar production_rate = this->groupState().injection_rein_rates(ctrl.reinj_group)[pos];
+        return ctrl.target_reinj_fraction * production_rate;
+    }
+    case Group::InjectionCMode::VREP: {
+        const std::vector<Scalar>& group_injection_reservoir_rates =
+                                this->groupState().injection_reservoir_rates(group.name());
+        Scalar voidage_rate = this->groupState().injection_vrep_rate(ctrl.voidage_group) * ctrl.target_void_fraction;
+        if (ctrl.phase != Phase::WATER && pu.phaseIsActive(IndexTraits::waterPhaseIdx)) {
+            const int water_pos = pu.canonicalToActivePhaseIdx(IndexTraits::waterPhaseIdx);
+            voidage_rate -= group_injection_reservoir_rates[water_pos];
+        }
+        if (ctrl.phase != Phase::OIL && pu.phaseIsActive(IndexTraits::oilPhaseIdx)) {
+            const int oil_pos = pu.canonicalToActivePhaseIdx(IndexTraits::oilPhaseIdx);
+            voidage_rate -= group_injection_reservoir_rates[oil_pos];
+        }
+        if (ctrl.phase != Phase::GAS && pu.phaseIsActive(IndexTraits::gasPhaseIdx)) {
+            const int gas_pos = pu.canonicalToActivePhaseIdx(IndexTraits::gasPhaseIdx);
+            voidage_rate -= group_injection_reservoir_rates[gas_pos];
+        }
+        return voidage_rate / resv_coeff[pos];
+    }
+    case Group::InjectionCMode::SALE: {
+        assert(pos == pu.canonicalToActivePhaseIdx(IndexTraits::gasPhaseIdx));
+        Scalar sales_target = 0;
+        if (this->schedule_[this->report_step_].gconsale().has(group.name())) {
+            const auto& gconsale
+                = this->schedule_[this->report_step_].gconsale().get(group.name(), this->summary_state_);
+            sales_target = gconsale.sales_target;
+        }
+        Scalar inj_rate = this->groupState().injection_rein_rates(group.name())[pos];
+        inj_rate -= sales_target;
+        return inj_rate;
+    }
+    default:
+        OPM_DEFLOG_THROW(std::logic_error,
+                         "Invalid Group::InjectionCMode in getSlaveInjectionTarget_",
+                         this->deferredLogger());
+        return 0.0;
+    }
+}
 
 template class GroupStateHelper<double, BlackOilDefaultFluidSystemIndices>;
 #ifdef FLOW_INSTANTIATE_FLOAT

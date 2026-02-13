@@ -26,6 +26,7 @@ namespace Opm {
 
 // Avoid including the complete definition of ReservoirCouplingSlave here to avoid circular dependency.
 template <class Scalar> class ReservoirCouplingSlave;
+template <class Scalar> class GroupState;
 
 /// @brief Manages slave-side reservoir coupling operations for a single report step
 ///
@@ -111,8 +112,10 @@ public:
     /// @return Reference to the name string for this slave
     const std::string& slaveName() const { return this->slave_.getSlaveName(); }
     std::pair<std::size_t, std::size_t> receiveNumGroupTargetsFromMaster() const;
-    void receiveInjectionGroupTargetsFromMaster(std::size_t num_targets) const;
-    void receiveProductionGroupTargetsFromMaster(std::size_t num_targets) const;
+    void receiveInjectionGroupTargetsFromMaster(std::size_t num_targets,
+                                                GroupState<Scalar>& group_state);
+    void receiveProductionGroupTargetsFromMaster(std::size_t num_targets,
+                                                 GroupState<Scalar>& group_state);
 
 private:
     /// @brief Generic helper method for sending data to the master process via MPI

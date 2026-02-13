@@ -28,6 +28,7 @@
 #include <opm/input/eclipse/Schedule/ResCoup/Slaves.hpp>
 #include <opm/common/ErrorMacros.hpp>
 #include <opm/simulators/utils/ParallelCommunication.hpp>
+#include <opm/simulators/wells/GroupState.hpp>
 
 #include <dune/common/parallel/mpitraits.hh>
 
@@ -135,7 +136,8 @@ receiveNumGroupTargetsFromMaster() const {
 template <class Scalar>
 void
 ReservoirCouplingSlaveReportStep<Scalar>::
-receiveInjectionGroupTargetsFromMaster(std::size_t num_targets) const
+receiveInjectionGroupTargetsFromMaster(std::size_t num_targets,
+                                       GroupState<Scalar>& group_state)
 {
     std::vector<InjectionGroupTarget> injection_targets(num_targets);
     if (this->comm().rank() == 0) {
@@ -157,12 +159,26 @@ receiveInjectionGroupTargetsFromMaster(std::size_t num_targets) const
     this->comm().broadcast(
         injection_targets.data(), num_targets, /*emitter_rank=*/0
     );
+    // Store received targets in GroupState for use by GroupStateHelper
+    for (const auto& target : injection_targets) {
+        const auto& group_name = this->slave_.slaveGroupIdxToGroupName(target.group_name_idx);
+        // Convert ReservoirCoupling::Phase to Opm::Phase
+        const auto opm_phase = ReservoirCoupling::convertToOpmPhase(target.phase);
+        group_state.set_master_injection_target(
+            group_name, opm_phase, target.target, target.cmode
+        );
+        this->logger().info(fmt::format(
+            "Stored master injection target for group '{}': target={}, phase={}",
+            group_name, target.target, static_cast<int>(target.phase)
+        ));
+    }
 }
 
 template <class Scalar>
 void
 ReservoirCouplingSlaveReportStep<Scalar>::
-receiveProductionGroupTargetsFromMaster(std::size_t num_targets) const
+receiveProductionGroupTargetsFromMaster(std::size_t num_targets,
+                                        GroupState<Scalar>& group_state)
 {
     std::vector<ProductionGroupTarget> production_targets(num_targets);
     if (this->comm().rank() == 0) {
@@ -184,6 +200,17 @@ receiveProductionGroupTargetsFromMaster(std::size_t num_targets) const
     this->comm().broadcast(
         production_targets.data(), num_targets, /*emitter_rank=*/0
     );
+    // Store received targets in GroupState for use by GroupStateHelper
+    for (const auto& target : production_targets) {
+        const auto& group_name = this->slave_.slaveGroupIdxToGroupName(target.group_name_idx);
+        group_state.set_master_production_target(
+            group_name, target.target, target.cmode
+        );
+        this->logger().info(fmt::format(
+            "Stored master production target for group '{}': target={}, cmode={}",
+            group_name, target.target, static_cast<int>(target.cmode)
+        ));
+    }
 }
 
 // Explicit instantiations

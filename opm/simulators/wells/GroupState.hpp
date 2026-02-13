@@ -94,6 +94,25 @@ public:
     Scalar gpmaint_target(const std::string& gname) const;
     bool has_gpmaint_target(const std::string& gname) const;
 
+    // Master target overrides for reservoir coupling.
+    // These are transient (not serialized) — set each sync timestep after MPI receive.
+    void set_master_production_target(const std::string& gname,
+                                      Scalar target,
+                                      Group::ProductionCMode cmode);
+    bool has_master_production_target(const std::string& gname) const;
+    std::pair<Scalar, Group::ProductionCMode>
+        master_production_target(const std::string& gname) const;
+
+    void set_master_injection_target(const std::string& gname,
+                                     Phase phase,
+                                     Scalar target,
+                                     Group::InjectionCMode cmode);
+    bool has_master_injection_target(const std::string& gname, Phase phase) const;
+    std::pair<Scalar, Group::InjectionCMode>
+        master_injection_target(const std::string& gname, Phase phase) const;
+
+    void clear_master_targets();
+
     bool has_field_or_none_control(const std::string& gname) const;
     bool has_field_or_none_control(const std::string& gname, Phase injection_phase) const;
     bool has_production_control(const std::string& gname) const;
@@ -252,6 +271,10 @@ private:
     WellContainer<GPMaint::State> gpmaint_state;
     std::map<std::string, std::pair<Scalar, Scalar>> m_gconsump_rates; // Pair with {consumption_rate, import_rate} for each group
     static constexpr std::pair<Scalar, Scalar> zero_pair = {0.0, 0.0};
+
+    // Master target overrides for reservoir coupling (transient, not serialized)
+    std::map<std::string, std::pair<Scalar, Group::ProductionCMode>> m_master_production_targets;
+    std::map<std::pair<Phase, std::string>, std::pair<Scalar, Group::InjectionCMode>> m_master_injection_targets;
 };
 
 }

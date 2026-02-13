@@ -33,6 +33,8 @@
 
 namespace Opm {
 
+template <class Scalar> class GroupState;
+
 template <class Scalar>
 class ReservoirCouplingSlaveReportStep;
 
@@ -65,8 +67,10 @@ public:
     std::size_t numSlaveGroups() const { return this->slave_group_order_.size(); }
     double receiveNextTimeStepFromMaster();
     std::pair<std::size_t, std::size_t> receiveNumGroupTargetsFromMaster() const;
-    void receiveInjectionGroupTargetsFromMaster(std::size_t num_targets) const;
-    void receiveProductionGroupTargetsFromMaster(std::size_t num_targets) const;
+    void receiveInjectionGroupTargetsFromMaster(std::size_t num_targets,
+                                                GroupState<Scalar>& group_state);
+    void receiveProductionGroupTargetsFromMaster(std::size_t num_targets,
+                                                 GroupState<Scalar>& group_state);
     void sendAndReceiveInitialData();
     void sendInjectionDataToMaster(const std::vector<SlaveGroupInjectionData> &injection_data) const;
     void sendNextReportDateToMasterProcess() const;

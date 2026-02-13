@@ -22,6 +22,7 @@
 #include <opm/simulators/wells/rescoup/RescoupProxy.hpp>
 
 #include <opm/common/TimingMacros.hpp>
+#include <opm/input/eclipse/Schedule/ResCoup/GrupSlav.hpp>
 #include <opm/input/eclipse/EclipseState/Grid/FieldPropsManager.hpp>
 #include <opm/input/eclipse/Schedule/Group/GPMaint.hpp>
 #include <opm/input/eclipse/Schedule/Group/GSatProd.hpp>
@@ -525,6 +526,9 @@ private:
 
     GuideRate::RateVector getGuideRateVector_(const std::vector<Scalar>& rates) const;
 
+    ReservoirCoupling::GrupSlav::FilterFlag getInjectionFilterFlag_(const std::string& group_name,
+                                                                    Phase injection_phase) const;
+
     //! \brief Find the local reduction level in a group chain.
     //!
     //! The local reduction level is the deepest level in the chain (starting from level 1)
@@ -539,6 +543,10 @@ private:
                                         bool is_production_group,
                                         Phase injection_phase) const;
 
+    ReservoirCoupling::GrupSlav::FilterFlag getProductionFilterFlag_(
+        const std::string& group_name,
+        Group::ProductionCMode cmode) const;
+
 #ifdef RESERVOIR_COUPLING_ENABLED
     Scalar getReservoirCouplingMasterGroupRate_(const Group& group,
                                                 const int phase_pos,
@@ -549,6 +557,15 @@ private:
         const int phase_pos,
         const bool res_rates,
         const bool is_injector) const;
+
+    Scalar getSlaveInjectionTarget_(const Group& group,
+                                    const Phase& injection_phase,
+                                    const std::vector<Scalar>& resv_coeff,
+                                    Group::InjectionCMode cmode) const;
+
+    Scalar getSlaveProductionTarget_(const Group& group,
+                                     Group::ProductionCMode cmode) const;
+
 
     /// Check if a production auto choke group is underperforming its target rate.
     /// Returns true if the group's current rate is below its allocated target,

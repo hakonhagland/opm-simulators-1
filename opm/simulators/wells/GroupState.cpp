@@ -528,6 +528,67 @@ has_gpmaint_target(const std::string& gname) const
     return (this->m_gpmaint_target.count(gname) > 0);
 }
 
+//-------------------------------------------------------------------------
+
+template<class Scalar>
+void GroupState<Scalar>::
+set_master_production_target(const std::string& gname,
+                             Scalar target,
+                             Group::ProductionCMode cmode)
+{
+    this->m_master_production_targets[gname] = {target, cmode};
+}
+
+template<class Scalar>
+bool GroupState<Scalar>::
+has_master_production_target(const std::string& gname) const
+{
+    return this->m_master_production_targets.count(gname) > 0;
+}
+
+template<class Scalar>
+std::pair<Scalar, Group::ProductionCMode>
+GroupState<Scalar>::
+master_production_target(const std::string& gname) const
+{
+    return this->m_master_production_targets.at(gname);
+}
+
+template<class Scalar>
+void GroupState<Scalar>::
+set_master_injection_target(const std::string& gname,
+                            Phase phase,
+                            Scalar target,
+                            Group::InjectionCMode cmode)
+{
+    this->m_master_injection_targets[{phase, gname}] = {target, cmode};
+}
+
+template<class Scalar>
+bool GroupState<Scalar>::
+has_master_injection_target(const std::string& gname, Phase phase) const
+{
+    return this->m_master_injection_targets.count({phase, gname}) > 0;
+}
+
+template<class Scalar>
+std::pair<Scalar, Group::InjectionCMode>
+GroupState<Scalar>::
+master_injection_target(const std::string& gname, Phase phase) const
+{
+    return this->m_master_injection_targets.at({phase, gname});
+}
+
+template<class Scalar>
+void GroupState<Scalar>::
+clear_master_targets()
+{
+    this->m_master_production_targets.clear();
+    this->m_master_injection_targets.clear();
+}
+
+//-------------------------------------------------------------------------
+
 template<class Scalar>
 void GroupState<Scalar>::
 update_gconsump(const Schedule& schedule, const int report_step, const SummaryState& summary_state) {

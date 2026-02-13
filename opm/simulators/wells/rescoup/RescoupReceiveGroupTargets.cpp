@@ -29,7 +29,7 @@ RescoupReceiveGroupTargets<Scalar, IndexTraits>::
 RescoupReceiveGroupTargets(
     GuideRateHandler<Scalar, IndexTraits>& guide_rate_handler,
     const WellState<Scalar, IndexTraits>& well_state,
-    const GroupState<Scalar>& group_state,
+    GroupState<Scalar>& group_state,
     const int report_step_idx
 )
     : guide_rate_handler_{guide_rate_handler}
@@ -50,10 +50,10 @@ receiveGroupTargetsFromMaster()
     auto& rescoup_slave = this->reservoir_coupling_slave_;
     auto [num_inj_targets, num_prod_targets] = rescoup_slave.receiveNumGroupTargetsFromMaster();
     if (num_inj_targets > 0) {
-        rescoup_slave.receiveInjectionGroupTargetsFromMaster(num_inj_targets);
+        rescoup_slave.receiveInjectionGroupTargetsFromMaster(num_inj_targets, this->group_state_);
     }
     if (num_prod_targets > 0) {
-        rescoup_slave.receiveProductionGroupTargetsFromMaster(num_prod_targets);
+        rescoup_slave.receiveProductionGroupTargetsFromMaster(num_prod_targets, this->group_state_);
     }
 }
 

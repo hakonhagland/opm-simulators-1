@@ -28,6 +28,7 @@
 #include <opm/input/eclipse/Schedule/ResCoup/MasterGroup.hpp>
 #include <opm/input/eclipse/Schedule/ResCoup/Slaves.hpp>
 #include <opm/simulators/utils/ParallelCommunication.hpp>
+#include <opm/simulators/wells/GroupState.hpp>
 
 #include <dune/common/parallel/mpitraits.hh>
 
@@ -183,19 +184,21 @@ receiveNumGroupTargetsFromMaster() const {
 template <class Scalar>
 void
 ReservoirCouplingSlave<Scalar>::
-receiveInjectionGroupTargetsFromMaster(std::size_t num_targets) const
+receiveInjectionGroupTargetsFromMaster(std::size_t num_targets,
+                                       GroupState<Scalar>& group_state)
 {
     assert(this->report_step_data_);
-    this->report_step_data_->receiveInjectionGroupTargetsFromMaster(num_targets);
+    this->report_step_data_->receiveInjectionGroupTargetsFromMaster(num_targets, group_state);
 }
 
 template <class Scalar>
 void
 ReservoirCouplingSlave<Scalar>::
-receiveProductionGroupTargetsFromMaster(std::size_t num_targets) const
+receiveProductionGroupTargetsFromMaster(std::size_t num_targets,
+                                        GroupState<Scalar>& group_state)
 {
     assert(this->report_step_data_);
-    this->report_step_data_->receiveProductionGroupTargetsFromMaster(num_targets);
+    this->report_step_data_->receiveProductionGroupTargetsFromMaster(num_targets, group_state);
 }
 
 template <class Scalar>
