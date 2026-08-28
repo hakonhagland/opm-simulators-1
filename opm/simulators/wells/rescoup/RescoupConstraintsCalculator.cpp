@@ -44,7 +44,7 @@ RescoupConstraintsCalculator(
     , group_state_{group_state_helper.groupState()}
     , report_step_idx_{group_state_helper.reportStepIdx()}
     , schedule_{group_state_helper.schedule()}
-    , summary_state_{group_state_helper.summaryState()}
+    , summary_state_{group_state_helper.mutableSummaryState()}
     , deferred_logger_{guide_rate_handler.deferredLogger()}
     , reservoir_coupling_master_{group_state_helper.reservoirCouplingMaster()}
     , well_model_{guide_rate_handler.wellModel()}
@@ -555,6 +555,17 @@ sendSlaveGroupConstraintsToSlave_(
     const std::vector<ProductionGroupConstraints>& production_constraints
 ) const
 {
+    const auto& units = this->schedule_.getUnits();
+    const auto& master_groups = rescoup_master.getMasterGroupNamesForSlave(slave_idx);
+    for (const auto& target : injection_targets) {
+        if (target.phase == ReservoirCoupling::Phase::Gas) {
+            this->summary_state_.update_group_var(
+                master_groups.at(target.group_name_idx),
+                "GGIRT",
+                units.from_si(UnitSystem::measure::gas_surface_rate, target.target));
+        }
+    }
+
     auto num_injection_targets = injection_targets.size();
     auto num_production_constraints = production_constraints.size();
     // First, send the number of constraints such that the slave can know if it can expect none

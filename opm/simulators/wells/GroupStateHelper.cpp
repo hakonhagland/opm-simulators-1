@@ -72,7 +72,7 @@ template <typename Scalar, typename IndexTraits>
 GroupStateHelper<Scalar, IndexTraits>::GroupStateHelper(WellState<Scalar, IndexTraits>& well_state,
                                                       GroupState<Scalar>& group_state,
                                                       const Schedule& schedule,
-                                                      const SummaryState& summary_state,
+                                                      SummaryState& summary_state,
                                                       const GuideRate& guide_rate,
                                                       const PhaseUsageInfo<IndexTraits>& phase_usage_info,
                                                       const Parallel::Communication& comm,

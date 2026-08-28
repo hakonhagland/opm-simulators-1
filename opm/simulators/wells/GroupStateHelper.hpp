@@ -198,7 +198,7 @@ public:
     GroupStateHelper(WellState<Scalar, IndexTraits>& well_state,
                     GroupState<Scalar>& group_state,
                     const Schedule& schedule,
-                    const SummaryState& summary_state,
+                    SummaryState& summary_state,
                     const GuideRate& guide_rate,
                     const PhaseUsageInfo<IndexTraits>& phase_usage_info,
                     const Parallel::Communication& comm,
@@ -429,6 +429,17 @@ public:
     const SummaryState& summaryState() const
     {
         return this->summary_state_;
+    }
+
+    SummaryState& mutableSummaryState()
+    {
+        return this->summary_state_;
+    }
+
+    void setReservoirCouplingSummaryState(
+        const ReservoirCouplingSummaryState* state)
+    {
+        this->summary_state_.setReservoirCouplingSummaryState(state);
     }
 
     Scalar sumSolventRates(const Group& group, const bool is_injector) const;
@@ -767,7 +778,7 @@ private:
     const WellState<Scalar, IndexTraits>* well_state_ {nullptr};
     GroupState<Scalar>* group_state_ {nullptr};
     const Schedule& schedule_;
-    const SummaryState& summary_state_;
+    SummaryState& summary_state_;
     const GuideRate& guide_rate_;
     // NOTE: The deferred logger does not change the object "meaningful" state, so it should be ok to
     //   make it mutable and store a pointer to it here.

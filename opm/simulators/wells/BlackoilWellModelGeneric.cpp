@@ -98,7 +98,7 @@ BlackoilWellModelGeneric<Scalar, IndexTraits>::
 BlackoilWellModelGeneric(Schedule& schedule,
                          BlackoilWellModelGasLiftGeneric<Scalar, IndexTraits>& gaslift,
                          BlackoilWellModelNetworkGeneric<Scalar, IndexTraits>& network,
-                         const SummaryState& summaryState,
+                         SummaryState& summaryState,
                          const EclipseState& eclState,
                          const PhaseUsageInfo<IndexTraits>& pu,
                          const Parallel::Communication& comm,

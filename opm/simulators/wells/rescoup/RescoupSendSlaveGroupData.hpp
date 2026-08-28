@@ -101,6 +101,8 @@ private:
     /// @return Gas reinjection rate
     Scalar collectSlaveGroupReinjectionRateForGasPhase_(std::size_t group_idx) const;
 
+    Scalar collectSlaveGroupGasLiftRate_(std::size_t group_idx) const;
+
     /// @brief Collect surface production rates for a specific slave group
     /// @param group_idx Index of the slave group
     /// @return ProductionRates structure containing oil, gas, and water surface rates

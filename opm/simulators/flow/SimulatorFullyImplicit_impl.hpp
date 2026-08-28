@@ -454,6 +454,11 @@ runStep(SimulatorTimer& timer)
 #ifdef RESERVOIR_COUPLING_ENABLED
         if (this->reservoirCouplingMaster_) {
             this->reservoirCouplingMaster_->maybeSpawnSlaveProcesses(timer.currentStepNum());
+            if (!this->reservoirCouplingMaster_->summaryDependenciesRegistered()) {
+                this->simulator_.problem().eclIO().registerRequisiteSummaryKeys(
+                    this->reservoirCouplingMaster_->summaryDependencies());
+                this->reservoirCouplingMaster_->markSummaryDependenciesRegistered();
+            }
             this->reservoirCouplingMaster_->maybeActivate(timer.currentStepNum());
         }
         else if (this->reservoirCouplingSlave_) {

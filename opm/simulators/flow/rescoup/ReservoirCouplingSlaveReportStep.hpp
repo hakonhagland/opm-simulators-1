@@ -21,6 +21,7 @@
 #define OPM_RESERVOIR_COUPLING_SLAVE_REPORT_STEP_HPP
 
 #include <opm/simulators/flow/rescoup/ReservoirCoupling.hpp>
+#include <opm/input/eclipse/Schedule/ReservoirCouplingSummaryState.hpp>
 #include <opm/input/eclipse/EclipseState/Phase.hpp>
 #include <opm/input/eclipse/Schedule/Group/Group.hpp>
 
@@ -193,6 +194,8 @@ public:
     /// @brief Receive injection group targets from master and store them locally
     /// @param num_targets Number of injection targets to receive
     void receiveInjectionGroupTargetsFromMaster(std::size_t num_targets);
+
+    void receiveReservoirCouplingSummaryStateFromMaster();
 
     /// @brief Receive production group constraints from master and store them locally
     /// @param num_targets Number of production constraints to receive

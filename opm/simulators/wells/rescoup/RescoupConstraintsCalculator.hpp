@@ -223,7 +223,7 @@ private:
     const GroupState<Scalar>& group_state_;
     const int report_step_idx_;
     const Schedule& schedule_;
-    const SummaryState& summary_state_;
+    SummaryState& summary_state_;
     DeferredLogger& deferred_logger_;
     ReservoirCouplingMaster<Scalar>& reservoir_coupling_master_;
     BlackoilWellModelGeneric<Scalar, IndexTraits>& well_model_;

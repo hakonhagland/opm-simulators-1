@@ -282,13 +282,10 @@ calc_inplace(std::map<std::string, double>& miscSummaryData,
 {
     auto inplace = this->accumulateRegionSums(comm);
 
-    if (comm.rank() != 0)
-        return inplace;
-
+    // Region summary values are consumed by UDQs on every MPI rank.
     updateSummaryRegionValues(inplace,
                               miscSummaryData,
                               regionData);
-
 
     return inplace;
 }

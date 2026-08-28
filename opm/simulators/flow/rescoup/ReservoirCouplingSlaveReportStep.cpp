@@ -28,6 +28,7 @@
 #include <opm/input/eclipse/Schedule/ResCoup/Slaves.hpp>
 #include <opm/common/ErrorMacros.hpp>
 #include <opm/simulators/utils/ParallelCommunication.hpp>
+#include <opm/simulators/utils/MPISerializer.hpp>
 
 #include <dune/common/parallel/mpitraits.hh>
 
@@ -160,6 +161,11 @@ void
 ReservoirCouplingSlaveReportStep<Scalar>::
 receiveInjectionGroupTargetsFromMaster(std::size_t num_targets)
 {
+    this->master_injection_targets_.clear();
+    if (num_targets == 0) {
+        return;
+    }
+
     std::vector<InjectionGroupTarget> injection_targets(num_targets);
     if (this->comm().rank() == 0) {
         auto MPI_INJECTION_GROUP_TARGET_TYPE = Dune::MPITraits<InjectionGroupTarget>::getType();
@@ -180,8 +186,6 @@ receiveInjectionGroupTargetsFromMaster(std::size_t num_targets)
     this->comm().broadcast(
         injection_targets.data(), num_targets, /*emitter_rank=*/0
     );
-    // Clear old targets before storing new ones from master
-    this->master_injection_targets_.clear();
     for (const auto& target : injection_targets) {
         const auto& group_name = this->slave_.slaveGroupIdxToGroupName(target.group_name_idx);
         // Convert ReservoirCoupling::Phase to Opm::Phase
@@ -193,6 +197,40 @@ receiveInjectionGroupTargetsFromMaster(std::size_t num_targets)
             "Stored master injection target for group '{}': target={}, phase={}",
             group_name, target.target, static_cast<int>(target.phase)
         ));
+    }
+}
+
+template <class Scalar>
+void
+ReservoirCouplingSlaveReportStep<Scalar>::
+receiveReservoirCouplingSummaryStateFromMaster()
+{
+    std::size_t payload_size = 0;
+    if (this->comm().rank() == 0) {
+        auto mpi_size_type = Dune::MPITraits<std::size_t>::getType();
+        MPI_Recv(&payload_size, 1, mpi_size_type, 0,
+                 static_cast<int>(MessageTag::ReservoirCouplingSummaryStateSize),
+                 this->getSlaveMasterComm(), MPI_STATUS_IGNORE);
+    }
+    this->comm().broadcast(&payload_size, 1, 0);
+
+    std::vector<char> payload(payload_size);
+    if (this->comm().rank() == 0 && payload_size > 0) {
+        MPI_Recv(payload.data(), static_cast<int>(payload_size), MPI_CHAR, 0,
+                 static_cast<int>(MessageTag::ReservoirCouplingSummaryState),
+                 this->getSlaveMasterComm(), MPI_STATUS_IGNORE);
+    }
+    if (payload_size > 0) {
+        this->comm().broadcast(payload.data(), static_cast<int>(payload_size), 0);
+    }
+
+    auto& context = this->slave_.reservoirCouplingSummaryState();
+    context.clear();
+    if (payload_size > 0) {
+        Mpi::Packer packer{this->comm()};
+        Serializer<Mpi::Packer> serializer{packer};
+        serializer.setBuffer(std::move(payload));
+        serializer.unpack(context);
     }
 }
 

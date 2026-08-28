@@ -22,6 +22,7 @@
 #include <opm/simulators/utils/DeferredLogger.hpp>
 #include <opm/simulators/utils/ParallelCommunication.hpp>
 #include <opm/input/eclipse/Schedule/Group/Group.hpp>
+#include <opm/input/eclipse/Schedule/ReservoirCouplingSummaryState.hpp>
 #include <opm/input/eclipse/Schedule/Group/GuideRate.hpp>
 #include <opm/input/eclipse/Units/Units.hpp>
 
@@ -146,6 +147,10 @@ enum class MessageTag : int {
     NumMasterGroupNodePressures,
     NumSlaveGroupConstraints,
     ProductionGroupConstraints,
+    ReservoirCouplingSummaryState,
+    ReservoirCouplingSummaryStateSize,
+    SlaveSummaryDependencies,
+    SlaveSummaryDependenciesSize,
     SlaveActivationDate,
     SlaveActivationHandshake,
     SlaveInjectionData,
@@ -249,6 +254,7 @@ struct SlaveGroupProductionData {
     ProductionRates<Scalar> reservoir_rates;  // Reservoir production rates by phase
     Scalar voidage_rate{0.0};               // Reservoir voidage replacement rate
     Scalar gas_reinjection_rate{0.0};       // Reinjection (surface) rate for the gas phase
+    Scalar gas_lift_rate{0.0};              // Gas-lift ALQ rate
 };
 
 // Slave group injection data sent to the corresponding master group for target calculation.

@@ -33,11 +33,13 @@
 
 #include <opm/input/eclipse/Schedule/Network/Balance.hpp>
 #include <opm/input/eclipse/Schedule/Network/ExtNetwork.hpp>
+#include <opm/input/eclipse/Schedule/UDQ/UDQConfig.hpp>
 #include <opm/input/eclipse/Schedule/Well/PAvgDynamicSourceData.hpp>
 #include <opm/input/eclipse/Schedule/Well/WellMatcher.hpp>
 #include <opm/input/eclipse/Schedule/Well/WellTestConfig.hpp>
 #include <opm/input/eclipse/Schedule/Well/WellEconProductionLimits.hpp>
 
+#include <opm/input/eclipse/EclipseState/Grid/RegionSetMatcher.hpp>
 #include <opm/input/eclipse/Units/UnitSystem.hpp>
 
 #include <opm/simulators/wells/BlackoilWellModelConstraints.hpp>
@@ -481,11 +483,32 @@ namespace Opm {
                 // See RescoupSendSlaveGroupData::collectSlaveGroupSurfaceProductionRates_().
                 this->reservoirCouplingSlave().setWellsSolvedThisSyncStep(false);
                 this->rescoupHelper_.sendSlaveGroupDataToMaster();
+                this->reservoirCouplingSlave().receiveReservoirCouplingSummaryStateFromMaster();
                 this->rescoupHelper_.receiveGroupConstraintsFromMaster();
+                simulator_.vanguard().udqState().setReservoirCouplingSummaryState(
+                    &this->reservoirCouplingSlave().reservoirCouplingSummaryState());
                 this->rescoupHelper_.receiveCoupledNetworkActiveStatus();
                 this->groupStateHelper().updateSlaveGroupCmodesFromMaster();
                 this->reservoirCouplingSlave().markSlaveGroupsInSchedule(
                     this->schedule_, reportStepIdx);
+                this->simulator_.problem().eclWriter().evalRequisiteSummaryState();
+                OPM_BEGIN_PARALLEL_TRY_CATCH();
+                {
+                    this->schedule_[reportStepIdx].udq().eval(
+                        reportStepIdx,
+                        simulator_.vanguard().schedule().wellMatcher(reportStepIdx),
+                        this->schedule_[reportStepIdx].group_order(),
+                        simulator_.vanguard().schedule().segmentMatcherFactory(reportStepIdx),
+                        [es = std::cref(simulator_.vanguard().eclState())]() {
+                            return std::make_unique<RegionSetMatcher>(es.get().fipRegionStatistics());
+                        },
+                        this->mutableSummaryState(),
+                        simulator_.vanguard().udqState());
+                }
+                OPM_END_PARALLEL_TRY_CATCH_LOG(local_deferredLogger,
+                                               "Failed to evaluate UDQs for reservoir coupling slave: ",
+                                               this->terminal_output_,
+                                               simulator_.vanguard().grid().comm())
                 slave_needs_well_solution = true;
             }
         }

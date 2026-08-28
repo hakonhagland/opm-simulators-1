@@ -784,6 +784,9 @@ public:
     const EclipseIO& eclIO() const
     { return eclWriter_->eclIO(); }
 
+    EclipseIO& eclIO()
+    { return eclWriter_->eclIO(); }
+
     void setSubStepReport(const SimulatorReportSingle& report)
     { return eclWriter_->setSubStepReport(report); }
 

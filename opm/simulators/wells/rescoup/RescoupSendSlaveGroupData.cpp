@@ -309,7 +309,39 @@ collectSlaveGroupProductionData_(std::size_t group_idx) const
     production_data.reservoir_rates = this->collectSlaveGroupReservoirProductionRates_(group_idx);
     production_data.voidage_rate = this->collectSlaveGroupVoidageRate_(group_idx);
     production_data.gas_reinjection_rate = this->collectSlaveGroupReinjectionRateForGasPhase_(group_idx);
+    production_data.gas_lift_rate = this->collectSlaveGroupGasLiftRate_(group_idx);
     return production_data;
+}
+
+template<typename Scalar, typename IndexTraits>
+Scalar
+RescoupSendSlaveGroupData<Scalar, IndexTraits>::
+collectSlaveGroupGasLiftRate_(std::size_t group_idx) const
+{
+    const auto& group_name = this->reservoir_coupling_slave_.slaveGroupIdxToGroupName(group_idx);
+    std::function<Scalar(const Group&)> collect = [this, &collect](const Group& group)
+    {
+        Scalar rate = 0.0;
+        for (const auto& child_name : group.groups()) {
+            rate += collect(this->schedule_.getGroup(child_name, this->report_step_idx_));
+        }
+        for (const auto& well_name : group.wells()) {
+            const auto well_index = this->groupStateHelper_.wellState().index(well_name);
+            if (!well_index.has_value()
+                || !this->groupStateHelper_.wellState().wellIsOwned(well_index.value(), well_name)) {
+                continue;
+            }
+            const auto& well = this->schedule_.getWell(well_name, this->report_step_idx_);
+            const auto& state = this->groupStateHelper_.wellState().well(well_index.value());
+            if (well.isProducer() && state.status != Well::Status::SHUT) {
+                rate += well.getEfficiencyFactor()
+                    * state.efficiency_scaling_factor
+                    * state.alq_state.get();
+            }
+        }
+        return rate;
+    };
+    return this->comm().sum(collect(this->schedule_.getGroup(group_name, this->report_step_idx_)));
 }
 
 template<typename Scalar, typename IndexTraits>

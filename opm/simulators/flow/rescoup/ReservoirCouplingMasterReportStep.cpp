@@ -28,10 +28,12 @@
 #include <opm/input/eclipse/Schedule/ResCoup/MasterGroup.hpp>
 #include <opm/input/eclipse/Schedule/ResCoup/Slaves.hpp>
 #include <opm/simulators/utils/ParallelCommunication.hpp>
+#include <opm/simulators/utils/MPISerializer.hpp>
 
 #include <dune/common/parallel/mpitraits.hh>
 
 #include <vector>
+#include <functional>
 #include <fmt/format.h>
 
 namespace Opm {
@@ -293,6 +295,43 @@ sendInjectionTargetsToSlave(std::size_t slave_idx,
 template <class Scalar>
 void
 ReservoirCouplingMasterReportStep<Scalar>::
+sendReservoirCouplingSummaryStateToSlave(
+    const std::size_t slave_idx,
+    const SummaryState& summary_state,
+    const UDQState& udq_state) const
+{
+    ReservoirCouplingSummaryState context;
+    std::map<std::string, std::string> group_names;
+    for (const auto& master_group : this->master_.getMasterGroupNamesForSlave(slave_idx)) {
+        const auto group_pos = this->getMasterGroupToSlaveNameMap().find(master_group);
+        if (group_pos != this->getMasterGroupToSlaveNameMap().end()) {
+            group_names.emplace(group_pos->first, group_pos->second);
+        }
+    }
+    context = summary_state.exportReservoirCouplingSummaryState(group_names);
+    udq_state.exportReservoirCouplingSummaryState(context, group_names);
+
+    Mpi::Packer packer{this->comm()};
+    Serializer<Mpi::Packer> serializer{packer};
+    serializer.pack(context);
+    const auto& payload = serializer.buffer();
+    const auto payload_size = payload.size();
+    if (this->comm().rank() == 0) {
+        auto mpi_size_type = Dune::MPITraits<std::size_t>::getType();
+        MPI_Send(&payload_size, 1, mpi_size_type, 0,
+                 static_cast<int>(MessageTag::ReservoirCouplingSummaryStateSize),
+                 this->getSlaveComm(slave_idx));
+        if (payload_size > 0) {
+            MPI_Send(payload.data(), static_cast<int>(payload_size), MPI_CHAR, 0,
+                     static_cast<int>(MessageTag::ReservoirCouplingSummaryState),
+                     this->getSlaveComm(slave_idx));
+        }
+    }
+}
+
+template <class Scalar>
+void
+ReservoirCouplingMasterReportStep<Scalar>::
 sendMasterGroupNodePressuresToSlave(std::size_t slave_idx,
                                     const std::vector<MasterGroupNodePressure>& pressures) const
 {
@@ -444,6 +483,9 @@ collectGroupRatesForSummary() const
                 + this->getMasterGroupRate_(groupName, RcPhase::Gas, RateKind::ProductionReservoir)
                 + this->getMasterGroupRate_(groupName, RcPhase::Water, RateKind::ProductionReservoir);
             result.production[groupName] = prod;
+            const auto& slave_name = this->getMasterGroupToSlaveNameMap().at(groupName);
+            const auto group_idx = this->getMasterGroupCanonicalIdx(slave_name, groupName);
+            result.gas_lift[groupName] = this->slave_group_production_data_.at(slave_name)[group_idx].gas_lift_rate;
 
             // Injection rates (positive values, SI units)
             for (const auto phase : {RcPhase::Oil, RcPhase::Gas, RcPhase::Water}) {
@@ -460,7 +502,6 @@ collectGroupRatesForSummary() const
     }
     return result;
 }
-
 
 // ------------------
 // Private methods

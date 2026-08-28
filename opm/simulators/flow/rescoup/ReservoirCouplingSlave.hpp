@@ -22,6 +22,7 @@
 
 #include <opm/simulators/flow/rescoup/ReservoirCoupling.hpp>
 #include <opm/simulators/flow/rescoup/ReservoirCouplingSlaveReportStep.hpp>
+#include <opm/input/eclipse/Schedule/ReservoirCouplingSummaryState.hpp>
 #include <opm/input/eclipse/Schedule/Schedule.hpp>
 #include <opm/simulators/utils/ParallelCommunication.hpp>
 #include <opm/simulators/timestepping/SimulatorTimer.hpp>
@@ -58,6 +59,8 @@ public:
     const std::string& getSlaveName() const { return slave_name_; }
     const std::map<std::string, std::string>& getSlaveToMasterGroupNameMap() const {
         return slave_to_master_group_map_; }
+    ReservoirCouplingSummaryState& reservoirCouplingSummaryState()
+    { return reservoir_coupling_summary_state_; }
     /// @brief Check if a master-computed network-leaf node pressure exists for a master group
     /// @details Delegates to ReservoirCouplingSlaveReportStep
     bool hasMasterGroupNodePressure(const std::string& gname) const;
@@ -130,6 +133,7 @@ public:
     /// @brief Receive injection group targets from master and store them locally
     /// @details Delegates to ReservoirCouplingSlaveReportStep
     void receiveInjectionGroupTargetsFromMaster(std::size_t num_targets);
+    void receiveReservoirCouplingSummaryStateFromMaster();
 
     /// @brief Receive master-computed network-leaf node pressures from master
     /// @details Delegates to ReservoirCouplingSlaveReportStep
@@ -224,6 +228,7 @@ private:
     void sendActivationDateToMasterProcess_();
     void sendActivationHandshakeToMasterProcess_() const;
     void sendSimulationStartDateToMasterProcess_() const;
+    void sendSummaryDependenciesToMasterProcess_() const;
     void sendStatusToMasterProcess_(bool ok);
 
     const Parallel::Communication &comm_;
@@ -245,6 +250,7 @@ private:
     // Later, the master process will send us group name indices, and not the group names themselves,
     // so we use this mapping to recover the slave group names from the indices.
     std::map<std::size_t, std::string> slave_group_order_;
+    ReservoirCouplingSummaryState reservoir_coupling_summary_state_;
     // Stores data that changes for a single report step or for timesteps within a report step.
     std::unique_ptr<ReservoirCouplingSlaveReportStep<Scalar>> report_step_data_{nullptr};
 };

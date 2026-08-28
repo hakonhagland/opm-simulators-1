@@ -77,6 +77,7 @@ spawn()
     this->createMasterGroupToSlaveNameMap_();
     this->createSlaveNameToMasterGroupsMap_();
     this->sendMasterGroupNamesToSlaves_();
+    this->receiveSummaryDependenciesFromSlaves_();
     // Activation date received last - slaves can now check numMasterGroups()
     this->receiveActivationDateFromSlaves_();
     this->logger_.info("Reservoir coupling slave processes was spawned successfully");
@@ -263,6 +264,46 @@ receiveActivationDateFromSlaves_()
     const double* data = this->master_.getSlaveActivationDates();
     this->comm_.broadcast(const_cast<double *>(data), /*count=*/num_slaves, /*emitter_rank=*/0);
     this->logger_.debug("Broadcasted slave activation dates to all ranks");
+}
+
+template <class Scalar>
+void
+ReservoirCouplingSpawnSlaves<Scalar>::
+receiveSummaryDependenciesFromSlaves_()
+{
+    const auto num_slaves = this->master_.numSlavesStarted();
+    for (std::size_t slave_idx = 0; slave_idx < num_slaves; ++slave_idx) {
+        std::size_t payload_size = 0;
+        std::vector<char> payload;
+        if (this->comm_.rank() == 0) {
+            const auto mpi_size_type = Dune::MPITraits<std::size_t>::getType();
+            MPI_Recv(&payload_size, 1, mpi_size_type, 0,
+                     static_cast<int>(MessageTag::SlaveSummaryDependenciesSize),
+                     this->master_.getSlaveComm(slave_idx), MPI_STATUS_IGNORE);
+            payload.resize(payload_size);
+            if (payload_size > 0) {
+                MPI_Recv(payload.data(), static_cast<int>(payload_size), MPI_CHAR, 0,
+                         static_cast<int>(MessageTag::SlaveSummaryDependencies),
+                         this->master_.getSlaveComm(slave_idx), MPI_STATUS_IGNORE);
+            }
+        }
+
+        this->comm_.broadcast(&payload_size, 1, 0);
+        if (this->comm_.rank() != 0) {
+            payload.resize(payload_size);
+        }
+        if (payload_size > 0) {
+            this->comm_.broadcast(payload.data(), payload_size, 0);
+        }
+
+        std::vector<std::string> keys;
+        for (std::size_t offset = 0; offset < payload.size();) {
+            const auto* begin = payload.data() + offset;
+            keys.emplace_back(begin);
+            offset += keys.back().size() + 1;
+        }
+        this->master_.addSummaryDependencies(keys);
+    }
 }
 
 template <class Scalar>

@@ -30,6 +30,7 @@
 #include <mpi.h>
 
 #include <filesystem>
+#include <set>
 #include <vector>
 
 namespace Opm {
@@ -59,6 +60,14 @@ public:
     void addSlaveActivationDate(double date) { this->slave_activation_dates_.push_back(date); }
     void addSlaveStartDate(std::time_t date) { this->slave_start_dates_.push_back(date); }
     void clearDeferredLogger() { logger_.clearDeferredLogger(); }
+    void addSummaryDependencies(const std::vector<std::string>& keys) {
+        this->summary_dependencies_.insert(keys.begin(), keys.end());
+    }
+    std::vector<std::string> summaryDependencies() const {
+        return {this->summary_dependencies_.begin(), this->summary_dependencies_.end()};
+    }
+    bool summaryDependenciesRegistered() const { return this->summary_dependencies_registered_; }
+    void markSummaryDependenciesRegistered() { this->summary_dependencies_registered_ = true; }
 
     /// @brief Effective group-controlled-wells (GCW) count for a master group,
     ///   used by guide-rate distribution independently of the group's production
@@ -184,6 +193,8 @@ public:
         std::size_t slave_idx,
         const std::vector<InjectionGroupTarget>& injection_targets
     ) const;
+    void sendReservoirCouplingSummaryStateToSlaves(
+        const SummaryState& summary_state, const UDQState& udq_state);
 
     /// @brief Send master-computed network-leaf node pressures to a slave.
     void sendMasterGroupNodePressuresToSlave(
@@ -347,6 +358,9 @@ private:
     // This vector is populated in parallel with slave_name_to_master_groups_map_
     // and maintains the same ordering as slave_names_ vector for consistent indexing
     std::vector<std::vector<std::string>> slave_idx_to_master_groups_;
+
+    std::set<std::string> summary_dependencies_;
+    bool summary_dependencies_registered_{false};
 
     // Stores data that changes for a single report step or for timesteps within a report step.
     std::unique_ptr<ReservoirCouplingMasterReportStep<Scalar>> report_step_data_{nullptr};

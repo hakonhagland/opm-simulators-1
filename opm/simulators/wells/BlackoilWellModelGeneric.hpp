@@ -105,7 +105,7 @@ public:
     BlackoilWellModelGeneric(Schedule& schedule,
                              BlackoilWellModelGasLiftGeneric<Scalar, IndexTraits>& gaslift,
                              BlackoilWellModelNetworkGeneric<Scalar, IndexTraits>& network,
-                             const SummaryState& summaryState,
+                             SummaryState& summaryState,
                              const EclipseState& eclState,
                              const PhaseUsageInfo<IndexTraits>& phase_usage,
                              const Parallel::Communication& comm,
@@ -234,6 +234,8 @@ public:
     const EclipseState& eclipseState() const { return eclState_; }
 
     const SummaryState& summaryState() const { return summaryState_; }
+    SummaryState& mutableSummaryState() const
+    { return const_cast<SummaryState&>(summaryState_); }
 
     const GuideRate& guideRate() const { return guideRate_; }
     GuideRate& guideRate() { return guideRate_; }

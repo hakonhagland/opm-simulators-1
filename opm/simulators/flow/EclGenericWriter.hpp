@@ -90,6 +90,7 @@ public:
                      bool enableEsmry);
 
     const EclipseIO& eclIO() const;
+    EclipseIO& eclIO();
 
     void writeInit();
 

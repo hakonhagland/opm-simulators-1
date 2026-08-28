@@ -274,6 +274,14 @@ eclIO() const
 }
 
 template<class Grid, class EquilGrid, class GridView, class ElementMapper, class Scalar>
+EclipseIO& EclGenericWriter<Grid,EquilGrid,GridView,ElementMapper,Scalar>::
+eclIO()
+{
+    assert(eclIO_);
+    return *eclIO_;
+}
+
+template<class Grid, class EquilGrid, class GridView, class ElementMapper, class Scalar>
 void EclGenericWriter<Grid,EquilGrid,GridView,ElementMapper,Scalar>::
 writeInit()
 {

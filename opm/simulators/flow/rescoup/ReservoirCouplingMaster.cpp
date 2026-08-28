@@ -501,6 +501,21 @@ sendInjectionTargetsToSlave(std::size_t slave_idx,
 template <class Scalar>
 void
 ReservoirCouplingMaster<Scalar>::
+sendReservoirCouplingSummaryStateToSlaves(
+    const SummaryState& summary_state, const UDQState& udq_state)
+{
+    assert(this->report_step_data_);
+    for (std::size_t slave_idx = 0; slave_idx < this->numSlaves(); ++slave_idx) {
+        if (this->slaveIsActivated(slave_idx)) {
+            this->report_step_data_->sendReservoirCouplingSummaryStateToSlave(
+                slave_idx, summary_state, udq_state);
+        }
+    }
+}
+
+template <class Scalar>
+void
+ReservoirCouplingMaster<Scalar>::
 sendMasterGroupNodePressuresToSlave(std::size_t slave_idx,
                                     const std::vector<MasterGroupNodePressure>& pressures) const
 {

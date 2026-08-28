@@ -67,6 +67,7 @@ private:
     ///   between readDeck() and SimulatorFullyImplicitBlackoil::init() (where the slave
     ///   sends its OK status) are not yet caught.
     void receiveSlaveStatus_();
+    void receiveSummaryDependenciesFromSlaves_();
     void sendMasterGroupNamesToSlaves_();
     void sendSlaveNamesToSlaves_();
     void spawnSlaveProcesses_();

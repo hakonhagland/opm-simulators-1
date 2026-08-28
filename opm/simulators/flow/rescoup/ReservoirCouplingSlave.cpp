@@ -24,6 +24,8 @@
 #include <opm/simulators/flow/rescoup/ReservoirCouplingSlaveReportStep.hpp>
 #include <opm/simulators/flow/rescoup/ReservoirCouplingSlave.hpp>
 
+#include <opm/input/eclipse/Schedule/UDQ/UDQConfig.hpp>
+
 #include <opm/common/TimingMacros.hpp>
 #include <opm/input/eclipse/Schedule/ResCoup/ReservoirCouplingInfo.hpp>
 #include <opm/input/eclipse/Schedule/ResCoup/MasterGroup.hpp>
@@ -332,6 +334,15 @@ receiveInjectionGroupTargetsFromMaster(std::size_t num_targets)
 template <class Scalar>
 void
 ReservoirCouplingSlave<Scalar>::
+receiveReservoirCouplingSummaryStateFromMaster()
+{
+    assert(this->report_step_data_);
+    this->report_step_data_->receiveReservoirCouplingSummaryStateFromMaster();
+}
+
+template <class Scalar>
+void
+ReservoirCouplingSlave<Scalar>::
 receiveMasterGroupNodePressuresFromMaster(std::size_t num_pressures)
 {
     assert(this->report_step_data_);
@@ -417,7 +428,34 @@ sendAndReceiveInitialData() {
     this->sendSimulationStartDateToMasterProcess_();
     this->receiveSlaveNameFromMasterProcess_();
     this->receiveMasterGroupNamesFromMasterProcess_();
+    this->sendSummaryDependenciesToMasterProcess_();
     this->sendActivationDateToMasterProcess_();
+}
+
+template <class Scalar>
+void
+ReservoirCouplingSlave<Scalar>::
+sendSummaryDependenciesToMasterProcess_() const
+{
+    std::unordered_set<std::string> required_keys;
+    for (const auto& unique_udq : this->schedule_.unique<UDQConfig>()) {
+        unique_udq.second.required_summary(required_keys);
+    }
+
+    std::vector<std::string> keys {required_keys.begin(), required_keys.end()};
+    std::ranges::sort(keys);
+    const auto [payload, payload_size] = ReservoirCoupling::serializeStrings(keys);
+    if (this->comm_.rank() == 0) {
+        const auto mpi_size_type = Dune::MPITraits<std::size_t>::getType();
+        MPI_Send(&payload_size, 1, mpi_size_type, 0,
+                 static_cast<int>(MessageTag::SlaveSummaryDependenciesSize),
+                 this->slave_master_comm_);
+        if (payload_size > 0) {
+            MPI_Send(payload.data(), static_cast<int>(payload_size), MPI_CHAR, 0,
+                     static_cast<int>(MessageTag::SlaveSummaryDependencies),
+                     this->slave_master_comm_);
+        }
+    }
 }
 
 template <class Scalar>

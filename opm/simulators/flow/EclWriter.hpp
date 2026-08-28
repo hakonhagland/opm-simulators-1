@@ -35,6 +35,7 @@
 #include <opm/input/eclipse/Schedule/RPTConfig.hpp>
 
 #include <opm/input/eclipse/Units/UnitSystem.hpp>
+#include <opm/output/eclipse/Summary.hpp>
 #include <opm/input/eclipse/EclipseState/SummaryConfig/SummaryConfig.hpp>
 
 #include <opm/output/eclipse/Inplace.hpp>
@@ -217,6 +218,55 @@ public:
         }
     }
 
+    void evalRequisiteSummaryState()
+    {
+        const int report_step_num = simulator_.episodeIndex() + 1;
+        const auto well_data = simulator_.problem().wellModel().wellData();
+        const auto wbp_data = simulator_.problem().wellModel().wellBlockAveragePressures();
+        const data::GroupAndNetworkValues group_and_network_data;
+        const auto aquifer_data = simulator_.problem().aquiferModel().aquiferData();
+        const auto rc_group_rates = this->collectReservoirCouplingGroupRates_();
+        std::map<std::string, double> misc_summary_data;
+        std::map<std::string, std::vector<double>> region_data;
+        const auto inplace = this->outputModule_->calc_inplace(
+            misc_summary_data, region_data, simulator_.gridView().comm());
+        auto& summary_state = simulator_.vanguard().summaryState();
+        for (const auto& [keyword, values] : region_data) {
+            const auto region_set = keyword.size() > 5
+                ? "FIP" + keyword.substr(5, 3)
+                : "FIPNUM";
+            const auto variable = keyword.substr(0, 5);
+            for (std::size_t region = 0; region < values.size(); ++region) {
+                summary_state.update_region_var(region_set, variable,
+                                                region + 1, values[region]);
+            }
+        }
+
+        const auto values = Opm::out::Summary::DynamicSimulatorState {
+            /* well_solution           = */ &well_data,
+            /* wbp                     = */ &wbp_data,
+            /* group_and_nwrk_solution = */ &group_and_network_data,
+            /* single_values           = */ &misc_summary_data,
+            /* region_values           = */ &region_data,
+            /* reg_var_map              = */ &this->outputModule_->regVarMapping(),
+            /* reg_var_coll             = */ &this->outputModule_->regionVariables(),
+            /* block_values            = */ &this->outputModule_->getBlockData(),
+            /* aquifer_values          = */ &aquifer_data,
+            /* interreg_flows          = */ nullptr,
+            /* rc_group_rates          = */ rc_group_rates ? &(*rc_group_rates) : nullptr,
+            /* inplace                 = */ {
+                /* current = */ &inplace,
+                /* initial = */ this->outputModule_->initialInplace()
+            },
+            /* lgr_block_values        = */ &this->outputModule_->getLgrBlockData()
+        };
+
+        if (this->collectOnIORank().isIORank()) {
+            this->eclIO().evalRequisiteSummary(
+                report_step_num, values, summary_state);
+        }
+    }
+
     /*!
      * \brief collect and pass data and pass it to eclIO writer
      */
@@ -395,6 +445,7 @@ public:
                               this->summaryState(),
                               this->udqState(),
                               rcGroupRates ? &(*rcGroupRates) : nullptr);
+
         }
     }
 

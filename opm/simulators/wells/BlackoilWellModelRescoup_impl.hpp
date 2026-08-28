@@ -35,6 +35,8 @@
 #include <opm/simulators/wells/rescoup/RescoupReceiveGroupConstraints.hpp>
 #include <opm/simulators/wells/rescoup/RescoupReceiveSlaveGroupData.hpp>
 #include <opm/simulators/wells/rescoup/RescoupSendSlaveGroupData.hpp>
+#include <opm/input/eclipse/EclipseState/Grid/RegionSetMatcher.hpp>
+#include <opm/input/eclipse/Schedule/UDQ/UDQConfig.hpp>
 
 #include <cassert>
 
@@ -320,6 +322,22 @@ sendMasterGroupConstraintsToSlaves()
         this->well_model_.guideRateHandler(),
         this->groupStateHelper()
     };
+    this->well_model_.simulator().problem().eclWriter().evalRequisiteSummaryState();
+    const auto udq_step = this->well_model_.simulator().episodeIndex();
+    this->well_model_.simulator().vanguard().schedule()[udq_step].udq().eval(
+        udq_step,
+        this->well_model_.simulator().vanguard().schedule().wellMatcher(udq_step),
+        this->well_model_.simulator().vanguard().schedule()[udq_step].group_order(),
+        this->well_model_.simulator().vanguard().schedule().segmentMatcherFactory(udq_step),
+        [es = std::cref(this->well_model_.simulator().vanguard().eclState())]() {
+            return std::make_unique<RegionSetMatcher>(es.get().fipRegionStatistics());
+        },
+        this->well_model_.mutableSummaryState(),
+        this->well_model_.simulator().vanguard().udqState());
+    this->reservoirCouplingMaster()
+        .sendReservoirCouplingSummaryStateToSlaves(
+            this->well_model_.summaryState(),
+            this->well_model_.simulator().vanguard().udqState());
     constraints_calculator.calculateMasterGroupConstraintsAndSendToSlaves();
 }
 

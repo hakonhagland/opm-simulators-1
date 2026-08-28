@@ -23,6 +23,10 @@
 #include <opm/simulators/flow/rescoup/ReservoirCoupling.hpp>
 #include <opm/simulators/flow/rescoup/ReservoirCouplingMpiTraits.hpp>
 #include <opm/output/data/Groups.hpp>
+#include <opm/input/eclipse/Schedule/SummaryState.hpp>
+#include <opm/input/eclipse/Schedule/ReservoirCouplingSummaryState.hpp>
+#include <opm/input/eclipse/Schedule/SummaryState.hpp>
+#include <opm/input/eclipse/Schedule/UDQ/UDQState.hpp>
 #include <opm/input/eclipse/Schedule/Schedule.hpp>
 #include <opm/simulators/utils/ParallelCommunication.hpp>
 #include <opm/common/OpmLog/OpmLog.hpp>
@@ -217,6 +221,11 @@ public:
     void sendInjectionTargetsToSlave(
         std::size_t slave_idx, const std::vector<InjectionGroupTarget>& injection_targets
     ) const;
+
+    void sendReservoirCouplingSummaryStateToSlave(
+        std::size_t slave_idx,
+        const SummaryState& summary_state,
+        const UDQState& udq_state) const;
 
     /// @brief Send master-computed network-leaf node pressures to a slave.
     /// @details Only emits entries for master groups that are leaf nodes in
