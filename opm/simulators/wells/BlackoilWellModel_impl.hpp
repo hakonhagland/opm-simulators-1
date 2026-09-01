@@ -494,6 +494,12 @@ namespace Opm {
                 this->simulator_.problem().eclWriter().evalRequisiteSummaryState();
                 OPM_BEGIN_PARALLEL_TRY_CATCH();
                 {
+                    // Restrict to GROUP_VAR/FIELD_VAR: this call runs before
+                    // well/segment level dynamic data (WBP, ALQ, ...) is
+                    // available for the current timestep. Evaluating a
+                    // well/segment level "UPDATE ... NEXT" UDQ here would
+                    // permanently freeze it at a premature value, since NEXT
+                    // is a one-shot update consumed on first evaluation.
                     this->schedule_[reportStepIdx].udq().eval(
                         reportStepIdx,
                         simulator_.vanguard().schedule().wellMatcher(reportStepIdx),
@@ -503,7 +509,8 @@ namespace Opm {
                             return std::make_unique<RegionSetMatcher>(es.get().fipRegionStatistics());
                         },
                         this->mutableSummaryState(),
-                        simulator_.vanguard().udqState());
+                        simulator_.vanguard().udqState(),
+                        UDQVarTypeBit(UDQVarType::GROUP_VAR) | UDQVarTypeBit(UDQVarType::FIELD_VAR));
                 }
                 OPM_END_PARALLEL_TRY_CATCH_LOG(local_deferredLogger,
                                                "Failed to evaluate UDQs for reservoir coupling slave: ",

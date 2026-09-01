@@ -324,6 +324,11 @@ sendMasterGroupConstraintsToSlaves()
     };
     this->well_model_.simulator().problem().eclWriter().evalRequisiteSummaryState();
     const auto udq_step = this->well_model_.simulator().episodeIndex();
+    // Restrict to GROUP_VAR/FIELD_VAR: this call runs before well/segment
+    // level dynamic data (WBP, ALQ, ...) is available for the current
+    // timestep. Evaluating a well/segment level "UPDATE ... NEXT" UDQ here
+    // would permanently freeze it at a premature value, since NEXT is a
+    // one-shot update consumed on first evaluation.
     this->well_model_.simulator().vanguard().schedule()[udq_step].udq().eval(
         udq_step,
         this->well_model_.simulator().vanguard().schedule().wellMatcher(udq_step),
@@ -333,7 +338,8 @@ sendMasterGroupConstraintsToSlaves()
             return std::make_unique<RegionSetMatcher>(es.get().fipRegionStatistics());
         },
         this->well_model_.mutableSummaryState(),
-        this->well_model_.simulator().vanguard().udqState());
+        this->well_model_.simulator().vanguard().udqState(),
+        UDQVarTypeBit(UDQVarType::GROUP_VAR) | UDQVarTypeBit(UDQVarType::FIELD_VAR));
     this->reservoirCouplingMaster()
         .sendReservoirCouplingSummaryStateToSlaves(
             this->well_model_.summaryState(),
