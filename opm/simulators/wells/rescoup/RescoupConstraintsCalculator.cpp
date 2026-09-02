@@ -279,7 +279,7 @@ recalculateInjectionTargetsAndSendToSlaves()
     };
     const auto num_slaves = rescoup_master.numSlaves();
     for (std::size_t slave_idx = 0; slave_idx < num_slaves; ++slave_idx) {
-        if (!rescoup_master.slaveIsActivated(slave_idx)) {
+        if (!rescoup_master.slaveIsCoupled(slave_idx)) {
             continue;
         }
         auto injection_targets = this->calculateSlaveGroupInjectionTargets_(slave_idx, calculator);
