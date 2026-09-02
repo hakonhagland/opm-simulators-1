@@ -506,7 +506,7 @@ sendReservoirCouplingSummaryStateToSlaves(
 {
     assert(this->report_step_data_);
     for (std::size_t slave_idx = 0; slave_idx < this->numSlaves(); ++slave_idx) {
-        if (this->slaveIsActivated(slave_idx)) {
+        if (this->slaveIsCoupled(slave_idx)) {
             this->report_step_data_->sendReservoirCouplingSummaryStateToSlave(
                 slave_idx, summary_state, udq_state);
         }
