@@ -771,6 +771,14 @@ template<class Scalar> class WellContributions;
             BlackoilWellModelNetwork<TypeTag> network_;
 #ifdef RESERVOIR_COUPLING_ENABLED
             BlackoilWellModelRescoup<TypeTag> rescoupHelper_;
+
+            /// @brief Store the injection targets the master imposed on the
+            ///   slave groups as GGIRT/GWIRT summary values, so UDQs can use them.
+            void storeMasterInjectionTargetsInSummaryState_();
+
+            /// @brief Evaluate the group and field level UDQs at the start of a
+            ///   sync step, after the master's targets have arrived.
+            void evalGroupAndFieldUDQs_(const int reportStepIdx, DeferredLogger& deferred_logger);
 #endif
             BlackoilWellModelNldd<TypeTag>* nldd_ = nullptr; //!< NLDD well model adapter (not owned)
 

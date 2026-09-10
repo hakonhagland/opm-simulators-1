@@ -38,6 +38,9 @@
 #include <opm/input/eclipse/Schedule/Well/WellTestConfig.hpp>
 #include <opm/input/eclipse/Schedule/Well/WellEconProductionLimits.hpp>
 
+#include <opm/input/eclipse/EclipseState/Grid/RegionSetMatcher.hpp>
+#include <opm/input/eclipse/Schedule/UDQ/UDQConfig.hpp>
+#include <opm/input/eclipse/Schedule/UDQ/UDQEnums.hpp>
 #include <opm/input/eclipse/Units/UnitSystem.hpp>
 
 #include <opm/simulators/wells/BlackoilWellModelConstraints.hpp>
@@ -58,6 +61,7 @@
 #endif
 
 #include <algorithm>
+#include <array>
 #include <cassert>
 #include <cstddef>
 #include <iomanip>
@@ -326,6 +330,73 @@ namespace Opm {
 
 
 
+#ifdef RESERVOIR_COUPLING_ENABLED
+    template<typename TypeTag>
+    void
+    BlackoilWellModel<TypeTag>::
+    storeMasterInjectionTargetsInSummaryState_()
+    {
+        // A slave group's injection target is decided by the master run, so
+        // the slave's schedule has no GCONINJE record it could be read from.
+        // Store the targets the master just sent as the group's GGIRT/GWIRT
+        // summary values, in output units, so that UDQ expressions in this
+        // run can refer to them and so that they appear in the summary
+        // output.  Only surface rate targets map onto these keywords.
+        auto& summary_state = simulator_.vanguard().summaryState();
+        const auto& units = simulator_.vanguard().eclState().getUnits();
+        const auto& slave = this->reservoirCouplingSlave();
+        using M = UnitSystem::measure;
+        const auto targets = std::array {
+            std::tuple { Phase::GAS,   std::string{"GGIRT"}, M::gas_surface_rate    },
+            std::tuple { Phase::WATER, std::string{"GWIRT"}, M::liquid_surface_rate },
+        };
+        for (std::size_t i = 0; i < slave.numSlaveGroups(); ++i) {
+            const auto& gname = slave.slaveGroupIdxToGroupName(i);
+            for (const auto& [phase, keyword, unit] : targets) {
+                if (! slave.hasMasterInjectionTarget(gname, phase)) {
+                    continue;
+                }
+                const auto [target, cmode] = slave.masterInjectionTarget(gname, phase);
+                if (cmode != Group::InjectionCMode::RATE) {
+                    continue;
+                }
+                summary_state.update_group_var(gname, keyword, units.from_si(unit, target));
+            }
+        }
+    }
+
+    template<typename TypeTag>
+    void
+    BlackoilWellModel<TypeTag>::
+    evalGroupAndFieldUDQs_(const int reportStepIdx, DeferredLogger& deferred_logger)
+    {
+        // UDQs are normally evaluated at the end of a time step.  A slave
+        // UDQ that depends on a target imposed by the master would then lag
+        // one step behind, so re-evaluate the group and field level UDQs now
+        // that this step's targets have arrived.  Well and segment level
+        // UDQs are left alone: their inputs are not available yet, and an
+        // "UPDATE NEXT" among them would be consumed prematurely.
+        OPM_BEGIN_PARALLEL_TRY_CATCH();
+        {
+            this->schedule_[reportStepIdx].udq().eval(
+                reportStepIdx,
+                simulator_.vanguard().schedule().wellMatcher(reportStepIdx),
+                this->schedule_[reportStepIdx].group_order(),
+                simulator_.vanguard().schedule().segmentMatcherFactory(reportStepIdx),
+                [es = std::cref(simulator_.vanguard().eclState())]() {
+                    return std::make_unique<RegionSetMatcher>(es.get().fipRegionStatistics());
+                },
+                simulator_.vanguard().summaryState(),
+                simulator_.vanguard().udqState(),
+                UDQVarTypeBit(UDQVarType::GROUP_VAR) | UDQVarTypeBit(UDQVarType::FIELD_VAR));
+        }
+        OPM_END_PARALLEL_TRY_CATCH_LOG(deferred_logger,
+                                       "Failed to evaluate UDQs for reservoir coupling slave: ",
+                                       this->terminal_output_,
+                                       simulator_.vanguard().grid().comm())
+    }
+#endif
+
     // called at the beginning of a time step
     template<typename TypeTag>
     void
@@ -486,6 +557,8 @@ namespace Opm {
                 this->groupStateHelper().updateSlaveGroupCmodesFromMaster();
                 this->reservoirCouplingSlave().markSlaveGroupsInSchedule(
                     this->schedule_, reportStepIdx);
+                this->storeMasterInjectionTargetsInSummaryState_();
+                this->evalGroupAndFieldUDQs_(reportStepIdx, local_deferredLogger);
                 slave_needs_well_solution = true;
             }
         }
