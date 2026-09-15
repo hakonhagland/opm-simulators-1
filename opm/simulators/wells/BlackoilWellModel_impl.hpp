@@ -38,6 +38,11 @@
 #include <opm/input/eclipse/Schedule/Well/WellTestConfig.hpp>
 #include <opm/input/eclipse/Schedule/Well/WellEconProductionLimits.hpp>
 
+#include <opm/input/eclipse/EclipseState/Grid/RegionSetMatcher.hpp>
+#include <opm/input/eclipse/Schedule/ResCoup/ReservoirCouplingInfo.hpp>
+#include <opm/input/eclipse/Schedule/UDQ/UDQConfig.hpp>
+#include <opm/input/eclipse/Schedule/UDQ/UDQDefine.hpp>
+#include <opm/input/eclipse/Schedule/UDQ/UDQEnums.hpp>
 #include <opm/input/eclipse/Units/UnitSystem.hpp>
 
 #include <opm/simulators/wells/BlackoilWellModelConstraints.hpp>
@@ -58,6 +63,7 @@
 #endif
 
 #include <algorithm>
+#include <array>
 #include <cassert>
 #include <cstddef>
 #include <iomanip>
@@ -326,6 +332,130 @@ namespace Opm {
 
 
 
+#ifdef RESERVOIR_COUPLING_ENABLED
+    template<typename TypeTag>
+    void
+    BlackoilWellModel<TypeTag>::
+    storeMasterInjectionTargetsInSummaryState_(const int reportStepIdx)
+    {
+        // The injection target that applies to a slave group is not something
+        // the slave's schedule can know on its own: it depends on the target
+        // the master imposes at every synchronization step and on the group's
+        // GRUPSLAV filter flag, which says whether the master's limit, the
+        // deck's own GCONINJE limit, or the smaller of the two is in force.
+        // Work out that effective target here and store it as the group's
+        // GGIRT/GWIRT summary value, in output units, so that UDQ expressions
+        // in this run can refer to it and so that it appears in the summary
+        // output.  Only surface rate targets map onto these keywords.  When
+        // nothing applies the entry is erased, so that a value stored on an
+        // earlier step cannot linger.
+        using M = UnitSystem::measure;
+        auto& summary_state = simulator_.vanguard().summaryState();
+        const auto& units = simulator_.vanguard().eclState().getUnits();
+        const auto& slave = this->reservoirCouplingSlave();
+        const auto& rescoup = this->schedule_[reportStepIdx].rescoup();
+        const auto targets = std::array {
+            std::tuple { Phase::GAS,   std::string{"GGIRT"}, M::gas_surface_rate    },
+            std::tuple { Phase::WATER, std::string{"GWIRT"}, M::liquid_surface_rate },
+        };
+        for (std::size_t i = 0; i < slave.numSlaveGroups(); ++i) {
+            const auto& gname = slave.slaveGroupIdxToGroupName(i);
+            for (const auto& [phase, keyword, unit] : targets) {
+                const auto effective = this->effectiveSlaveGroupInjectionTarget_(
+                    gname, phase, reportStepIdx, rescoup, slave, summary_state);
+                if (effective.has_value()) {
+                    summary_state.update_group_var(gname, keyword, units.from_si(unit, *effective));
+                }
+                else {
+                    summary_state.erase_group_var(gname, keyword);
+                }
+            }
+        }
+    }
+
+    template<typename TypeTag>
+    std::optional<typename BlackoilWellModel<TypeTag>::Scalar>
+    BlackoilWellModel<TypeTag>::
+    effectiveSlaveGroupInjectionTarget_(const std::string& gname,
+                                        const Phase phase,
+                                        const int reportStepIdx,
+                                        const ReservoirCoupling::CouplingInfo& rescoup,
+                                        const ReservoirCouplingSlave<Scalar>& slave,
+                                        const SummaryState& summary_state) const
+    {
+        using FilterFlag = ReservoirCoupling::GrupSlav::FilterFlag;
+        if (! slave.hasMasterInjectionTarget(gname, phase)) {
+            return std::nullopt;
+        }
+        const auto [master_target, cmode] = slave.masterInjectionTarget(gname, phase);
+        if (cmode != Group::InjectionCMode::RATE) {
+            return std::nullopt;
+        }
+
+        // Same fallback as GroupStateHelper::getInjectionFilterFlag_(): a
+        // slave group without a GRUPSLAV record follows the master.
+        auto filter = FilterFlag::MAST;
+        if (rescoup.hasGrupSlav(gname)) {
+            const auto& grup_slav = rescoup.grupSlav(gname);
+            filter = (phase == Phase::GAS) ? grup_slav.gasInjFlag()
+                   : (phase == Phase::WATER) ? grup_slav.waterInjFlag()
+                   : grup_slav.oilInjFlag();
+        }
+        if (filter == FilterFlag::SLAV) {
+            // The deck's own limit applies; the summary evaluator reads it
+            // from the schedule as for any other group.
+            return std::nullopt;
+        }
+        if (filter == FilterFlag::BOTH) {
+            const auto& group = this->schedule().getGroup(gname, reportStepIdx);
+            if (group.hasInjectionControl(phase)) {
+                const auto deck_target =
+                    group.injectionControls(phase, summary_state).surface_max_rate;
+                return std::min(master_target, static_cast<Scalar>(deck_target));
+            }
+        }
+        return master_target;
+    }
+
+    template<typename TypeTag>
+    void
+    BlackoilWellModel<TypeTag>::
+    evalGroupAndFieldUDQs_(const int reportStepIdx, DeferredLogger& deferred_logger)
+    {
+        // UDQs are normally evaluated at the end of a time step.  A slave
+        // UDQ that depends on a target imposed by the master would then lag
+        // one step behind, so re-evaluate the group and field level UDQs now
+        // that this step's targets have arrived.  Well and segment level
+        // UDQs are left alone: their inputs are not available yet.  So is
+        // any "UPDATE NEXT" DEFINE: it is a one-shot that the ordinary
+        // end-of-step evaluation is meant to consume, and this extra
+        // evaluation must not use it up early.
+        const auto select = [](const UDQDefine& def) {
+            const auto var_type = def.var_type();
+            return ((var_type == UDQVarType::GROUP_VAR) || (var_type == UDQVarType::FIELD_VAR))
+                && (def.status().first != UDQUpdate::NEXT);
+        };
+        OPM_BEGIN_PARALLEL_TRY_CATCH();
+        {
+            this->schedule_[reportStepIdx].udq().eval(
+                reportStepIdx,
+                simulator_.vanguard().schedule().wellMatcher(reportStepIdx),
+                this->schedule_[reportStepIdx].group_order(),
+                simulator_.vanguard().schedule().segmentMatcherFactory(reportStepIdx),
+                [es = std::cref(simulator_.vanguard().eclState())]() {
+                    return std::make_unique<RegionSetMatcher>(es.get().fipRegionStatistics());
+                },
+                simulator_.vanguard().summaryState(),
+                simulator_.vanguard().udqState(),
+                select);
+        }
+        OPM_END_PARALLEL_TRY_CATCH_LOG(deferred_logger,
+                                       "Failed to evaluate UDQs for reservoir coupling slave: ",
+                                       this->terminal_output_,
+                                       simulator_.vanguard().grid().comm())
+    }
+#endif
+
     // called at the beginning of a time step
     template<typename TypeTag>
     void
@@ -486,6 +616,8 @@ namespace Opm {
                 this->groupStateHelper().updateSlaveGroupCmodesFromMaster();
                 this->reservoirCouplingSlave().markSlaveGroupsInSchedule(
                     this->schedule_, reportStepIdx);
+                this->storeMasterInjectionTargetsInSummaryState_(reportStepIdx);
+                this->evalGroupAndFieldUDQs_(reportStepIdx, local_deferredLogger);
                 slave_needs_well_solution = true;
             }
         }

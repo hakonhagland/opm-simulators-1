@@ -84,6 +84,8 @@
 #include <tuple>
 #include <vector>
 
+namespace Opm::ReservoirCoupling { class CouplingInfo; }
+
 namespace Opm {
 
 template<class Scalar> class BlackoilWellModelNldd;
@@ -771,6 +773,25 @@ template<class Scalar> class WellContributions;
             BlackoilWellModelNetwork<TypeTag> network_;
 #ifdef RESERVOIR_COUPLING_ENABLED
             BlackoilWellModelRescoup<TypeTag> rescoupHelper_;
+
+            /// @brief Store each slave group's effective injection target as its
+            ///   GGIRT/GWIRT summary value, so UDQs and summary output can use it.
+            void storeMasterInjectionTargetsInSummaryState_(const int reportStepIdx);
+
+            /// @brief The injection target in force for a slave group: the master's,
+            ///   the deck's, or the smaller of the two, as the GRUPSLAV flag says.
+            ///   Empty when the deck's own limit applies or no master target exists.
+            std::optional<Scalar>
+            effectiveSlaveGroupInjectionTarget_(const std::string& gname,
+                                                const Phase phase,
+                                                const int reportStepIdx,
+                                                const ReservoirCoupling::CouplingInfo& rescoup,
+                                                const ReservoirCouplingSlave<Scalar>& slave,
+                                                const SummaryState& summary_state) const;
+
+            /// @brief Evaluate the group and field level UDQs at the start of a
+            ///   sync step, after the master's targets have arrived.
+            void evalGroupAndFieldUDQs_(const int reportStepIdx, DeferredLogger& deferred_logger);
 #endif
             BlackoilWellModelNldd<TypeTag>* nldd_ = nullptr; //!< NLDD well model adapter (not owned)
 
