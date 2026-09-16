@@ -462,32 +462,36 @@ storeSlaveGroupInjectionTargets()
     // the master imposes at every synchronization step and on the group's
     // GRUPSLAV filter flag, which says whether the master's limit, the
     // deck's own GCONINJE limit, or the smaller of the two is in force.
-    // Work out that effective target and store it as the group's GGIRT/GWIRT
-    // summary value, in output units, so that UDQ expressions in this run
-    // can refer to it and so that it appears in the summary output.  Only
-    // surface rate targets map onto these keywords.  When nothing applies
-    // the entry is erased, so that a value stored on an earlier step cannot
-    // linger.
+    // Work out that effective target and keep it on the slave, where the
+    // summary writer picks it up and reports it as GGIRT/GWIRT.  Only
+    // surface rate targets map onto these keywords.
+    //
+    // A UDQ that refers to the target reads it from the summary state, so
+    // the summary state is primed with the same value, in output units,
+    // ahead of the start-of-step UDQ evaluation.  The end-of-step summary
+    // evaluation then writes the slot from the reported target, or from the
+    // schedule when there is none.
     using M = UnitSystem::measure;
     auto& summary_state = this->simulator_.vanguard().summaryState();
     const auto& units = this->simulator_.vanguard().eclState().getUnits();
-    const auto& slave = this->reservoirCouplingSlave();
+    auto& slave = this->reservoirCouplingSlave();
     const auto& rescoup = this->schedule()[reportStepIdx].rescoup();
     const auto targets = std::array {
         std::tuple { Phase::GAS,   std::string{"GGIRT"}, M::gas_surface_rate    },
         std::tuple { Phase::WATER, std::string{"GWIRT"}, M::liquid_surface_rate },
     };
+    auto& in_force = slave.effectiveInjectionTargets();
+    in_force.clear();
     for (std::size_t i = 0; i < slave.numSlaveGroups(); ++i) {
         const auto& gname = slave.slaveGroupIdxToGroupName(i);
         for (const auto& [phase, keyword, unit] : targets) {
             const auto effective = this->effectiveSlaveGroupInjectionTarget_(
                 gname, phase, reportStepIdx, rescoup, summary_state);
-            if (effective.has_value()) {
-                summary_state.update_group_var(gname, keyword, units.from_si(unit, *effective));
+            if (! effective.has_value()) {
+                continue;
             }
-            else {
-                summary_state.erase_group_var(gname, keyword);
-            }
+            in_force[gname][phase] = *effective;
+            summary_state.update_group_var(gname, keyword, units.from_si(unit, *effective));
         }
     }
 }
