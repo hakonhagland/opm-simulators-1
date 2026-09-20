@@ -126,6 +126,7 @@ public:
         return this->slave_name_to_master_groups_map_;
     }
     const Potentials& getSlaveGroupPotentials(const std::string &master_group_name);
+    const Potentials& getSlaveGroupInjectionPotentials(const std::string &master_group_name);
     int getSlaveIdx(const std::string &slave_name) const;
     const std::string &getSlaveName(int index) const { return this->slave_names_[index]; }
     double getSlaveStartDate(int index) const { return this->slave_start_dates_[index]; }

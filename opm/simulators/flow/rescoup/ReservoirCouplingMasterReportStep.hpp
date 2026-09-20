@@ -149,6 +149,12 @@ public:
     /// @return Reference to the potentials data for the specified group
     const Potentials& getSlaveGroupPotentials(const std::string &master_group_name) const;
 
+    /// @brief Get the injection potentials for a slave group
+    /// @param master_group_name Name of the master group
+    /// @return Reference to the injection potentials data for the specified group
+    /// @note Consumed by the injection-side follow-up (reinjection/voidage cascade).
+    const Potentials& getSlaveGroupInjectionPotentials(const std::string &master_group_name) const;
+
     /// @brief Check if this is the first substep within a "sync" timestep.
     /// @details This flag is used to control reservoir coupling synchronization.
     ///          Master-slave data exchange should only happen at the start of each "sync" timestep,

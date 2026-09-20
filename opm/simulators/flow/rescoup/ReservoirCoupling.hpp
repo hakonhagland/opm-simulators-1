@@ -254,6 +254,9 @@ struct SlaveGroupProductionData {
 // Slave group injection data sent to the corresponding master group for target calculation.
 template <class Scalar>
 struct SlaveGroupInjectionData {
+    // Group injection potentials are used by the master group for reinjection
+    // (REIN/VREP) target distribution; stored but not yet consumed.
+    Potentials<Scalar> potentials;
     InjectionRates<Scalar> surface_rates;    // Surface injection rates by phase
     InjectionRates<Scalar> reservoir_rates;  // Reservoir injection rates by phase
 };
