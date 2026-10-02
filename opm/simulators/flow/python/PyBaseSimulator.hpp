@@ -101,6 +101,7 @@ public:
 
 protected:
     void checkEclipseStateIsParallel_() const;
+    void checkScheduleIsSameOnAllRanks_();
     FlowMain<TypeTag>& getFlowMain() const;
     PyFluidState<TypeTag>& getFluidState() const;
     PyMaterialState<TypeTag>& getMaterialState() const;
