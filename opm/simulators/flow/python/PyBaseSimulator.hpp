@@ -27,6 +27,7 @@
 #include <opm/simulators/flow/python/PyFluidState.hpp>
 #include <opm/simulators/flow/python/PyMaterialState.hpp>
 #include <opm/simulators/flow/python/Pybind11Exporter.hpp>
+#include <opm/simulators/utils/ParallelEclipseState.hpp>
 
 #include <opm/input/eclipse/EclipseState/EclipseState.hpp>
 #include <opm/input/eclipse/EclipseState/SummaryConfig/SummaryConfig.hpp>
@@ -99,6 +100,7 @@ public:
     int stepInit();
 
 protected:
+    void checkEclipseStateIsParallel_() const;
     FlowMain<TypeTag>& getFlowMain() const;
     PyFluidState<TypeTag>& getFluidState() const;
     PyMaterialState<TypeTag>& getMaterialState() const;
