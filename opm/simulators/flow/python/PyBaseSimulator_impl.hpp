@@ -25,11 +25,46 @@
 #include <opm/simulators/flow/python/PyBaseSimulator.hpp>
 #endif
 
+#include <opm/common/utility/MemPacker.hpp>
+#include <opm/common/utility/Serializer.hpp>
+
+#include <opm/input/eclipse/Schedule/Well/Well.hpp>
+
+#include <cstdint>
+#include <functional>
 #include <stdexcept>
+#include <string>
+#include <string_view>
+#include <tuple>
+#include <vector>
 
 namespace py = pybind11;
 
 namespace Opm::Pybind {
+
+namespace detail {
+
+// Serializes data into a byte buffer and returns a hash of the bytes.
+class HashSerializer : public Serializer<Serialization::MemPacker>
+{
+public:
+    HashSerializer()
+        : Serializer<Serialization::MemPacker>(packer_)
+    {}
+
+    template<class T>
+    std::uint64_t hash(const T& data)
+    {
+        this->pack(data);
+        return std::hash<std::string_view>{}(
+            std::string_view(this->m_buffer.data(), this->m_buffer.size()));
+    }
+
+private:
+    Serialization::MemPacker packer_{};
+};
+
+} // namespace detail
 
 template<class TypeTag>
 PyBaseSimulator<TypeTag>::PyBaseSimulator(const std::string& deck_filename,
@@ -198,6 +233,7 @@ int PyBaseSimulator<TypeTag>::step()
     if(checkSimulationFinished()) {
         throw std::logic_error("step() called, but simulation is done");
     }
+    this->checkScheduleIsSameOnAllRanks_();
     auto result = getFlowMain().executeStep();
     return result;
 }
@@ -263,6 +299,41 @@ int PyBaseSimulator<TypeTag>::run()
 
 // Private methods
 // ---------------
+// In a parallel run every rank holds its own copy of the Schedule. A change
+// made from Python on only some of the ranks, e.g. shut_well() called on
+// rank 0 only, would otherwise be silently ignored or give inconsistent
+// results. Compare the well controls of the coming report step between the
+// ranks, and throw on all ranks if they differ. Only the well controls are
+// compared, since the simulator itself legitimately updates other parts of
+// the Schedule during the run.
+template<class TypeTag>
+void PyBaseSimulator<TypeTag>::checkScheduleIsSameOnAllRanks_()
+{
+    const auto& comm = FlowGenericVanguard::comm();
+    if (comm.size() == 1) {
+        return;
+    }
+    const int reportStep = this->currentStep();
+    using WellControls = std::tuple<std::string, int,
+                                    Well::WellProductionProperties,
+                                    Well::WellInjectionProperties>;
+    std::vector<WellControls> controls;
+    for (const auto& well : this->main_->schedulePtr()->getWells(reportStep)) {
+        controls.emplace_back(well.name(),
+                              static_cast<int>(well.getStatus()),
+                              well.getProductionProperties(),
+                              well.getInjectionProperties());
+    }
+    const auto hash = detail::HashSerializer{}.hash(controls);
+    if (comm.min(hash) != comm.max(hash)) {
+        throw std::runtime_error(
+            "The Schedule differs between the MPI ranks at report step " +
+            std::to_string(reportStep) + ". Changes to the Schedule from "
+            "Python, such as shut_well(), must be made in the same way on "
+            "every rank.");
+    }
+}
+
 template<class TypeTag>
 FlowMain<TypeTag>&
 PyBaseSimulator<TypeTag>::getFlowMain() const

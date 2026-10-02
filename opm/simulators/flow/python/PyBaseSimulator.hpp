@@ -99,6 +99,7 @@ public:
     int stepInit();
 
 protected:
+    void checkScheduleIsSameOnAllRanks_();
     FlowMain<TypeTag>& getFlowMain() const;
     PyFluidState<TypeTag>& getFluidState() const;
     PyMaterialState<TypeTag>& getMaterialState() const;
