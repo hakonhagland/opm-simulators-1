@@ -430,7 +430,9 @@ namespace Opm {
         // Output summary after simulation has completed
         void runSimulatorAfterSim_(SimulatorReport &report)
         {
-            if (simulator_->model().hasNlddSolver()) {
+            // There is no model if no report step was run, e.g. when
+            // step_cleanup() is called from Python straight after step_init().
+            if (simulator_->hasModel() && simulator_->model().hasNlddSolver()) {
                 const auto& odir = eclState().getIOConfig().getOutputDir();
                 // Write the number of nonlinear iterations per cell to a file in ResInsight compatible format
                 simulator_->model().writeNonlinearIterationsPerCell(odir);
@@ -458,7 +460,7 @@ namespace Opm {
             };
 
             printFlowTrailer(mpi_size_, threads, total_setup_time_, deck_read_time_, report,
-                             simulator_->model().simulator().problem().extraTrailerSummary(),
+                             modelSimulator_->problem().extraTrailerSummary(),
                              extraConvOutput.want(ConvergenceOutputConfiguration::Option::Performance));
 
             detail::handleExtraConvergenceOutput(report,

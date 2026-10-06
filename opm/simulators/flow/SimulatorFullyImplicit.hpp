@@ -309,6 +309,10 @@ public:
 
     const Model& model() const { return solver_->model(); }
 
+    //! \brief Whether model() can be called. The model is created by the
+    //! first runStep(), so there is none if no report step has been run.
+    bool hasModel() const { return solver_ != nullptr; }
+
 protected:
     /// Load this simulator's data block from an OPMRST file via HDF5.
     void loadState(HDF5Serializer& serializer, const std::string& groupName) override;
