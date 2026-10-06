@@ -32,6 +32,7 @@
 
 #include <cstdint>
 #include <functional>
+#include <limits>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -63,6 +64,24 @@ public:
 private:
     Serialization::MemPacker packer_{};
 };
+
+// Hash of the well controls at one report step: each well's name, status,
+// and production and injection properties. These are what a change made
+// from Python, such as shut_well(), modifies.
+inline std::uint64_t wellControlsHash(const Schedule& schedule, std::size_t reportStep)
+{
+    using WellControls = std::tuple<std::string, int,
+                                    Well::WellProductionProperties,
+                                    Well::WellInjectionProperties>;
+    std::vector<WellControls> controls;
+    for (const auto& well : schedule.getWells(reportStep)) {
+        controls.emplace_back(well.name(),
+                              static_cast<int>(well.getStatus()),
+                              well.getProductionProperties(),
+                              well.getInjectionProperties());
+    }
+    return HashSerializer{}.hash(controls);
+}
 
 } // namespace detail
 
@@ -277,6 +296,7 @@ int PyBaseSimulator<TypeTag>::stepInit()
     // The PyMain constructor has initialized MPI, so the communicator is
     // available from here on.
     this->checkEclipseStateIsParallel_();
+    this->checkGivenScheduleIsSameOnAllRanks_();
     this->main_->setArguments(args_);
     int exit_code = EXIT_SUCCESS;
     this->flow_main_ = this->main_->initFlowBlackoil(exit_code);
@@ -324,6 +344,48 @@ void PyBaseSimulator<TypeTag>::checkEclipseStateIsParallel_() const
     }
 }
 
+// The Schedule objects given to the objects constructor are replaced by rank
+// 0's copy when step_init() distributes the input to the other ranks. A
+// change made from Python before step_init() on another rank only would then
+// be silently lost. Compare the well controls of every report step between
+// the ranks before that happens, and throw on all ranks if they differ. A
+// rank that was given no Schedule (None) takes no part in the comparison.
+template<class TypeTag>
+void PyBaseSimulator<TypeTag>::checkGivenScheduleIsSameOnAllRanks_() const
+{
+    const auto& comm = FlowGenericVanguard::comm();
+    if (comm.size() == 1) {
+        return;
+    }
+    const std::size_t numSteps =
+        comm.max(this->schedule_ ? this->schedule_->size() : std::size_t{0});
+    if (numSteps == 0) {
+        return;
+    }
+    // Start from the neutral elements of min and max, so that a rank without
+    // a Schedule does not affect the result.
+    std::vector<std::uint64_t> minHash(numSteps, std::numeric_limits<std::uint64_t>::max());
+    std::vector<std::uint64_t> maxHash(numSteps, 0);
+    if (this->schedule_) {
+        for (std::size_t step = 0; step < numSteps; ++step) {
+            // A Schedule with fewer report steps than another rank's differs
+            minHash[step] = maxHash[step] = (step < this->schedule_->size())
+                ? detail::wellControlsHash(*this->schedule_, step) : 0;
+        }
+    }
+    comm.min(minHash.data(), static_cast<int>(numSteps));
+    comm.max(maxHash.data(), static_cast<int>(numSteps));
+    for (std::size_t step = 0; step < numSteps; ++step) {
+        if (minHash[step] != maxHash[step]) {
+            throw std::runtime_error(
+                "The Schedule objects given to the constructor differ between "
+                "the MPI ranks at report step " + std::to_string(step) + ". "
+                "Changes to the Schedule from Python, such as shut_well(), must "
+                "be made in the same way on every rank, also before step_init().");
+        }
+    }
+}
+
 // In a parallel run every rank holds its own copy of the Schedule. A change
 // made from Python on only some of the ranks, e.g. shut_well() called on
 // rank 0 only, would otherwise be silently ignored or give inconsistent
@@ -339,17 +401,7 @@ void PyBaseSimulator<TypeTag>::checkScheduleIsSameOnAllRanks_()
         return;
     }
     const int reportStep = this->currentStep();
-    using WellControls = std::tuple<std::string, int,
-                                    Well::WellProductionProperties,
-                                    Well::WellInjectionProperties>;
-    std::vector<WellControls> controls;
-    for (const auto& well : this->main_->schedulePtr()->getWells(reportStep)) {
-        controls.emplace_back(well.name(),
-                              static_cast<int>(well.getStatus()),
-                              well.getProductionProperties(),
-                              well.getInjectionProperties());
-    }
-    const auto hash = detail::HashSerializer{}.hash(controls);
+    const auto hash = detail::wellControlsHash(*this->main_->schedulePtr(), reportStep);
     if (comm.min(hash) != comm.max(hash)) {
         throw std::runtime_error(
             "The Schedule differs between the MPI ranks at report step " +
