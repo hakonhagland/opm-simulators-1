@@ -238,6 +238,9 @@ int PyBaseSimulator<TypeTag>::stepInit()
             this->mpi_finalize_
         );
     }
+    // The PyMain constructor has initialized MPI, so the communicator is
+    // available from here on.
+    this->checkEclipseStateIsParallel_();
     this->main_->setArguments(args_);
     int exit_code = EXIT_SUCCESS;
     this->flow_main_ = this->main_->initFlowBlackoil(exit_code);
@@ -263,6 +266,28 @@ int PyBaseSimulator<TypeTag>::run()
 
 // Private methods
 // ---------------
+// An EclipseState built in Python is a plain EclipseState, but a parallel run
+// needs a ParallelEclipseState on every rank. Without this check the run
+// aborts later, while distributing the grid. The check is collective, so
+// that all ranks throw even if only some of them were given a state.
+template<class TypeTag>
+void PyBaseSimulator<TypeTag>::checkEclipseStateIsParallel_() const
+{
+    const auto& comm = FlowGenericVanguard::comm();
+    if (comm.size() == 1) {
+        return;
+    }
+    const int notParallel = this->eclipse_state_ &&
+        !dynamic_cast<const ParallelEclipseState*>(this->eclipse_state_.get());
+    if (comm.max(notParallel) != 0) {
+        throw std::invalid_argument(
+            "An EclipseState object cannot be used in a parallel run. "
+            "Pass None for the EclipseState argument, and the simulator "
+            "builds its own state from the DATA file. To change the "
+            "schedule from Python, use get_schedule() after step_init().");
+    }
+}
+
 template<class TypeTag>
 FlowMain<TypeTag>&
 PyBaseSimulator<TypeTag>::getFlowMain() const
